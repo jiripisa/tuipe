@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"strings"
@@ -88,9 +89,9 @@ func (p *practiceScreen) open(a *App) (Screen, tea.Cmd) {
 	back := func(*App) Screen { return p }
 	switch p.sel {
 	case 0:
-		return newChapterList(listPracticeChapter, back), nil
+		return newChapterList(listPracticeChapter, back, a), nil
 	case 1:
-		return newChapterList(listPracticeLesson, back), nil
+		return newChapterList(listPracticeLesson, back, a), nil
 	case 2:
 		p.stage, p.sel = stageLang, 0
 	default:
@@ -131,7 +132,7 @@ func (p *practiceScreen) updateChars(k tea.KeyPressMsg, a *App) (Screen, tea.Cmd
 // add appends r unless it is a repeat, cannot be typed on the layout, or the
 // field is full.
 func (p *practiceScreen) add(a *App, r rune) {
-	if len(p.chars) >= maxPracticeChars || !unicode.IsPrint(r) || r == ' ' || !a.canType(r) {
+	if len(p.chars) >= maxPracticeChars || !unicode.IsPrint(r) || r == ' ' || !a.Curr.CanType(r) {
 		return
 	}
 	for _, c := range p.chars {
@@ -153,7 +154,7 @@ func (a *App) seed() int64 { return a.Now().UnixNano() }
 func (p *practiceScreen) startChars(a *App) (Screen, tea.Cmd) { return p.charsRound(a), nil }
 
 func (p *practiceScreen) charsRound(a *App) Screen {
-	spec := a.generatedSpec(fmt.Sprintf(text.PracticeDrill, string(p.chars)), p.chars, a.canType, a.chapterTargets())
+	spec := a.generatedSpec(fmt.Sprintf(text.PracticeDrill, string(p.chars)), p.chars, a.Curr.CanType, a.chapterTargets())
 	spec.Practice = true
 	return newRound(a, spec, func(a *App) Screen { return p.charsRound(a) })
 }
@@ -180,9 +181,9 @@ func (a *App) chapterDrillSpec(ch content.ChapterDef) (play.Spec, error) {
 		targets = a.Curr.Targets(ch.Lessons[n-1].ID)
 	}
 	spec := a.generatedSpec(fmt.Sprintf(text.PracticeDrill, ch.Title), focus,
-		func(r rune) bool { return unlocked(r) && a.canType(r) }, targets)
+		func(r rune) bool { return unlocked(r) && a.Curr.CanType(r) }, targets)
 	if spec.Text == "" {
-		return play.Spec{}, fmt.Errorf(text.TestOutNotReady)
+		return play.Spec{}, errors.New(text.TestOutNotReady)
 	}
 	return spec, nil
 }

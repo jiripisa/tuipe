@@ -148,8 +148,8 @@ func (c *Curriculum) typable(text string) bool {
 	return c.lay == nil || len(c.lay.Unresolved(text)) == 0
 }
 
-// canType reports whether the layout has a route for r.
-func (c *Curriculum) canType(r rune) bool {
+// CanType reports whether the layout has a route for r.
+func (c *Curriculum) CanType(r rune) bool {
 	if c.lay == nil {
 		return true
 	}
@@ -175,7 +175,7 @@ func (c *Curriculum) lessonText(ls content.LessonDef, known map[rune]bool, snipp
 	}
 	text := generate.Drill(c.lib, generate.Input{
 		Focus:   []rune(ls.Focus),
-		Allowed: func(r rune) bool { return known[r] && c.canType(r) },
+		Allowed: func(r rune) bool { return known[r] && c.CanType(r) },
 		Length:  ls.Length,
 		Seed:    ls.Seed,
 	})
@@ -231,7 +231,7 @@ func (c *Curriculum) TestOutText(chapterID string) (string, score.Targets) {
 	set := c.allowed[i]
 	text := generate.Drill(c.lib, generate.Input{
 		Focus:   []rune(ch.Introduces),
-		Allowed: func(r rune) bool { return set[r] && c.canType(r) },
+		Allowed: func(r rune) bool { return set[r] && c.CanType(r) },
 		Length:  testOutLength,
 		Seed:    ch.TestOutSeed,
 	})

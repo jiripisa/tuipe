@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"strings"
@@ -54,10 +55,58 @@ type careerScreen struct {
 }
 
 // NewCareerScreen builds the career map.
-func NewCareerScreen(a *App) Screen { return &careerScreen{mode: listCareer} }
+func NewCareerScreen(a *App) Screen {
+	c := &careerScreen{mode: listCareer}
+	c.selectDefault(a)
+	return c
+}
 
-func newChapterList(mode listMode, back func(*App) Screen) *careerScreen {
-	return &careerScreen{mode: mode, back: back}
+func newChapterList(mode listMode, back func(*App) Screen, a *App) *careerScreen {
+	c := &careerScreen{mode: mode, back: back}
+	c.selectDefault(a)
+	return c
+}
+
+// selectDefault selects the next lesson, or when none is due (its incident is
+// owed, or all are done) the first row of the current chapter. Practice of
+// chapters selects the current chapter.
+func (c *careerScreen) selectDefault(a *App) {
+	p := a.Store.Profile()
+	rows := c.rows(a)
+	cur := a.Curr.CurrentChapter(p)
+	next, hasNext := a.Curr.NextLesson(p)
+	pickIdx := -1
+	for _, r := range rows {
+		if !r.pick {
+			continue
+		}
+		pickIdx++
+		switch {
+		case c.mode != listPracticeChapter && hasNext && r.kind == rowLesson && r.lesson.ID == next.ID,
+			(!hasNext || c.mode == listPracticeChapter) && r.chapter.ID == cur.ID:
+			c.sel = pickIdx
+			return
+		}
+	}
+	c.sel = 0
+}
+
+// reselect puts the selection back on a row after the list was rebuilt, since
+// a test-out can change which rows exist. A row that is gone gives way to the
+// default.
+func (c *careerScreen) reselect(a *App, want careerRow) {
+	i := 0
+	for _, r := range c.rows(a) {
+		if !r.pick {
+			continue
+		}
+		if r.sameAs(want) {
+			c.sel = i
+			return
+		}
+		i++
+	}
+	c.selectDefault(a)
 }
 
 // rows lays out the list for the current progress. An open chapter lists its
@@ -137,7 +186,7 @@ func (c *careerScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 
 // start plays the picked row. Every round returns to this list.
 func (c *careerScreen) start(a *App, r careerRow) (Screen, tea.Cmd) {
-	again := func(*App) Screen { return c }
+	again := func(a *App) Screen { c.reselect(a, r); return c }
 	var spec play.Spec
 	var err error
 	switch {
@@ -162,7 +211,7 @@ func (c *careerScreen) start(a *App, r careerRow) (Screen, tea.Cmd) {
 func (a *App) testOutSpec(ch content.ChapterDef) (play.Spec, error) {
 	txt, targets := a.Curr.TestOutText(ch.ID)
 	if txt == "" {
-		return play.Spec{}, fmt.Errorf(text.TestOutNotReady)
+		return play.Spec{}, errors.New(text.TestOutNotReady)
 	}
 	return play.Spec{
 		Kind: play.KindTestOut, Title: fmt.Sprintf(text.TestOutTitle, ch.Title),

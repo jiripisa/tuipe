@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"encoding/json"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/engine"
+	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -287,6 +289,118 @@ func TestFailingTestOutChangesNothing(t *testing.T) {
 	}
 	if g, _ := st.Ghost(runs[0].TextHash); g != nil {
 		t.Error("a failed test-out must not become a ghost")
+	}
+}
+
+func TestPassingTestOutMovesTheCareerOn(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	chs := a.Curr.Chapters()
+	p := st.Profile()
+	openTestOut(t, a, chs[4].ID)
+	typeKeys(a, clk, -1)
+	if !p.Completed[chs[4].ID] {
+		t.Fatal("test-out not passed")
+	}
+	for _, ch := range chs[:5] {
+		if !a.Curr.IsDone(p, ch.ID) {
+			t.Errorf("chapter %s (%s) is not done, though the test-out proves it", ch.ID, ch.Title)
+		}
+	}
+	if len(p.Stars) != 0 {
+		t.Errorf("a test-out wrote stars: %v", p.Stars)
+	}
+	if got := a.Curr.CurrentChapter(p).ID; got != chs[5].ID {
+		t.Errorf("current chapter = %s, want %s", got, chs[5].ID)
+	}
+	if !a.Curr.IsUnlocked(p, chs[5].ID) {
+		t.Error("chapter 5 is still locked")
+	}
+	next, ok := a.Curr.NextLesson(p)
+	if !ok || next.ID != chs[5].Lessons[0].ID {
+		t.Errorf("next lesson = %v %v, want %s", next.ID, ok, chs[5].Lessons[0].ID)
+	}
+	lessons := 0
+	for seed := range uint64(40) {
+		pick := recommend.Next(recommend.State{
+			Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: p.Stats[a.Layout.ID],
+			Rand: rand.New(rand.NewPCG(seed, seed+1)),
+		})
+		if pick.Kind == recommend.Lesson {
+			lessons++
+			if pick.LessonID != chs[5].Lessons[0].ID {
+				t.Fatalf("recommended lesson %s, want %s", pick.LessonID, chs[5].Lessons[0].ID)
+			}
+		}
+	}
+	if lessons == 0 {
+		t.Error("the recommender never offered the next lesson")
+	}
+}
+
+func selectedLine(a *ui.App) string {
+	for _, l := range strings.Split(view(a), "\n") {
+		if strings.Contains(l, "> ") {
+			return l
+		}
+	}
+	return ""
+}
+
+func TestCareerOpensOnTheNextLesson(t *testing.T) {
+	a, st, _ := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	p := st.Profile()
+	chs := a.Curr.Chapters()
+	a.Curr.CompleteChapter(p, chs[0].ID)
+	for _, ch := range chs[1:4] {
+		a.Curr.CompleteChapter(p, ch.ID)
+	}
+	p.Stars[chs[4].Lessons[0].ID] = 1
+	p.Stars[chs[4].Lessons[1].ID] = 2
+	openFromHome(t, a, homeCareer, "career")
+	if want := chs[4].Lessons[2].Title; !strings.Contains(selectedLine(a), want) {
+		t.Errorf("selected line %q, want the next lesson %q", selectedLine(a), want)
+	}
+}
+
+func TestCareerOpensOnCurrentChapterWhenNoLessonIsOwed(t *testing.T) {
+	a, st, _ := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	p := st.Profile()
+	chs := a.Curr.Chapters()
+	a.Curr.CompleteChapter(p, chs[0].ID)
+	for _, l := range chs[1].Lessons {
+		p.Stars[l.ID] = 1
+	}
+	if _, ok := a.Curr.NextLesson(p); ok {
+		t.Fatal("precondition: the incident of chapter 1 is owed, no lesson")
+	}
+	openFromHome(t, a, homeCareer, "career")
+	if want := chs[1].Lessons[0].Title; !strings.Contains(selectedLine(a), want) {
+		t.Errorf("selected line %q, want the first row of the current chapter %q", selectedLine(a), want)
+	}
+}
+
+func TestCareerKeepsSelectionAfterATestOut(t *testing.T) {
+	a, _, clk := playApp(t)
+	tall(a)
+	chs := a.Curr.Chapters()
+	openTestOut(t, a, chs[4].ID)
+	typeWrongThenRight(a, clk)
+	a.Update(enter)
+	if ui.ScreenName(a) != "career" || !strings.Contains(selectedLine(a), text.CareerTestOut) {
+		t.Fatalf("after a failed test-out the same test-out stays selected, got %q", selectedLine(a))
+	}
+	a.Update(enter)
+	want, _ := a.Curr.TestOutText(chs[4].ID)
+	if got := string(ui.RoundKeys(a)); got != want {
+		t.Fatalf("the selection moved to another row: round text %q", got)
+	}
+	typeKeys(a, clk, -1) // this time it passes
+	a.Update(enter)
+	if want := chs[5].Lessons[0].Title; !strings.Contains(selectedLine(a), want) {
+		t.Errorf("after the pass the list reflows: selected %q, want next lesson %q", selectedLine(a), want)
 	}
 }
 
@@ -574,10 +688,17 @@ func TestPracticeLessonPlaysThatLessonAsPractice(t *testing.T) {
 	if st.Profile().Stars[want.ID] == 0 {
 		t.Error("practising a lesson still improves its stars")
 	}
+	a.Update(enter) // results -> the lesson list again
+	if ui.ScreenName(a) != "career" {
+		t.Fatalf("Enter on the results: %s, want the lesson list", ui.ScreenName(a))
+	}
 	a.Update(esc)
+	if ui.ScreenName(a) != "practice" || !strings.Contains(view(a), text.PracticeChars) {
+		t.Fatalf("Esc in the lesson list should show the practice menu, got %s:\n%s", ui.ScreenName(a), view(a))
+	}
 	a.Update(esc)
-	if ui.ScreenName(a) != "practice" && ui.ScreenName(a) != "home" {
-		t.Errorf("screen = %s", ui.ScreenName(a))
+	if ui.ScreenName(a) != "home" {
+		t.Errorf("Esc in the practice menu: %s, want home", ui.ScreenName(a))
 	}
 }
 

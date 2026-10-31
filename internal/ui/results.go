@@ -40,7 +40,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	a.completeChapter(spec, r)
 	testOut := spec.Kind == play.KindTestOut
 	if testOut && r.Stars >= testOutStars {
-		a.Curr.ApplySkip(p, a.stats(), []string{spec.ChapterID})
+		a.Curr.ApplySkip(p, a.stats(), a.skippedBy(spec.ChapterID))
 	}
 	if !testOut {
 		p.Resume = nil // a test-out is no part of the lesson to continue
@@ -96,6 +96,23 @@ func (a *App) completeChapter(spec play.Spec, r play.Result) {
 			a.Curr.CompleteChapter(a.Store.Profile(), ch.ID)
 		}
 	}
+}
+
+// skippedBy lists the chapter of a passed test-out and every earlier chapter
+// that is not done. The test-out text uses all characters unlocked up to its
+// chapter, so passing it proves the earlier ones too, as placement does.
+func (a *App) skippedBy(chapterID string) []string {
+	p := a.Store.Profile()
+	var ids []string
+	for _, ch := range a.Curr.Chapters() {
+		if !a.Curr.IsDone(p, ch.ID) || ch.ID == chapterID {
+			ids = append(ids, ch.ID)
+		}
+		if ch.ID == chapterID {
+			return ids
+		}
+	}
+	return []string{chapterID}
 }
 
 func modeName(spec play.Spec) string {
