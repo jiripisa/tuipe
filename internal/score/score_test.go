@@ -81,3 +81,37 @@ func TestEmptyInputGivesZeroMetrics(t *testing.T) {
 	eq(t, m.Accuracy, 0.0)
 	eq(t, m.Score, 0.0)
 }
+
+func TestPartialLogCountsOnlyCharactersReached(t *testing.T) {
+	// "abcde": a right, b wrong then right, c wrong (still pending at the cursor).
+	txt := engine.Prepare("abcde")
+	log := []engine.Keystroke{
+		{Pos: 0, Typed: 'a', Correct: true},
+		{Pos: 1, Typed: 'x', Correct: false},
+		{Pos: 1, Typed: 'b', Correct: true},
+		{Pos: 2, Typed: 'y', Correct: false},
+	}
+	m := score.Compute(txt, log, 12*time.Second)
+	eq(t, m.Chars, 2)
+	near(t, m.Accuracy, 1.0/3)
+	near(t, m.WPM, 2.0/5/0.2)
+}
+
+func TestPartialLogWithoutPendingWrongPress(t *testing.T) {
+	txt := engine.Prepare("abcde")
+	log := []engine.Keystroke{
+		{Pos: 0, Typed: 'a', Correct: true},
+		{Pos: 1, Typed: 'b', Correct: true},
+	}
+	m := score.Compute(txt, log, time.Minute)
+	eq(t, m.Chars, 2)
+	near(t, m.Accuracy, 1)
+}
+
+func TestEmptyLogOnNonEmptyTextGivesZeroMetrics(t *testing.T) {
+	m := score.Compute(engine.Prepare("abc"), nil, 5*time.Second)
+	eq(t, m.Chars, 0)
+	eq(t, m.WPM, 0.0)
+	eq(t, m.Accuracy, 0.0)
+	eq(t, m.Score, 0.0)
+}

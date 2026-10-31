@@ -26,33 +26,33 @@ func Value(wpm, accuracy float64) float64 {
 	return wpm * math.Pow(accuracy, 4)
 }
 
-// Compute derives metrics from the log. Auto cells are not counted. Accuracy
-// counts characters whose first keystroke was correct. WPM is the typed
-// characters, all of which end up correct, divided by five and by minutes.
-func Compute(t engine.Text, log []engine.Keystroke, d time.Duration) Metrics {
-	chars := 0
-	for _, c := range t.Cells {
-		if !c.Auto {
-			chars++
-		}
-	}
-	seen := map[int]bool{}
+// Compute derives metrics from the log, so it also works mid-round. Chars is
+// the number of characters typed correctly. Accuracy is the share of reached
+// characters whose first keystroke was correct, where reached means every
+// position with a keystroke (a position with only wrong presses is the cursor).
+// Auto cells never appear in the log and so are never counted. WPM is Chars / 5
+// / minutes.
+func Compute(_ engine.Text, log []engine.Keystroke, d time.Duration) Metrics {
+	reached := map[int]bool{}
+	correct := map[int]bool{}
 	firstTry := 0
 	for _, k := range log {
-		if seen[k.Pos] {
-			continue
+		if !reached[k.Pos] {
+			reached[k.Pos] = true
+			if k.Correct {
+				firstTry++
+			}
 		}
-		seen[k.Pos] = true
 		if k.Correct {
-			firstTry++
+			correct[k.Pos] = true
 		}
 	}
-	m := Metrics{Duration: d, Chars: chars}
-	if chars > 0 {
-		m.Accuracy = float64(firstTry) / float64(chars)
+	m := Metrics{Duration: d, Chars: len(correct)}
+	if len(reached) > 0 {
+		m.Accuracy = float64(firstTry) / float64(len(reached))
 	}
 	if d > 0 {
-		m.WPM = float64(chars) / 5 / d.Minutes()
+		m.WPM = float64(m.Chars) / 5 / d.Minutes()
 	}
 	m.Score = Value(m.WPM, m.Accuracy)
 	return m
