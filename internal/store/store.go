@@ -413,3 +413,6 @@ func writeAtomic(path string, data []byte) (err error) {
 	}
 	return os.Rename(f.Name(), path)
 }
+
+// ConfigDir is the folder of config.toml and of the user's layout files.
+func (s *Store) ConfigDir() string { return s.configDir }

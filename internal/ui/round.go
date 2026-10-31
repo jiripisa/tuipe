@@ -35,6 +35,16 @@ const (
 	resumeKindLesson = "lesson"
 )
 
+// roundControl lets a controller take over how a round ends. A round without
+// one ends in the results screen.
+type roundControl struct {
+	stop  func(*roundScreen) bool // ends the round early, before the text is done
+	done  func(a *App, res play.Result, now time.Time) Screen
+	leave func(*App) Screen // where the pause menu's Leave goes
+}
+
+func (c *roundControl) shouldStop(r *roundScreen) bool { return c != nil && c.stop(r) }
+
 // tickMsg drives the clock of the round with the given generation.
 type tickMsg struct{ gen int }
 
@@ -158,7 +168,8 @@ func quickRun(a *App) Screen { return NewRoundScreen(a, a.recommended(), quickRu
 type roundScreen struct {
 	spec  play.Spec
 	next  func(*App) Screen
-	story *story // set for an incident
+	story *story        // set for an incident
+	ctl   *roundControl // set when a controller such as the placement test owns the round's end
 	sess  *play.Session
 	gen   int
 	alive bool // a tick is in flight
@@ -264,6 +275,9 @@ func (r *roundScreen) key(m tea.KeyPressMsg, a *App, now time.Time) (Screen, tea
 			return r, r.restart(a, now)
 		case pauseLeave:
 			r.abandon(a, now)
+			if r.ctl != nil {
+				return r.ctl.leave(a), nil
+			}
 			return NewHomeScreen(a), nil
 		}
 		return r, nil
@@ -291,7 +305,7 @@ func (r *roundScreen) key(m tea.KeyPressMsg, a *App, now time.Time) (Screen, tea
 	}
 	r.rememberLesson(a, now)
 	r.sample(now)
-	if r.sess.Done() {
+	if r.sess.Done() || r.ctl.shouldStop(r) {
 		return r.finish(a, now), nil
 	}
 	return r, nil
@@ -356,6 +370,9 @@ func (r *roundScreen) feedStats(a *App, now time.Time) {
 
 // finish turns a finished session into the results screen.
 func (r *roundScreen) finish(a *App, now time.Time) Screen {
+	if r.ctl != nil {
+		return r.ctl.done(a, r.sess.Result(now), now)
+	}
 	if r.story != nil {
 		return NewIncidentResultsScreen(a, r.sess.Result(now), r.spec, r.story, r.next)
 	}

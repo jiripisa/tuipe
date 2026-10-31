@@ -43,6 +43,10 @@ func ScreenName(a *App) string {
 		return "sprint-minutes"
 	case *statsScreen:
 		return "stats"
+	case *firstRunScreen:
+		return "first-run"
+	case *placementScreen:
+		return "placement"
 	}
 	return "other"
 }
@@ -131,4 +135,12 @@ func SprintPlan(a *App, s *store.SprintState) []recommend.Pick { return a.sprint
 // AddEntry appends a home entry that has no screen.
 func AddEntry(a *App, label string) {
 	a.Entries = append(a.Entries, menuEntry{id: "fake", label: label})
+}
+
+// SetGOOS replaces the operating system the first run checks and returns a
+// function that restores it.
+func SetGOOS(s string) func() {
+	old := goos
+	goos = s
+	return func() { goos = old }
 }

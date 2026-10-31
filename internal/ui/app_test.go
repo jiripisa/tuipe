@@ -29,6 +29,7 @@ func newApp(t *testing.T) (*ui.App, *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	st.Profile().FirstRunDone = true // these tests start on the home screen
 	a, err := ui.New(st, lib)
 	if err != nil {
 		t.Fatal(err)

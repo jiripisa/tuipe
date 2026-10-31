@@ -263,3 +263,82 @@ const (
 	StatsSessionStandup = "Standup"
 	StatsSessionSprint  = "Sprint"
 )
+
+// First run: style choice, layout check, Option check and the fork.
+const (
+	FirstRunWelcome     = "Vítejte v tuipe. Vyberte si vzhled."
+	FirstRunStyleHint   = "↑↓ vzhled · Enter potvrdit · Ctrl+C konec"
+	FirstRunSampleTitle = "ukázka"
+
+	FirstRunCheckTitle = "Kontrola klávesnice"
+	FirstRunCheckAsk   = "Napište znak:  %s   (%d/%d)"
+	FirstRunCheckHow   = "Na vašem rozložení: %s"
+	FirstRunCheckHint  = "Esc přeskočit kontrolu · Ctrl+C konec"
+
+	FirstRunPickTitle = "Rozložení klávesnice"
+	FirstRunPickAsk   = "Napsaný znak neodpovídá rozložení %s. Které rozložení používáte?"
+	FirstRunPickUser  = "vlastní soubor"
+	FirstRunPickHint  = "↑↓ výběr · Enter potvrdit · Esc přeskočit kontrolu"
+
+	FirstRunOptionTitle = "Option se chová jako Alt"
+	FirstRunOptionWhy   = "Terminál poslal Alt a písmeno místo znaku. Option pak nepíše znaky jako { a @, které potřebujete."
+	FirstRunOptionHint  = "Enter zkusit znovu · Esc přeskočit kontrolu"
+
+	OptionTerminalApp = "Terminal.app: Nastavení › Profily › Klávesnice, vypněte volbu:"
+	OptionITerm       = "iTerm2: Settings › Profiles › Keys › General, nastavte:"
+	OptionGhostty     = "Ghostty: do konfigurace přidejte řádek:"
+	OptionKitty       = "kitty: do kitty.conf přidejte řádek:"
+	OptionWezTerm     = "WezTerm: do wezterm.lua přidejte řádek:"
+	OptionAlacritty   = "Alacritty: do alacritty.toml, sekce [window], přidejte řádek:"
+	OptionGeneric     = "Váš terminál jsem nepoznal. V nastavení terminálu vypněte, aby Option fungoval jako Meta nebo Alt (anglicky „Option as Meta“ či „Option as Alt“)."
+
+	OptionSettingTerminalApp = `Use Option as Meta key`
+	OptionSettingITerm       = `Left Option key = Normal`
+	OptionSettingGhostty     = `macos-option-as-alt = false`
+	OptionSettingKitty       = `macos_option_as_alt no`
+	OptionSettingWezTerm     = `config.send_composed_key_when_left_alt_is_pressed = true`
+	OptionSettingAlacritty   = `option_as_alt = "None"`
+
+	FirstRunNoLayoutTitle = "Rozložení klávesnice"
+	FirstRunNoLayout      = "Pro tento systém (%s) zatím není žádné rozložení klávesnice. Můžete pokračovat s rozložením macOS, jen kontrola kláves se přeskočí."
+	FirstRunNoLayoutHow   = "Vlastní rozložení je soubor .toml ve složce:"
+	FirstRunNoLayoutDocs  = "Návod najdete v docs/layouts.md v repozitáři tuipe."
+	FirstRunContinueHint  = "Enter pokračovat · Ctrl+C konec"
+
+	FirstRunForkTitle = "Kde začínáte?"
+	ForkFromZero      = "Začínám od nuly"
+	ForkFromZeroNote  = "Projdete se od domovské pozice."
+	ForkPlacement     = "Vstupní pohovor"
+	ForkPlacementNote = "Asi 3 minuty. Přeskočí, co už umíte."
+	FirstRunForkHint  = "↑↓ výběr · Enter potvrdit · Ctrl+C konec"
+
+	FirstRunZeroTitle = "Domovská pozice"
+	FirstRunZeroText  = "Prsty leží na domovské řadě: levý ukazováček na f, pravý na j. Na obou klávesách nahmatáte malý výstupek, podle něj se trefíte poslepu.\n\nPalce patří na mezerník. Každý prst obsluhuje svou oblast kláves a po stisku se vrací zpět na domovskou pozici.\n\nNa klávesnici se nedívejte, ani když to zpočátku zpomalí. Právě tak se to naučíte."
+)
+
+// Placement test (Vstupní pohovor).
+const (
+	PlacementTitle      = "Vstupní pohovor"
+	PlacementRoundTitle = "Vstupní pohovor %d/%d: %s"
+	PlacementStageIntro = "Fáze %d/%d: %s"
+	PlacementRules      = "Bez nápovědy. Pište, jak umíte. Když to nepůjde, pohovor skončí a nic se neděje."
+	PlacementPrevOK     = "Předchozí fáze splněna: %.0f WPM, přesnost %.0f %%."
+	PlacementStageHint  = "Enter začít · Ctrl+C konec"
+
+	PlacementStageLetters    = "Písmena"
+	PlacementStageDiacritics = "Diakritika"
+	PlacementStageDigits     = "Číslice"
+	PlacementStageShift      = "Symboly se Shiftem"
+	PlacementStageOption     = "Symboly s %s"
+	PlacementStageCode       = "Skutečný kód"
+
+	OfferTitle    = "Pracovní nabídka"
+	OfferGreeting = "Vážený kandidáte,"
+	OfferFromZero = "pohovor skončil u první fáze. To je v pořádku, začínáte od nuly a každý někde začíná."
+	OfferHolding  = "Hodnost: %s."
+	OfferRank     = "na základě pohovoru Vám nabízíme pozici: %s."
+	OfferNoChange = "pohovor nic nepřidal, Vaše hodnost zůstává: %s."
+	OfferStart    = "Začínáte v kapitole %d: %s."
+	OfferSkipped  = "Odemčeno: %d kapitol před nástupem, bez hvězd. Jejich lekce zůstávají otevřené."
+	OfferHint     = "Enter pokračovat · Ctrl+C konec"
+)

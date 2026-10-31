@@ -100,6 +100,9 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 	a.RegisterEntry(EntryPractice, func(a *App) (Screen, tea.Cmd) { return NewPracticeScreen(a), nil })
 	a.RegisterEntry(EntryStats, func(a *App) (Screen, tea.Cmd) { return NewStatsScreen(a), nil })
 	a.screen = NewHomeScreen(a)
+	if !st.Profile().FirstRunDone {
+		a.screen = NewFirstRunScreen(a)
+	}
 	return a, nil
 }
 

@@ -39,16 +39,17 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	}
 	a.completeChapter(spec, r)
 	testOut := spec.Kind == play.KindTestOut
+	placement := spec.Kind == play.KindPlacement // proves skill like a test-out and is no text to beat
 	if testOut && r.Stars >= testOutStars {
 		a.Curr.ApplySkip(p, a.stats(), a.skippedBy(spec.ChapterID))
 	}
-	if !testOut && !sprintResume(p.Resume) {
+	if !testOut && !placement && !sprintResume(p.Resume) {
 		p.Resume = nil // a test-out is no part of the lesson to continue; a Sprint outranks everything
 	}
 
 	var errs []error
 	hash := r.Text.Hash
-	if !outcomeLost(r) && !testOut { // a test-out is not a text to beat
+	if !outcomeLost(r) && !testOut && !placement { // neither is a text to beat
 		old, err := a.Store.Ghost(hash)
 		errs = append(errs, err)
 		if ghost.ShouldReplace(old, r.Metrics, r.Paused, spec.GhostIsPace) {

@@ -373,6 +373,7 @@ func TestSaveFailureStillShowsResults(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	lib, _ := content.Load()
+	st.Profile().FirstRunDone = true // these tests start on the home screen
 	a, err := ui.New(st, lib)
 	if err != nil {
 		t.Fatal(err)
@@ -558,6 +559,7 @@ func openApp(t *testing.T, dir string) (*ui.App, *store.Store) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	lib, _ := content.Load()
+	st.Profile().FirstRunDone = true // these tests start on the home screen
 	a, err := ui.New(st, lib)
 	if err != nil {
 		t.Fatal(err)
