@@ -6,9 +6,11 @@ import (
 	"embed"
 	"fmt"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
-//go:embed data/*.txt
+//go:embed data/*.txt data/*.toml
 var dataFS embed.FS
 
 // Snippet is a piece of code to type.
@@ -23,22 +25,32 @@ type Incident struct {
 	Steps              []Step
 }
 
-// LessonDef describes one lesson of a chapter.
+// LessonDef describes one lesson of a chapter. A lesson either drills Focus
+// with generated text of at least Length characters, or types the Snippets.
 type LessonDef struct {
-	ID, Title, Focus string
-	Seed             int64
-	Length           int
-	Speed            [3]float64
-	Snippets         []string
+	ID       string     `toml:"id"`
+	Title    string     `toml:"title"`
+	Focus    string     `toml:"focus"`
+	Seed     int64      `toml:"seed"`
+	Length   int        `toml:"length"`
+	Speed    [3]float64 `toml:"speed"` // WPM for one, two and three stars
+	Snippets []string   `toml:"snippets"`
 }
 
 // ChapterDef describes one chapter of the curriculum. A test-out is generated
-// text like a lesson, so it is identified by its seed.
+// text like a lesson, so it is identified by its seed. Allowed lists characters
+// the chapter may use without introducing them (only the onboarding chapter
+// needs it).
 type ChapterDef struct {
-	ID, Title, Rank, Introduces, IncidentID string
-	TestOutSeed                             int64
-	Number                                  int
-	Lessons                                 []LessonDef
+	ID          string      `toml:"id"`
+	Number      int         `toml:"number"`
+	Title       string      `toml:"title"`
+	Rank        string      `toml:"rank"`
+	Introduces  string      `toml:"introduces"`
+	Allowed     string      `toml:"allowed"`
+	IncidentID  string      `toml:"incident"`
+	TestOutSeed int64       `toml:"test_out_seed"`
+	Lessons     []LessonDef `toml:"lesson"`
 }
 
 // Library is all embedded typing material.
@@ -66,7 +78,30 @@ func Load() (*Library, error) {
 		}
 		*f.dst = lines(string(data))
 	}
+	chapters, err := loadChapters()
+	if err != nil {
+		return nil, err
+	}
+	lib.Chapters = chapters
 	return lib, nil
+}
+
+func loadChapters() ([]ChapterDef, error) {
+	data, err := dataFS.ReadFile("data/curriculum.toml")
+	if err != nil {
+		return nil, fmt.Errorf("content: %w", err)
+	}
+	var f struct {
+		Chapter []ChapterDef `toml:"chapter"`
+	}
+	md, err := toml.Decode(string(data), &f)
+	if err != nil {
+		return nil, fmt.Errorf("content: curriculum.toml: %w", err)
+	}
+	if u := md.Undecoded(); len(u) > 0 {
+		return nil, fmt.Errorf("content: curriculum.toml: unknown keys %v", u)
+	}
+	return f.Chapter, nil
 }
 
 func lines(s string) []string {

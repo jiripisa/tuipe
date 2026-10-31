@@ -1,6 +1,7 @@
 package content_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"unicode"
@@ -89,9 +90,54 @@ func TestWordListsAreCleanAndLargeEnough(t *testing.T) {
 	}
 }
 
-func TestLoadSucceedsWithoutCurriculum(t *testing.T) {
+func TestLoadFillsCurriculumOnly(t *testing.T) {
 	lib := load(t)
-	if lib.Snippets != nil || lib.Incidents != nil || lib.Chapters != nil {
-		t.Error("curriculum, snippets and incidents are filled by later tasks")
+	if lib.Snippets != nil || lib.Incidents != nil {
+		t.Error("snippets and incidents are filled by task 11")
+	}
+	if len(lib.Chapters) != 13 {
+		t.Errorf("%d chapters, want 13", len(lib.Chapters))
+	}
+}
+
+func TestCurriculumDataIsWellFormed(t *testing.T) {
+	incidentID := regexp.MustCompile(`^INC-\d{4}$`)
+	chapterIDs, lessonIDs, incidentIDs := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for i, ch := range load(t).Chapters {
+		if ch.Number != i || chapterIDs[ch.ID] || ch.ID == "" || ch.Title == "" {
+			t.Errorf("chapter %d: bad number, id or title (%q)", i, ch.ID)
+		}
+		chapterIDs[ch.ID] = true
+		if ch.Number == 0 {
+			if ch.IncidentID != "" || len(ch.Lessons) != 1 || ch.Allowed != "fj " {
+				t.Errorf("chapter 0: incident %q, %d lessons, allowed %q", ch.IncidentID, len(ch.Lessons), ch.Allowed)
+			}
+		} else {
+			if !incidentID.MatchString(ch.IncidentID) || incidentIDs[ch.IncidentID] {
+				t.Errorf("%s: bad or repeated incident id %q", ch.ID, ch.IncidentID)
+			}
+			incidentIDs[ch.IncidentID] = true
+			if n := len(ch.Lessons); n < 6 || n > 9 {
+				t.Errorf("%s: %d lessons, want 6 to 9", ch.ID, n)
+			}
+		}
+		if ch.TestOutSeed == 0 && ch.Number > 0 {
+			t.Errorf("%s: no test-out seed", ch.ID)
+		}
+		for _, l := range ch.Lessons {
+			if l.ID == "" || l.Title == "" || lessonIDs[l.ID] || !strings.HasPrefix(l.ID, ch.ID+"-") {
+				t.Errorf("%s: bad lesson id or title %q", ch.ID, l.ID)
+			}
+			lessonIDs[l.ID] = true
+			if l.Speed[0] <= 0 || l.Speed[0] >= l.Speed[1] || l.Speed[1] >= l.Speed[2] {
+				t.Errorf("%s: speeds %v not rising", l.ID, l.Speed)
+			}
+			if len(l.Snippets) == 0 && (l.Length <= 0 || l.Seed == 0) {
+				t.Errorf("%s: drill lesson needs a length and a seed", l.ID)
+			}
+			if len(l.Snippets) > 0 && ch.Number != 11 {
+				t.Errorf("%s: snippets outside chapter 11", l.ID)
+			}
+		}
 	}
 }
