@@ -51,6 +51,7 @@ type App struct {
 	focusSeen bool        // a focus message has arrived in this process
 	tickGen   int         // identifies the running round tick; older ticks are dropped
 	chain     *chain      // the Standup or Sprint being played; nil outside one
+	update    updateCheck // the daily look for a newer release
 
 	// UpdateNotice is the quiet line about a newer version, shown on the home
 	// screen when it is not empty.
@@ -109,7 +110,8 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 		Style: style.ByID(styleID),
 		// Round(0) strips the monotonic reading, so the wall clock is compared
 		// and a gap while the computer slept is visible.
-		Now: func() time.Time { return time.Now().Round(0) },
+		Now:    func() time.Time { return time.Now().Round(0) },
+		update: defaultUpdateCheck(),
 	}
 	for _, o := range opts {
 		o(a)
@@ -131,7 +133,7 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 }
 
 // Init implements tea.Model.
-func (a *App) Init() tea.Cmd { return nil }
+func (a *App) Init() tea.Cmd { return a.initUpdate() }
 
 func (a *App) tooSmall() bool { return a.W < minW || a.H < minH }
 
@@ -154,6 +156,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.FocusMsg, tea.BlurMsg:
 		a.noteFocusEvents()
+	case updateCheckedMsg: // global: whichever screen is on top is left alone
+		return a, a.updateChecked(m)
+	case UpdateAvailableMsg:
+		a.showUpdate(m.Version)
+		return a, nil
 	}
 	next, cmd := a.screen.Update(msg, a)
 	a.screen = next

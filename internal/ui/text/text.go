@@ -401,3 +401,6 @@ const (
 	UpgradeAlreadyLast        = "Máte nejnovější verzi (%s)."
 	UpgradeDone               = "Aktualizováno z verze %s na %s."
 )
+
+// Update notice on the home screen.
+const UpdateNotice = "Je dostupná nová verze %s. Aktualizujte příkazem tuipe upgrade."
