@@ -1,0 +1,600 @@
+# macOS Czech QWERTY (com.apple.keylayout.Czech-QWERTY), physical ISO keyboard.
+# Key ids are Macintosh keycodes (k<code>). Verified with scripts/dump-macos-layout.swift.
+# Each character has exactly one preferred route; "alternates" is documentation only.
+
+id = "macos-czech-qwerty"
+name = "macOS Czech QWERTY"
+os = "darwin"
+modifier_name = "Option"
+
+[[row]]
+keys = [
+  { id = "k10", label = "<", hand = "left", finger = "pinky" },
+  { id = "k18", label = "+", hand = "left", finger = "pinky" },
+  { id = "k19", label = "ě", hand = "left", finger = "ring" },
+  { id = "k20", label = "š", hand = "left", finger = "middle" },
+  { id = "k21", label = "č", hand = "left", finger = "index" },
+  { id = "k23", label = "ř", hand = "left", finger = "index" },
+  { id = "k22", label = "ž", hand = "left", finger = "index" },
+  { id = "k26", label = "ý", hand = "right", finger = "index" },
+  { id = "k28", label = "á", hand = "right", finger = "middle" },
+  { id = "k25", label = "í", hand = "right", finger = "ring" },
+  { id = "k29", label = "é", hand = "right", finger = "pinky" },
+  { id = "k27", label = "=", hand = "right", finger = "pinky" },
+  { id = "k24", label = "´", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k12", label = "q", hand = "left", finger = "pinky" },
+  { id = "k13", label = "w", hand = "left", finger = "ring" },
+  { id = "k14", label = "e", hand = "left", finger = "middle" },
+  { id = "k15", label = "r", hand = "left", finger = "index" },
+  { id = "k17", label = "t", hand = "left", finger = "index" },
+  { id = "k16", label = "y", hand = "right", finger = "index" },
+  { id = "k32", label = "u", hand = "right", finger = "index" },
+  { id = "k34", label = "i", hand = "right", finger = "middle" },
+  { id = "k31", label = "o", hand = "right", finger = "ring" },
+  { id = "k35", label = "p", hand = "right", finger = "pinky" },
+  { id = "k33", label = "ú", hand = "right", finger = "pinky" },
+  { id = "k30", label = ")", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k0", label = "a", hand = "left", finger = "pinky" },
+  { id = "k1", label = "s", hand = "left", finger = "ring" },
+  { id = "k2", label = "d", hand = "left", finger = "middle" },
+  { id = "k3", label = "f", hand = "left", finger = "index" },
+  { id = "k5", label = "g", hand = "left", finger = "index" },
+  { id = "k4", label = "h", hand = "right", finger = "index" },
+  { id = "k38", label = "j", hand = "right", finger = "index" },
+  { id = "k40", label = "k", hand = "right", finger = "middle" },
+  { id = "k37", label = "l", hand = "right", finger = "ring" },
+  { id = "k41", label = "ů", hand = "right", finger = "pinky" },
+  { id = "k39", label = "§", hand = "right", finger = "pinky" },
+  { id = "k42", label = "¨", hand = "right", finger = "pinky" },
+  { id = "k36", label = "↵", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k50", label = "\\", hand = "left", finger = "pinky" },
+  { id = "k6", label = "z", hand = "left", finger = "pinky" },
+  { id = "k7", label = "x", hand = "left", finger = "ring" },
+  { id = "k8", label = "c", hand = "left", finger = "middle" },
+  { id = "k9", label = "v", hand = "left", finger = "index" },
+  { id = "k11", label = "b", hand = "left", finger = "index" },
+  { id = "k45", label = "n", hand = "right", finger = "index" },
+  { id = "k46", label = "m", hand = "right", finger = "index" },
+  { id = "k43", label = ",", hand = "right", finger = "middle" },
+  { id = "k47", label = ".", hand = "right", finger = "ring" },
+  { id = "k44", label = "-", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k49", label = "space", hand = "right", finger = "thumb" },
+]
+
+# Letters
+[[char]]
+c = "a"
+route = ["k0"]
+
+[[char]]
+c = "A"
+route = ["shift+k0"]
+
+[[char]]
+c = "b"
+route = ["k11"]
+
+[[char]]
+c = "B"
+route = ["shift+k11"]
+
+[[char]]
+c = "c"
+route = ["k8"]
+
+[[char]]
+c = "C"
+route = ["shift+k8"]
+
+[[char]]
+c = "d"
+route = ["k2"]
+
+[[char]]
+c = "D"
+route = ["shift+k2"]
+
+[[char]]
+c = "e"
+route = ["k14"]
+
+[[char]]
+c = "E"
+route = ["shift+k14"]
+
+[[char]]
+c = "f"
+route = ["k3"]
+
+[[char]]
+c = "F"
+route = ["shift+k3"]
+
+[[char]]
+c = "g"
+route = ["k5"]
+
+[[char]]
+c = "G"
+route = ["shift+k5"]
+
+[[char]]
+c = "h"
+route = ["k4"]
+
+[[char]]
+c = "H"
+route = ["shift+k4"]
+
+[[char]]
+c = "i"
+route = ["k34"]
+
+[[char]]
+c = "I"
+route = ["shift+k34"]
+
+[[char]]
+c = "j"
+route = ["k38"]
+
+[[char]]
+c = "J"
+route = ["shift+k38"]
+
+[[char]]
+c = "k"
+route = ["k40"]
+
+[[char]]
+c = "K"
+route = ["shift+k40"]
+
+[[char]]
+c = "l"
+route = ["k37"]
+
+[[char]]
+c = "L"
+route = ["shift+k37"]
+
+[[char]]
+c = "m"
+route = ["k46"]
+
+[[char]]
+c = "M"
+route = ["shift+k46"]
+
+[[char]]
+c = "n"
+route = ["k45"]
+
+[[char]]
+c = "N"
+route = ["shift+k45"]
+
+[[char]]
+c = "o"
+route = ["k31"]
+
+[[char]]
+c = "O"
+route = ["shift+k31"]
+
+[[char]]
+c = "p"
+route = ["k35"]
+
+[[char]]
+c = "P"
+route = ["shift+k35"]
+
+[[char]]
+c = "q"
+route = ["k12"]
+
+[[char]]
+c = "Q"
+route = ["shift+k12"]
+
+[[char]]
+c = "r"
+route = ["k15"]
+
+[[char]]
+c = "R"
+route = ["shift+k15"]
+
+[[char]]
+c = "s"
+route = ["k1"]
+
+[[char]]
+c = "S"
+route = ["shift+k1"]
+
+[[char]]
+c = "t"
+route = ["k17"]
+
+[[char]]
+c = "T"
+route = ["shift+k17"]
+
+[[char]]
+c = "u"
+route = ["k32"]
+
+[[char]]
+c = "U"
+route = ["shift+k32"]
+
+[[char]]
+c = "v"
+route = ["k9"]
+
+[[char]]
+c = "V"
+route = ["shift+k9"]
+
+[[char]]
+c = "w"
+route = ["k13"]
+
+[[char]]
+c = "W"
+route = ["shift+k13"]
+
+[[char]]
+c = "x"
+route = ["k7"]
+
+[[char]]
+c = "X"
+route = ["shift+k7"]
+
+[[char]]
+c = "y"
+route = ["k16"]
+
+[[char]]
+c = "Y"
+route = ["shift+k16"]
+
+[[char]]
+c = "z"
+route = ["k6"]
+
+[[char]]
+c = "Z"
+route = ["shift+k6"]
+
+[[char]]
+c = "ě"
+route = ["k19"]
+
+[[char]]
+c = "š"
+route = ["k20"]
+
+[[char]]
+c = "č"
+route = ["k21"]
+
+[[char]]
+c = "ř"
+route = ["k23"]
+
+[[char]]
+c = "ž"
+route = ["k22"]
+
+[[char]]
+c = "ý"
+route = ["k26"]
+
+[[char]]
+c = "á"
+route = ["k28"]
+
+[[char]]
+c = "í"
+route = ["k25"]
+
+[[char]]
+c = "é"
+route = ["k29"]
+
+[[char]]
+c = "ú"
+route = ["k33"]
+
+[[char]]
+c = "ů"
+route = ["k41"]
+
+[[char]]
+c = "ď"
+route = ["shift+k24", "k2"]
+
+[[char]]
+c = "ť"
+route = ["shift+k24", "k17"]
+
+[[char]]
+c = "ň"
+route = ["shift+k24", "k45"]
+
+[[char]]
+c = "ó"
+route = ["k24", "k31"]
+
+[[char]]
+c = "Ě"
+route = ["shift+k24", "shift+k14"]
+
+[[char]]
+c = "Š"
+route = ["shift+k24", "shift+k1"]
+
+[[char]]
+c = "Č"
+route = ["shift+k24", "shift+k8"]
+
+[[char]]
+c = "Ř"
+route = ["shift+k24", "shift+k15"]
+
+[[char]]
+c = "Ž"
+route = ["shift+k24", "shift+k6"]
+
+[[char]]
+c = "Ů"
+route = ["shift+k24", "shift+k32"]
+
+[[char]]
+c = "Ď"
+route = ["shift+k24", "shift+k2"]
+
+[[char]]
+c = "Ť"
+route = ["shift+k24", "shift+k17"]
+
+[[char]]
+c = "Ň"
+route = ["shift+k24", "shift+k45"]
+
+[[char]]
+c = "Á"
+route = ["k24", "shift+k0"]
+
+[[char]]
+c = "É"
+route = ["k24", "shift+k14"]
+
+[[char]]
+c = "Í"
+route = ["k24", "shift+k34"]
+
+[[char]]
+c = "Ó"
+route = ["k24", "shift+k31"]
+
+[[char]]
+c = "Ú"
+route = ["k24", "shift+k32"]
+
+[[char]]
+c = "Ý"
+route = ["k24", "shift+k16"]
+
+[[char]]
+c = "1"
+route = ["shift+k18"]
+
+[[char]]
+c = "2"
+route = ["shift+k19"]
+
+[[char]]
+c = "3"
+route = ["shift+k20"]
+
+[[char]]
+c = "4"
+route = ["shift+k21"]
+
+[[char]]
+c = "5"
+route = ["shift+k23"]
+
+[[char]]
+c = "6"
+route = ["shift+k22"]
+
+[[char]]
+c = "7"
+route = ["shift+k26"]
+
+[[char]]
+c = "8"
+route = ["shift+k28"]
+
+[[char]]
+c = "9"
+route = ["shift+k25"]
+
+[[char]]
+c = "0"
+route = ["shift+k29"]
+
+[[char]]
+c = "+"
+route = ["k18"]
+
+[[char]]
+c = "="
+route = ["k27"]
+
+[[char]]
+c = "%"
+route = ["shift+k27"]
+
+[[char]]
+c = ")"
+route = ["k30"]
+
+[[char]]
+c = "("
+route = ["shift+k30"]
+
+[[char]]
+c = "/"
+route = ["shift+k33"]
+
+[[char]]
+c = "§"
+route = ["k39"]
+
+[[char]]
+c = "!"
+route = ["shift+k39"]
+
+[[char]]
+c = "`"
+route = ["shift+k42"]
+
+[[char]]
+c = "-"
+route = ["k44"]
+
+[[char]]
+c = "_"
+route = ["shift+k44"]
+
+[[char]]
+c = ","
+route = ["k43"]
+
+[[char]]
+c = "?"
+route = ["shift+k43"]
+
+[[char]]
+c = "."
+route = ["k47"]
+
+[[char]]
+c = ":"
+route = ["shift+k47"]
+
+[[char]]
+c = "\\"
+route = ["k50"]
+
+[[char]]
+c = "|"
+route = ["shift+k50"]
+
+[[char]]
+c = "@"
+route = ["option+k19"]
+
+[[char]]
+c = "#"
+route = ["option+k20"]
+
+[[char]]
+c = "$"
+route = ["option+k21"]
+
+[[char]]
+c = "~"
+route = ["option+k23"]
+
+[[char]]
+c = "^"
+route = ["option+k22"]
+
+[[char]]
+c = "&"
+route = ["option+k26"]
+
+[[char]]
+c = "*"
+route = ["option+k28"]
+
+[[char]]
+c = "{"
+route = ["option+k25"]
+
+[[char]]
+c = "}"
+route = ["option+k29"]
+
+[[char]]
+c = "["
+route = ["option+k33"]
+
+[[char]]
+c = "]"
+route = ["option+k30"]
+
+[[char]]
+c = ";"
+route = ["option+k41"]
+
+[[char]]
+c = "'"
+route = ["option+k39"]
+
+[[char]]
+c = "<"
+route = ["option+k43"]
+
+[[char]]
+c = ">"
+route = ["option+k47"]
+
+[[char]]
+c = "\""
+route = ["shift+k41"]
+
+[[char]]
+c = "°"
+route = ["option+k27", "k49"]
+
+[[char]]
+c = "ˇ"
+route = ["shift+k24", "k49"]
+
+[[char]]
+c = "¨"
+route = ["k42", "k49"]
+
+[[char]]
+c = " "
+route = ["k49"]
+
+[[char]]
+c = "\n"
+route = ["k36"]
+
