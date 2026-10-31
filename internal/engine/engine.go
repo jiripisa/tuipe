@@ -41,22 +41,26 @@ type Keystroke struct {
 	Typed   rune
 	Correct bool
 	T       time.Duration // active time since the first keystroke
+	// AfterPause marks the first keystroke after a pause; its T-gap to the
+	// previous key is not a real latency.
+	AfterPause bool
 }
 
 // Round is one typing round.
 type Round struct {
-	text      Text
-	pos       int
-	wrong     int
-	log       []Keystroke
-	started   bool
-	start     time.Time
-	paused    bool
-	pausedAt  time.Time
-	pausedSum time.Duration
-	wasPaused bool
-	done      bool
-	end       time.Duration
+	text       Text
+	pos        int
+	wrong      int
+	log        []Keystroke
+	started    bool
+	start      time.Time
+	paused     bool
+	pausedAt   time.Time
+	pausedSum  time.Duration
+	wasPaused  bool
+	afterPause bool
+	done       bool
+	end        time.Duration
 }
 
 // New starts a round on t, skipping any Auto cells at the cursor.
@@ -85,7 +89,8 @@ func (r *Round) Press(ch rune, at time.Time) bool {
 	}
 	correct := ch == r.text.Cells[r.pos].R
 	t := r.Elapsed(at)
-	r.log = append(r.log, Keystroke{Pos: r.pos, Typed: ch, Correct: correct, T: t})
+	r.log = append(r.log, Keystroke{Pos: r.pos, Typed: ch, Correct: correct, T: t, AfterPause: r.afterPause})
+	r.afterPause = false
 	if !correct {
 		r.wrong++
 		return false
@@ -125,6 +130,7 @@ func (r *Round) Resume(at time.Time) {
 		r.pausedSum += d
 	}
 	r.paused = false
+	r.afterPause = true
 }
 
 func (r *Round) Pos() int        { return r.pos }

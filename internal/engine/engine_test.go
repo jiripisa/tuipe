@@ -81,3 +81,17 @@ func TestLogAndPrepare(t *testing.T) {
 	require(t, len(log) == 2 && !log[0].Correct && log[0].Pos == 0 && log[0].Typed == 'x')
 	require(t, log[1].Correct && log[1].T == time.Second)
 }
+
+func TestFirstKeystrokeAfterResumeIsMarked(t *testing.T) {
+	r := engine.New(engine.Prepare("abc"))
+	base := time.Unix(1000, 0)
+	r.Press('a', base)
+	r.PauseFrom(base.Add(time.Second))
+	r.Resume(base.Add(time.Hour))
+	r.Press('b', base.Add(time.Hour+time.Second))
+	r.Press('c', base.Add(time.Hour+2*time.Second))
+	log := r.Log()
+	if log[0].AfterPause || !log[1].AfterPause || log[2].AfterPause {
+		t.Fatalf("AfterPause flags: %+v", log)
+	}
+}

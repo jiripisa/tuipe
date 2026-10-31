@@ -4,6 +4,7 @@ package play
 
 import (
 	"time"
+	"unicode"
 
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/ghost"
@@ -78,6 +79,8 @@ type Session struct {
 	logLen       int
 	wrong        map[rune]int // wrong presses by expected character
 	hintUsed     bool
+	lastSeen     time.Time // last Tick or Key: Frame never evaluates a hint later than this
+	seen         bool
 	altWarning   bool
 	lost         bool
 	lostElapsed  time.Duration
@@ -142,7 +145,13 @@ func (s *Session) hesitation(at time.Time) time.Duration {
 }
 
 func (s *Session) startPause(kind pauseKind, from time.Time) {
-	if s.Done() || s.pause != pauseNone {
+	if s.Done() {
+		return
+	}
+	if s.pause != pauseNone {
+		if kind == pauseManual {
+			s.pause = pauseManual // Esc during an automatic pause keeps its start
+		}
 		return
 	}
 	if from.Before(s.lastActive) {
@@ -186,7 +195,7 @@ func (s *Session) syncMeter(at time.Time) {
 		return
 	}
 	e := s.round.Elapsed(at)
-	if d := e - s.meterElapsed; d > 0 {
+	if d := e - s.meterElapsed; d != 0 { // negative after a retroactive pause
 		s.meter.Advance(d)
 		s.meterElapsed = e
 	}
@@ -209,7 +218,14 @@ func (s *Session) Tick(at time.Time) {
 	s.checkGaps(at)
 	s.lastTick = at
 	s.syncMeter(at)
+	s.see(at)
 	s.noteHint(at)
+}
+
+// see marks the time of the last hint evaluation.
+func (s *Session) see(at time.Time) {
+	s.lastSeen = at
+	s.seen = true
 }
 
 // Key handles one key press. A key during an automatic pause resumes the round
@@ -220,6 +236,9 @@ func (s *Session) Key(in Input, at time.Time) {
 	s.lastTick = at
 	if s.Done() || s.pause == pauseManual {
 		return
+	}
+	if in.Rune != '\n' && !unicode.IsPrint(in.Rune) {
+		return // same rule as the engine: such keys are not input at all
 	}
 	if in.Alt && !s.expects(in.Rune) {
 		s.altWarning = true
@@ -247,6 +266,7 @@ func (s *Session) Key(in Input, at time.Time) {
 		}
 	}
 	s.syncMeter(at)
+	s.see(at)
 	s.noteHint(at)
 }
 
@@ -260,9 +280,11 @@ func (s *Session) expects(r rune) bool {
 // Focus reports a terminal focus change. Losing focus pauses the round; gaining
 // it does not resume, the next key does.
 func (s *Session) Focus(focused bool, at time.Time) {
-	s.focusSeen = true
 	s.touch(at)
+	s.checkGaps(at)
+	s.focusSeen = true
 	s.lastTick = at
+	s.syncMeter(at)
 	if !focused {
 		s.startPause(pauseAuto, at)
 	}
@@ -271,7 +293,9 @@ func (s *Session) Focus(focused bool, at time.Time) {
 // Pause is the explicit (Esc) pause. An automatic pause stays automatic.
 func (s *Session) Pause(at time.Time) {
 	s.touch(at)
+	s.checkGaps(at)
 	s.lastTick = at
+	s.syncMeter(at)
 	s.startPause(pauseManual, at)
 }
 

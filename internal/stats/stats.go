@@ -144,7 +144,7 @@ func (s *Stats) Record(t engine.Text, log []engine.Keystroke, now time.Time) {
 			continue
 		}
 		var lat *float64
-		if prev != nil && k.Correct {
+		if prev != nil && k.Correct && !k.AfterPause {
 			ms := float64(k.T-prev.T) / float64(time.Millisecond)
 			lat = &ms
 		}

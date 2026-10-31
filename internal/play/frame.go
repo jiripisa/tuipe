@@ -27,6 +27,7 @@ type Frame struct {
 	HasGhost      bool
 	Hint          *HintInfo
 	Paused        bool
+	ManualPause   bool // Esc pause: only Resume ends it
 	AltWarning    bool
 	SLA           float64
 	HasSLA        bool
@@ -65,16 +66,17 @@ func (s *Session) Frame(at time.Time) Frame {
 	elapsed := s.elapsed(at)
 	m := score.Compute(s.round.Text(), s.round.Log(), elapsed)
 	f := Frame{
-		Cells:      s.round.Text().Cells,
-		Pos:        s.round.Pos(),
-		WrongPos:   map[int]bool{},
-		WPM:        m.WPM,
-		Accuracy:   m.Accuracy,
-		Paused:     s.pause != pauseNone,
-		AltWarning: s.altWarning,
-		Done:       s.Done(),
-		Breached:   s.breached(),
-		Weak:       topWrong(s.wrong, weakCount),
+		Cells:       s.round.Text().Cells,
+		Pos:         s.round.Pos(),
+		WrongPos:    map[int]bool{},
+		WPM:         m.WPM,
+		Accuracy:    m.Accuracy,
+		Paused:      s.pause != pauseNone,
+		ManualPause: s.pause == pauseManual,
+		AltWarning:  s.altWarning,
+		Done:        s.Done(),
+		Breached:    s.breached(),
+		Weak:        topWrong(s.wrong, weakCount),
 	}
 	for _, k := range s.round.Log() {
 		if !k.Correct {
@@ -90,7 +92,11 @@ func (s *Session) Frame(at time.Time) Frame {
 		f.HasSLA = true
 		f.SLA = s.meter.SLA()
 	}
-	f.Hint = s.hintAt(at)
+	// Never evaluate later than the last Tick or Key, so the hint shown and
+	// HintUsed always agree.
+	if s.seen {
+		f.Hint = s.hintAt(minTime(at, s.lastSeen))
+	}
 	return f
 }
 
@@ -133,7 +139,7 @@ func (s *Session) Result(at time.Time) Result {
 	}
 	won := true
 	if s.meter != nil {
-		won = !s.breached()
+		won = !s.breached() && s.round.Done()
 		out := &IncidentOutcome{Won: won, SLA: s.meter.SLA(), MTTR: elapsed}
 		if !won {
 			out.DamageChars = topWrong(s.wrong, damageCount)
@@ -163,4 +169,11 @@ func topWrong(counts map[rune]int, n int) []rune {
 		out = out[:n]
 	}
 	return out
+}
+
+func minTime(a, b time.Time) time.Time {
+	if b.Before(a) {
+		return b
+	}
+	return a
 }

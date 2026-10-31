@@ -156,7 +156,7 @@ func TestMachineSleepGapIsNotCounted(t *testing.T) {
 	eq(t, r.Metrics.Duration, 2000*time.Millisecond) // 0..1000 + 1000
 }
 
-func TestSleepGapPausesFromLastTickClampedToLastKey(t *testing.T) {
+func TestSleepGapPausesFromLastTick(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)
 	s.Tick(at(200))
@@ -165,6 +165,18 @@ func TestSleepGapPausesFromLastTickClampedToLastKey(t *testing.T) {
 	press(s, 'c', 61000)
 	press(s, 'd', 61500)
 	eq(t, s.Result(at(61500)).Metrics.Duration, 1500*time.Millisecond) // 0..1000 + 500
+}
+
+func TestPauseFromIsClampedToLastKeystroke(t *testing.T) {
+	s := newSession(t, play.Spec{}, true)
+	press(s, 'a', 0)
+	press(s, 'b', 1000)
+	s.Focus(false, at(500)) // earlier than the last keystroke: must not rewind the clock
+	s.Resume(at(2000))
+	press(s, 'c', 2100)
+	r := s.Result(at(2100))
+	eq(t, r.Log[1].T, 1000*time.Millisecond)
+	eq(t, r.Log[2].T, 1100*time.Millisecond) // 1000 clamped pause point + 100
 }
 
 func TestAltKeyInRoundIsNotAnError(t *testing.T) {
@@ -251,7 +263,9 @@ func TestHesitationOnlyForTheCurrentPosition(t *testing.T) {
 func TestHesitationBeforeFirstKeyCountsFromFirstTick(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	s.Tick(at(1000))
+	s.Tick(at(2500))
 	eq(t, s.Frame(at(2500)).Hint == nil, true)
+	s.Tick(at(3100))
 	eq(t, s.Frame(at(3100)).Hint != nil, true)
 }
 
@@ -266,14 +280,25 @@ func TestHesitationExcludesPauses(t *testing.T) {
 	eq(t, s.Frame(at(12600)).Hint != nil, true)
 }
 
-func TestAutoPauseWithPauseStaysAutoAndKeyResumes(t *testing.T) {
+func TestEscDuringAutoPauseBecomesManual(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)
 	s.Focus(false, at(100))
-	s.Pause(at(200)) // stays an automatic pause
-	press(s, 'b', 300)
-	eq(t, s.Frame(at(300)).Paused, false)
-	eq(t, s.Frame(at(300)).Pos, 2)
+	f := s.Frame(at(150))
+	eq(t, f.Paused, true)
+	eq(t, f.ManualPause, false)
+	s.Pause(at(200))
+	press(s, 'b', 300) // ignored: the menu owns the keys
+	f = s.Frame(at(300))
+	eq(t, f.Paused, true)
+	eq(t, f.ManualPause, true)
+	eq(t, f.Pos, 1)
+	s.Resume(at(400))
+	press(s, 'b', 500)
+	r := s.Result(at(500))
+	eq(t, s.Frame(at(500)).Pos, 2)
+	eq(t, len(r.Log), 2)
+	eq(t, r.Log[1].T, 200*time.Millisecond) // paused from the blur at 100, 100 active before the key after the resume at 400
 }
 
 func TestKeysIgnoredDuringExplicitPause(t *testing.T) {
@@ -484,4 +509,121 @@ func TestKeysAfterDoneAreIgnored(t *testing.T) {
 	}
 	press(s, 'x', 500)
 	eq(t, len(s.Result(at(500)).Log), 4)
+}
+
+func sleepThen(t *testing.T, spec play.Spec, event func(s *play.Session, wake int)) (*play.Session, int) {
+	t.Helper()
+	s := newSession(t, spec, true)
+	press(s, 'a', 0)
+	s.Tick(at(1000))
+	wake := 1000 + int(time.Hour/time.Millisecond)
+	event(s, wake)
+	return s, wake
+}
+
+func TestSleepThenFocusTrueFirstIsStillAGap(t *testing.T) {
+	s, wake := sleepThen(t, play.Spec{}, func(s *play.Session, wake int) { s.Focus(true, at(wake)) })
+	eq(t, s.Frame(at(wake)).Paused, true)
+	press(s, 'b', wake+1000)
+	press(s, 'c', wake+1500)
+	r := s.Result(at(wake + 1500))
+	eq(t, r.Paused, true)
+	eq(t, r.Metrics.Duration, 1500*time.Millisecond)
+}
+
+func TestSleepThenFocusFalseFirstIsStillAGap(t *testing.T) {
+	s, wake := sleepThen(t, play.Spec{}, func(s *play.Session, wake int) { s.Focus(false, at(wake)) })
+	press(s, 'b', wake+1000)
+	press(s, 'c', wake+1500)
+	r := s.Result(at(wake + 1500))
+	eq(t, r.Paused, true)
+	eq(t, r.Metrics.Duration, 1500*time.Millisecond)
+}
+
+func TestSleepThenPauseFirstIsStillAGap(t *testing.T) {
+	s, wake := sleepThen(t, play.Spec{}, func(s *play.Session, wake int) { s.Pause(at(wake)) })
+	f := s.Frame(at(wake))
+	eq(t, f.ManualPause, true)
+	s.Resume(at(wake + 1000))
+	press(s, 'b', wake+1000)
+	press(s, 'c', wake+1500)
+	r := s.Result(at(wake + 1500))
+	eq(t, r.Paused, true)
+	eq(t, r.Metrics.Duration, 1500*time.Millisecond)
+}
+
+func TestSleepThenFocusDoesNotBreachIncident(t *testing.T) {
+	s, wake := sleepThen(t, incidentSpec(), func(s *play.Session, wake int) { s.Focus(true, at(wake)) })
+	press(s, 'b', wake+1000)
+	f := s.Frame(at(wake + 1000))
+	eq(t, f.Breached, false)
+	eq(t, f.Done, false)
+	eq(t, f.Pos, 2)
+	eq(t, f.SLA > 99.5, true)
+}
+
+func TestIdleRetroactivePauseRefundsSLA(t *testing.T) {
+	p := incident.Params{Start: 100, SLO: 90, BurnPerSec: 1, ErrorBurn: 0}
+	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, false)
+	press(s, 'a', 0)
+	press(s, 'b', 1000)
+	for ms := 2000; ms <= 5000; ms += 1000 {
+		s.Tick(at(ms))
+	}
+	eq(t, s.Frame(at(5000)).SLA, 95.0)
+	s.Tick(at(6000)) // idle for 5 s: paused retroactively from the last key
+	f := s.Frame(at(6000))
+	eq(t, f.Paused, true)
+	eq(t, f.SLA, 99.0) // only the 1 s of active time burned
+}
+
+func TestOutageCannotLandDuringAPause(t *testing.T) {
+	p := incident.Params{Start: 100, SLO: 99, BurnPerSec: 1, ErrorBurn: 0}
+	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, true)
+	press(s, 'a', 0)
+	s.Pause(at(2000)) // 2 s burned since the last tick: breached before pausing
+	eq(t, s.Done(), true)
+	eq(t, s.Result(at(2000)).Incident.Won, false)
+}
+
+func TestNonPrintableKeyDoesNothing(t *testing.T) {
+	s := newSession(t, play.Spec{}, true)
+	press(s, 'a', 0)
+	s.Focus(false, at(100))
+	press(s, '\b', 500)
+	press(s, 127, 600)
+	eq(t, s.Frame(at(600)).Paused, true)
+	eq(t, len(s.Result(at(600)).Log), 1)
+}
+
+func TestFrameDoesNotShowAHintTickHasNotRecorded(t *testing.T) {
+	s := newSession(t, play.Spec{}, true) // Solid: hint after 2 s of hesitation
+	s.Tick(at(0))
+	eq(t, s.Frame(at(5000)).Hint == nil, true)
+	eq(t, s.Result(at(5000)).HintUsed, false)
+
+	n := play.New(play.Spec{Text: "ab"}, czech(t), stats.New(), true)
+	eq(t, n.Frame(at(0)).Hint == nil, true) // never ticked
+	n.Tick(at(0))
+	eq(t, n.Frame(at(0)).Hint != nil, true)
+	eq(t, n.Result(at(0)).HintUsed, true)
+}
+
+func TestUnfinishedIncidentIsNotWon(t *testing.T) {
+	s := newSession(t, incidentSpec(), true)
+	press(s, 'a', 0)
+	r := s.Result(at(100))
+	eq(t, r.Incident.Won, false)
+	eq(t, r.Stars, 0)
+}
+
+func TestFirstKeyAfterPauseIsMarked(t *testing.T) {
+	s := newSession(t, play.Spec{}, true)
+	press(s, 'a', 0)
+	s.Focus(false, at(100))
+	press(s, 'b', 5000)
+	press(s, 'c', 5100)
+	log := s.Result(at(5100)).Log
+	eq(t, log[1].AfterPause, true)
+	eq(t, log[2].AfterPause, false)
 }

@@ -192,3 +192,15 @@ func TestWeakestNonPositiveN(t *testing.T) {
 	eq(t, len(s.WeakestChars(-1, nil)), 0)
 	eq(t, len(s.WeakestBigrams(0, nil)), 0)
 }
+
+func TestAfterPauseKeystrokeGivesNoLatencySample(t *testing.T) {
+	text, log := fastClean("aaa")
+	log[1].T = log[0].T // retroactive pause: zero gap, not a real speed
+	log[1].AfterPause = true
+	log[2].T = log[1].T + 100*time.Millisecond
+	s := stats.New()
+	s.Record(text, log, now)
+	e := s.Chars["a"]
+	eq(t, e.Samples, 3) // the error sample is kept
+	eq(t, e.LatencyMs, 100.0)
+}
