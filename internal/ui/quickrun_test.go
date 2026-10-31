@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -367,6 +368,12 @@ func TestFinishingSavesStarsAndClearsResume(t *testing.T) {
 }
 
 func TestSaveFailureStillShowsResults(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not make a directory read-only on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
 	root := t.TempDir()
 	dataDir := filepath.Join(root, "data")
 	st, err := store.Open(filepath.Join(root, "cfg"), dataDir)

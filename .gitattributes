@@ -1,0 +1,4 @@
+# Keep LF everywhere: embedded text and tests compare exact bytes, and
+# actions/checkout on Windows would otherwise convert to CRLF.
+* text=auto eol=lf
+*.png binary
