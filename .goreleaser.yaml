@@ -28,6 +28,9 @@ archives:
         formats: [zip]
     # The binary sits at the archive's top level, next to LICENSE and README.
 
+release:
+  prerelease: auto
+
 checksum:
   name_template: checksums.txt
   algorithm: sha256
