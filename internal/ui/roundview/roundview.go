@@ -25,9 +25,9 @@ import (
 const (
 	minW, minH = 60, 18 // below this the compact strip replaces the layouts
 
-	sloPct  = 99.0  // the SLO of every incident, see internal/incident
-	warnPct = 99.75 // the SLA turns warn at or below this
-	badPct  = 99.30 // and bad at or below this
+	fullSLA    = 100.0 // an incident starts here
+	warnMargin = 0.75  // the SLA turns warn this close to the SLO
+	badMargin  = 0.30  // and bad this close
 
 	keyboardRows  = 5
 	hintRows      = keyboardRows + 1 // the hint line above the map
@@ -301,17 +301,17 @@ func slaText(v float64) string { return fmt.Sprintf("%.2f %%", v) }
 
 func slaColour(s style.Style, f play.Frame) color.Color {
 	switch {
-	case f.Breached || f.SLA <= badPct:
+	case f.Breached || f.SLA <= f.SLO+badMargin:
 		return s.Bad
-	case f.SLA <= warnPct:
+	case f.SLA <= f.SLO+warnMargin:
 		return s.Warn
 	}
 	return s.OK
 }
 
 // slaLeft is the share of the error budget that remains, 0..1.
-func slaLeft(sla float64) float64 {
-	return max(0, min((sla-sloPct)/(100-sloPct), 1))
+func slaLeft(f play.Frame) float64 {
+	return max(0, min((f.SLA-f.SLO)/(fullSLA-f.SLO), 1))
 }
 
 // streak counts the cells typed since the last wrong press.

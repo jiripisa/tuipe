@@ -102,6 +102,13 @@ func TestFingers(t *testing.T) {
 	assertFinger(t, l, "k49", layout.Right, layout.Thumb) // space
 }
 
+func TestSpaceBarLabelIsCzech(t *testing.T) {
+	k, ok := mustBuiltin(t, "macos-czech-qwerty").Key("k49")
+	if !ok || k.Label != "mezera" {
+		t.Fatalf("space bar: %+v", k)
+	}
+}
+
 func TestLoadDirSkipsBrokenFile(t *testing.T) {
 	dir := t.TempDir()
 	good := `id = "g"

@@ -562,6 +562,14 @@ func TestSleepThenFocusDoesNotBreachIncident(t *testing.T) {
 	eq(t, f.SLA > 99.5, true)
 }
 
+func TestFrameCarriesTheSLOOfItsMeter(t *testing.T) {
+	p := incident.Params{Start: 100, SLO: 90, BurnPerSec: 1, ErrorBurn: 0}
+	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, true)
+	eq(t, s.Frame(at(0)).SLO, 90.0)
+	s = newSession(t, play.Spec{Text: "abcd"}, true)
+	eq(t, s.Frame(at(0)).SLO, 0.0)
+}
+
 func TestIdleRetroactivePauseRefundsSLA(t *testing.T) {
 	p := incident.Params{Start: 100, SLO: 90, BurnPerSec: 1, ErrorBurn: 0}
 	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, false)

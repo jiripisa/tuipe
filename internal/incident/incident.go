@@ -89,5 +89,8 @@ func (m *Meter) raw() float64 {
 // SLA is the remaining SLA, never below the SLO.
 func (m *Meter) SLA() float64 { return math.Max(m.raw(), m.p.SLO) }
 
+// SLO is the level at which the SLA means an outage.
+func (m *Meter) SLO() float64 { return m.p.SLO }
+
 // Breached reports an outage: the SLA reached the SLO.
 func (m *Meter) Breached() bool { return m.raw() <= m.p.SLO+epsilon }

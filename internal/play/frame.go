@@ -29,7 +29,7 @@ type Frame struct {
 	Paused        bool
 	ManualPause   bool // Esc pause: only Resume ends it
 	AltWarning    bool
-	SLA           float64
+	SLA, SLO      float64
 	HasSLA        bool
 	Breached      bool
 	Done          bool
@@ -91,6 +91,7 @@ func (s *Session) Frame(at time.Time) Frame {
 	if s.meter != nil {
 		f.HasSLA = true
 		f.SLA = s.meter.SLA()
+		f.SLO = s.meter.SLO()
 	}
 	// Never evaluate later than the last Tick or Key, so the hint shown and
 	// HintUsed always agree.

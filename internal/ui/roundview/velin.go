@@ -121,8 +121,8 @@ func velinFirst(s style.Style, f play.Frame, w, h int) []string {
 	title, value, note := text.RoundPanelProgress, percent(progressShare(f)), fmt.Sprintf("%d / %d", done, total)
 	share, fg := progressShare(f), s.OK
 	if f.HasSLA {
-		title, value, note = text.RoundSLA, slaText(f.SLA), fmt.Sprintf("SLO %.0f", sloPct)
-		share, fg = slaLeft(f.SLA), slaColour(s, f)
+		title, value, note = text.RoundSLA, slaText(f.SLA), fmt.Sprintf("SLO %.0f", f.SLO)
+		share, fg = slaLeft(f), slaColour(s, f)
 	}
 	inner := w - 4
 	body := []string{spread(look{fg: fg, bg: s.Bg, bold: true}.render(value), caption(s, note), inner, plain(s, s.Fg))}

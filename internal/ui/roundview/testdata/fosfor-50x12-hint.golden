@@ -1,5 +1,4 @@
  62 wpm  98.1 %  -0.8 s
- // Handle answers one request and logs a
  failure.↵
  func (s *Server) Get(w http.ResponseWriter, r
  *Req) {↵
@@ -9,4 +8,5 @@
      }↵
      port, err :=
  parsePort(r.URL.Query().Get("port"))↵
-     if err != nil {↵
+
+ { → levý Option + í (pravý prsteník)

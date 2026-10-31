@@ -74,7 +74,7 @@ keys = [
 
 [[row]]
 keys = [
-  { id = "k49", label = "space", hand = "right", finger = "thumb" },
+  { id = "k49", label = "mezera", hand = "right", finger = "thumb" },
 ]
 
 # Letters

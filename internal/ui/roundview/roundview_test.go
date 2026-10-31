@@ -126,7 +126,7 @@ func sample(name string) roundview.View {
 		v.Throughput = []float64{41, 44, 47, 52, 55, 58, 54, 60, 63, 59, 62}
 	case "incident":
 		v.Frame = frame(shellSource, "logs deploy")
-		v.Frame.HasSLA, v.Frame.SLA = true, 99.72
+		v.Frame.HasSLA, v.Frame.SLA, v.Frame.SLO = true, 99.72, 99
 		v.Frame.HasGhost, v.Frame.Lead = true, 1400*time.Millisecond
 		v.Frame.GhostPos = v.Frame.Pos - 8
 		v.Frame.Weak = []rune{'|', '-', ' '}
@@ -224,15 +224,100 @@ func TestSmallWindowsUseTheCompactStrip(t *testing.T) {
 			v := sample("incident")
 			v.Frame.Hint = hintFor('{')
 			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-			for _, want := range []string{"62 wpm", "98.1 %", "+1.4 s", "logs"} {
+			for _, want := range []string{"62 wpm", "98.1 %", "+1.4 s", "SLA 99.72 %", "logs", v.Frame.Hint.Text} {
 				if !strings.Contains(s, want) {
 					t.Errorf("%s %v lacks %q:\n%s", st.ID, sz, want, s)
 				}
 			}
-			for _, no := range []string{"⌥", "SLA", "krok", "INC-2041", text.RoundGhost, "Option"} {
+			for _, no := range []string{"⌥", "⇧", "mezera", "krok", "INC-2041", text.RoundGhost} {
 				if strings.Contains(s, no) {
 					t.Errorf("%s %v shows %q, compact has text and core numbers only:\n%s", st.ID, sz, no, s)
 				}
+			}
+		}
+	}
+}
+
+func TestCompactHintIsOneLineCutToWidth(t *testing.T) {
+	st := style.ByID(style.Editor)
+	v := sample("hint")
+	out := roundview.Render(st, v, 30, 12)
+	assertFits(t, out, 30, 12)
+	s := ansi.Strip(out)
+	if n := strings.Count(s, "→"); n != 1 {
+		t.Errorf("hint shown %d times:\n%s", n, s)
+	}
+	if strings.Contains(s, v.Frame.Hint.Text) || !strings.Contains(s, "{ → levý Option") || !strings.Contains(s, "…") {
+		t.Errorf("hint is not one line cut to width:\n%s", s)
+	}
+	if strings.Contains(s, "prsteník") {
+		t.Errorf("hint wrapped to a second line:\n%s", s)
+	}
+}
+
+func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
+	for _, st := range style.All() {
+		for h := 1; h <= 8; h++ {
+			v := sample("incident")
+			v.Frame.Hint = hintFor('{')
+			v.Frame.AltWarning = true
+			out := roundview.Render(st, v, 50, h)
+			assertFits(t, out, 50, h)
+			s := ansi.Strip(out)
+			if cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Accent) && c.text == "l" }) == "" {
+				t.Errorf("%s height %d: no cursor:\n%s", st.ID, h, s)
+			}
+			for from, want := range map[int]string{
+				1: "kubectl",     // the text and the cursor always
+				2: "SLA 99.72 %", // then the numbers
+				4: "levý Option", // then the hint
+				5: "Terminál",    // and last the warning
+			} {
+				if h >= from && !strings.Contains(s, want) {
+					t.Errorf("%s height %d: no %q:\n%s", st.ID, h, want, s)
+				}
+			}
+		}
+	}
+}
+
+func TestCompactHintAndWarningDoNotMoveTheText(t *testing.T) {
+	for _, st := range style.All() {
+		for _, sz := range [][2]int{{50, 12}, {40, 8}, {50, 5}} {
+			v := sample("ghost")
+			rows := func(v roundview.View) string {
+				lines := strings.Split(ansi.Strip(roundview.Render(st, v, sz[0], sz[1])), "\n")
+				return strings.Join(lines[1:sz[1]-2], "\n")
+			}
+			before := rows(v)
+			v.Frame.Hint = hintFor('s')
+			v.Frame.AltWarning = true
+			if after := rows(v); after != before {
+				t.Errorf("%s %v: text moved:\n%s\nwas:\n%s", st.ID, sz, after, before)
+			}
+		}
+	}
+}
+
+func TestCompactPausedKeepsSLAAtNarrowestWidth(t *testing.T) {
+	for _, st := range style.All() {
+		v := sample("incident")
+		v.Frame.Paused = true
+		s := ansi.Strip(roundview.Render(st, v, 40, 8))
+		for _, want := range []string{text.RoundPaused, "SLA 99.72 %", "+1.4 s"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("%s lacks %q:\n%s", st.ID, want, s)
+			}
+		}
+	}
+}
+
+func TestSpaceBarSaysMezera(t *testing.T) {
+	for _, st := range style.All() {
+		for _, sz := range fullSizes {
+			s := ansi.Strip(roundview.Render(st, sample("hint"), sz[0], sz[1]))
+			if !strings.Contains(s, "mezera") || strings.Contains(s, "space") {
+				t.Errorf("%s %v: space bar label:\n%s", st.ID, sz, s)
 			}
 		}
 	}
@@ -582,19 +667,22 @@ func TestAltWarningIsOneLineInEveryLayout(t *testing.T) {
 }
 
 func TestSLAIsShownAndChangesColour(t *testing.T) {
+	ok := func(s style.Style) color.Color { return s.OK }
+	warn := func(s style.Style) color.Color { return s.Warn }
+	bad := func(s style.Style) color.Color { return s.Bad }
 	cases := []struct {
-		sla  float64
-		pick func(style.Style) color.Color
+		sla, slo float64
+		pick     func(style.Style) color.Color
 	}{
-		{99.92, func(s style.Style) color.Color { return s.OK }},
-		{99.60, func(s style.Style) color.Color { return s.Warn }},
-		{99.12, func(s style.Style) color.Color { return s.Bad }},
+		{99.92, 99, ok}, {99.60, 99, warn}, {99.12, 99, bad},
+		// The steps follow the SLO of the frame, not a fixed number.
+		{95.00, 90, ok}, {90.60, 90, warn}, {90.12, 90, bad},
 	}
 	for _, st := range style.All() {
-		for _, sz := range fullSizes {
+		for _, sz := range append(fullSizes, [2]int{50, 12}) {
 			for _, c := range cases {
 				v := sample("incident")
-				v.Frame.SLA = c.sla
+				v.Frame.SLA, v.Frame.SLO = c.sla, c.slo
 				out := roundview.Render(st, v, sz[0], sz[1])
 				label := fmt.Sprintf("%.2f %%", c.sla)
 				if !strings.Contains(ansi.Strip(out), label) {
@@ -602,7 +690,7 @@ func TestSLAIsShownAndChangesColour(t *testing.T) {
 				}
 				got := cellOfText(t, out, label)
 				if got.fg != rgb(c.pick(st)) && got.bg != rgb(c.pick(st)) {
-					t.Errorf("%s %v: SLA %v drawn %+v, want %s", st.ID, sz, c.sla, got, rgb(c.pick(st)))
+					t.Errorf("%s %v: SLA %v of SLO %v drawn %+v, want %s", st.ID, sz, c.sla, c.slo, got, rgb(c.pick(st)))
 				}
 			}
 			v := sample("plain")
@@ -615,12 +703,17 @@ func TestSLAIsShownAndChangesColour(t *testing.T) {
 
 func TestVelinHasTheBigMeter(t *testing.T) {
 	st := style.ByID(style.Velin)
-	v := sample("incident")
-	v.Frame.SLA = 99.5
-	s := ansi.Strip(roundview.Render(st, v, 80, 24))
 	half := regexp.MustCompile(`█{12,13}░{12,13}`)
-	if !half.MatchString(s) {
-		t.Errorf("no meter half way along:\n%s", s)
+	for _, c := range [][2]float64{{99.5, 99}, {95, 90}} {
+		v := sample("incident")
+		v.Frame.SLA, v.Frame.SLO = c[0], c[1]
+		s := ansi.Strip(roundview.Render(st, v, 80, 24))
+		if !half.MatchString(s) {
+			t.Errorf("SLA %v of SLO %v: no meter half way along:\n%s", c[0], c[1], s)
+		}
+		if want := fmt.Sprintf("SLO %.0f", c[1]); !strings.Contains(s, want) {
+			t.Errorf("no %q:\n%s", want, s)
+		}
 	}
 }
 

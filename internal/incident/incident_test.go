@@ -67,6 +67,7 @@ func TestSLAStartsAtStartAndNeverDropsBelowSLO(t *testing.T) {
 	p := incident.NewParams(incident.SEV2, 40, 200)
 	m := incident.NewMeter(p)
 	near(t, m.SLA(), p.Start)
+	near(t, m.SLO(), p.SLO)
 	m.Advance(time.Hour)
 	near(t, m.SLA(), p.SLO)
 	require(t, m.Breached())
