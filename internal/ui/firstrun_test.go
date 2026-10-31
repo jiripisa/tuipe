@@ -67,12 +67,11 @@ func firstRunApp(t *testing.T) (*ui.App, *store.Store, *clock) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := ui.New(st, lib)
+	clk := newClock()
+	a, err := ui.New(st, lib, ui.WithClock(clk.now))
 	if err != nil {
 		t.Fatal(err)
 	}
-	clk := &clock{t: time.Date(2026, 10, 31, 12, 0, 0, 0, time.Local)}
-	a.Now = clk.now
 	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
 	return a, st, clk
 }
@@ -318,7 +317,7 @@ func TestClosingDuringFirstRunRestartsIt(t *testing.T) {
 	a, st, _ := firstRunApp(t)
 	passChecks(t, a)
 	a.Update(enter) // the hand-position text, closed here
-	b, err := ui.New(st, a.Lib)
+	b, err := ui.New(st, a.Lib, ui.WithClock(newClock().now))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +539,7 @@ func reopen(t *testing.T, st *store.Store) (*ui.App, *store.Store) {
 	}
 	t.Cleanup(func() { _ = st2.Close() })
 	lib, _ := content.Load()
-	a, err := ui.New(st2, lib)
+	a, err := ui.New(st2, lib, ui.WithClock(newClock().now))
 	if err != nil {
 		t.Fatalf("ui.New after the restart: %v", err)
 	}

@@ -30,7 +30,7 @@ func newApp(t *testing.T) (*ui.App, *store.Store) {
 		t.Fatal(err)
 	}
 	st.Profile().FirstRunDone = true // these tests start on the home screen
-	a, err := ui.New(st, lib)
+	a, err := ui.New(st, lib, ui.WithClock(newClock().now))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,5 +165,20 @@ func TestCentreMeasuresCellsNotRunes(t *testing.T) {
 	got := ui.Centre("漢字漢字", 20, 1)
 	if lead := len(got) - len(strings.TrimLeft(got, " ")); lead != 6 {
 		t.Errorf("margin = %d, want 6: %q", lead, got)
+	}
+}
+
+func TestNewReadsTheInjectedClockFromTheFirstScreen(t *testing.T) {
+	a, _ := newApp(t)
+	if got := a.Now(); !got.Equal(newClock().now()) {
+		t.Errorf("Now() = %v, want the injected clock", got)
+	}
+	st := a.Store
+	b, err := ui.New(st, a.Lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := time.Since(b.Now()); d < 0 || d > time.Minute {
+		t.Errorf("default clock is off by %v", d)
 	}
 }

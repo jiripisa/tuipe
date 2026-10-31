@@ -249,13 +249,11 @@ func TestYesterdaysSprintEndsWithRetroOnCompletedPart(t *testing.T) {
 
 	// The next day the app opens on the Retro of the one round that was played.
 	clk.advance(26 * time.Hour)
-	b, err := ui.New(st, a.Lib)
+	b, err := ui.New(st, a.Lib, ui.WithClock(clk.now))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Now = clk.now
 	b.Update(windowSize(80, 24))
-	ui.SetScreen(b, ui.NewHomeScreen(b)) // New built it on the real clock
 	wantScreen(t, b, "retro")
 	wantText(t, b, fmt.Sprintf(text.RetroRuns, 1))
 	wantText(t, b, fmt.Sprintf("%.1f", runs[0].WPM))
@@ -566,13 +564,11 @@ func TestRetroIgnoresRunsOutsideTheSprintAndSurvivesQuickRuns(t *testing.T) {
 	}
 
 	clk.advance(26 * time.Hour)
-	b, err := ui.New(st, a.Lib)
+	b, err := ui.New(st, a.Lib, ui.WithClock(clk.now))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Now = clk.now
 	b.Update(windowSize(80, 24))
-	ui.SetScreen(b, ui.NewHomeScreen(b))
 	wantScreen(t, b, "retro")
 	wantText(t, b, fmt.Sprintf(text.RetroRuns, 1))
 	wantText(t, b, fmt.Sprintf("%6.1f", sprintRun.WPM))

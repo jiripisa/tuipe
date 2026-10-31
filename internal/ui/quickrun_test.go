@@ -26,13 +26,16 @@ type clock struct{ t time.Time }
 
 func (c *clock) now() time.Time { return c.t }
 
+// newClock is the fixed fake clock every test app starts on.
+func newClock() *clock { return &clock{t: time.Date(2026, 10, 31, 12, 0, 0, 0, time.Local)} }
+
 func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
 // playApp is an app on a fixed clock and an 80 × 24 window.
 func playApp(t *testing.T) (*ui.App, *store.Store, *clock) {
 	t.Helper()
 	a, st := newApp(t)
-	clk := &clock{t: time.Date(2026, 10, 31, 12, 0, 0, 0, time.Local)}
+	clk := newClock()
 	a.Now = clk.now
 	a.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	return a, st, clk
@@ -373,12 +376,11 @@ func TestSaveFailureStillShowsResults(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	lib, _ := content.Load()
 	st.Profile().FirstRunDone = true // these tests start on the home screen
-	a, err := ui.New(st, lib)
+	clk := newClock()
+	a, err := ui.New(st, lib, ui.WithClock(clk.now))
 	if err != nil {
 		t.Fatal(err)
 	}
-	clk := &clock{t: time.Date(2026, 10, 31, 12, 0, 0, 0, time.Local)}
-	a.Now = clk.now
 	a.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	startLesson(t, a)
 	if err := os.Chmod(dataDir, 0o500); err != nil {
@@ -559,7 +561,7 @@ func openApp(t *testing.T, dir string) (*ui.App, *store.Store) {
 	t.Cleanup(func() { _ = st.Close() })
 	lib, _ := content.Load()
 	st.Profile().FirstRunDone = true // these tests start on the home screen
-	a, err := ui.New(st, lib)
+	a, err := ui.New(st, lib, ui.WithClock(newClock().now))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -184,12 +184,11 @@ func playAppAt(t *testing.T) (*ui.App, *store.Store, *clock, string) {
 		t.Fatal(err)
 	}
 	st.Profile().FirstRunDone = true // these tests start on the home screen
-	a, err := ui.New(st, lib)
+	clk := newClock()
+	a, err := ui.New(st, lib, ui.WithClock(clk.now))
 	if err != nil {
 		t.Fatal(err)
 	}
-	clk := &clock{t: time.Date(2026, 10, 31, 12, 0, 0, 0, time.Local)}
-	a.Now = clk.now
 	return a, st, clk, filepath.Join(dir, "data")
 }
 

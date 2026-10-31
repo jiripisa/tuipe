@@ -64,9 +64,16 @@ type initer interface{ Init(a *App) tea.Cmd }
 // leaver is implemented by a screen with work to save when the app quits.
 type leaver interface{ Leave(a *App) }
 
+// Option configures New.
+type Option func(*App)
+
+// WithClock sets the clock the app reads. It applies from the first screen on.
+func WithClock(now func() time.Time) Option { return func(a *App) { a.Now = now } }
+
 // New builds the app from an open store and the loaded content. The style and
-// layout come from the config, with defaults when it is empty.
-func New(st *store.Store, lib *content.Library) (*App, error) {
+// layout come from the config, with defaults when it is empty. The clock
+// defaults to the wall clock.
+func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 	cfg := st.Config()
 	layoutID := cfg.Layout
 	if layoutID == "" {
@@ -103,6 +110,9 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 		// Round(0) strips the monotonic reading, so the wall clock is compared
 		// and a gap while the computer slept is visible.
 		Now: func() time.Time { return time.Now().Round(0) },
+	}
+	for _, o := range opts {
+		o(a)
 	}
 	a.saveWarn = notice
 	a.Entries = defaultEntries()
