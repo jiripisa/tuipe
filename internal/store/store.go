@@ -86,7 +86,7 @@ type Profile struct {
 	Completed       map[string]bool         // by chapter id
 	IncidentBest    map[string]string       // by incident id: best severity won
 	FirstRunDone    bool
-	FocusEvents     bool
+	FocusTerminals  map[string]bool // by terminal key: reports focus changes
 	StandupDay      string
 	LastUpdateCheck string
 	LatestSeen      string
@@ -114,6 +114,9 @@ func (p *Profile) fillMaps() {
 	}
 	if p.Completed == nil {
 		p.Completed = map[string]bool{}
+	}
+	if p.FocusTerminals == nil {
+		p.FocusTerminals = map[string]bool{}
 	}
 	if p.IncidentBest == nil {
 		p.IncidentBest = map[string]string{}

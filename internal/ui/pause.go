@@ -52,12 +52,16 @@ func (m pauseMenu) overlay(s style.Style, view string, w, h int) string {
 		}
 	}
 	box = append(box, "", s.Base().Foreground(s.Dim).Render(text.HintPause))
+	widest := 0
+	for _, b := range box {
+		widest = max(widest, ansi.StringWidth(b))
+	}
+	pad := strings.Repeat(" ", max(0, (w-widest)/2)) // one margin keeps the menu aligned
 	top := max(0, (len(lines)-len(box))/2)
 	for i, b := range box {
 		if top+i >= len(lines) {
 			break
 		}
-		pad := strings.Repeat(" ", max(0, (w-ansi.StringWidth(b))/2))
 		lines[top+i] = s.Paint(pad+b, w)
 	}
 	return strings.Join(lines, "\n")

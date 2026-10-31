@@ -113,10 +113,7 @@ func runID(at time.Time, textHash string) string {
 
 // uptime is the streak, with days taken in local time.
 func (a *App) uptime() streak.Status {
-	runs, err := a.Store.Runs()
-	if err != nil {
-		a.SaveErr(err)
-	}
+	runs, _ := a.Store.Runs() // a damaged history must not look like a failed save
 	days := make([]string, len(runs))
 	for i, r := range runs {
 		days[i] = r.At.Local().Format(dateLayout)
@@ -159,6 +156,9 @@ func (s *resultsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	if k, ok := msg.(tea.KeyPressMsg); ok {
 		switch k.String() {
 		case "enter":
+			if s.next == nil {
+				return NewHomeScreen(a), nil
+			}
 			return s.next(a), nil
 		case "esc":
 			return NewHomeScreen(a), nil
@@ -174,45 +174,64 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	dim := func(l string) string { return st.Base().Foreground(st.Dim).Render(l) }
 
 	m := s.res.Metrics
-	lines := []string{
-		dim(fmt.Sprintf("commit %s  %s", s.run.ID, s.spec.Title)),
-		dim("--- " + text.ResultsOld),
-		dim("+++ " + text.ResultsNew),
-		"",
-	}
+	commit := dim(fmt.Sprintf(text.ResultsCommit, s.run.ID, s.spec.Title))
 	cur := []string{
 		fmt.Sprintf("%s %6.1f", text.ResultsWPM, m.WPM),
 		fmt.Sprintf("%s %5.1f %%", text.ResultsAccuracy, m.Accuracy*100),
 		fmt.Sprintf("%s %6.1f s", text.ResultsTime, m.Duration.Seconds()),
 	}
+	base := text.ResultsNoBase
+	var added, removed []string
+	for _, c := range cur {
+		added = append(added, add(c))
+	}
 	if s.prev != nil {
+		base = text.ResultsOld
 		old := []string{
 			fmt.Sprintf("%s %6.1f", text.ResultsWPM, s.prev.WPM),
 			fmt.Sprintf("%s %5.1f %%", text.ResultsAccuracy, s.prev.Accuracy*100),
 			fmt.Sprintf("%s %6.1f s", text.ResultsTime, float64(s.prev.DurationMs)/1000),
 		}
-		for i := range cur {
-			lines = append(lines, del(old[i]), add(cur[i]))
-		}
-	} else {
-		for _, c := range cur {
-			lines = append(lines, add(c))
+		for _, o := range old {
+			removed = append(removed, del(o))
 		}
 	}
-	lines = append(lines, "", st.Base().Foreground(st.Accent).Render(s.starsLine()))
+	var verdict []string
 	switch {
 	case s.res.Incident != nil && s.res.Incident.Won:
-		lines = append(lines, fmt.Sprintf(text.ResultsWon, s.res.Incident.SLA))
+		verdict = append(verdict, fmt.Sprintf(text.ResultsWon, s.res.Incident.SLA))
 	case outcomeLost(s.res):
-		lines = append(lines, st.Base().Foreground(st.Bad).Render(text.ResultsLost))
+		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.ResultsLost))
 	}
 	if s.res.Paused {
-		lines = append(lines, dim(text.ResultsPaused))
+		verdict = append(verdict, dim(text.ResultsPaused))
 	}
 	if s.res.HintUsed {
-		lines = append(lines, dim(text.ResultsHintUsed))
+		verdict = append(verdict, dim(text.ResultsHintUsed))
 	}
-	return style.Frame(st, w, h, text.AppName, strings.Join(lines, "\n"), text.HintResults)
+	stars := st.Base().Foreground(st.Accent).Render(s.starsLine())
+
+	// The window may be short: drop the header, then the old values, then the
+	// notes, but keep the commit, the new values and the stars.
+	rows := h - 3
+	full := []string{commit, dim("--- " + base), dim("+++ " + text.ResultsNew), ""}
+	for i := range cur {
+		if removed != nil {
+			full = append(full, removed[i])
+		}
+		full = append(full, added[i])
+	}
+	full = append(full, "", stars)
+	full = append(full, verdict...)
+	body := full
+	if len(body) > rows {
+		body = append([]string{commit}, added...)
+		body = append(body, stars)
+		if len(body) > rows {
+			body = []string{commit, stars}
+		}
+	}
+	return style.Frame(st, w, h, text.AppName, strings.Join(body, "\n"), text.HintResults)
 }
 
 func (s *resultsScreen) starsLine() string {

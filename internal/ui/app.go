@@ -4,7 +4,11 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -42,8 +46,9 @@ type App struct {
 
 	screen    Screen
 	saveWarn  string
-	focusSeen bool // a focus message has arrived in this process
-	tickGen   int  // identifies the running round tick; older ticks are dropped
+	Entries   []menuEntry // home menu entries; later screens register theirs
+	focusSeen bool        // a focus message has arrived in this process
+	tickGen   int         // identifies the running round tick; older ticks are dropped
 }
 
 // initer is implemented by a screen that needs a command when it appears,
@@ -86,6 +91,7 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 		// and a gap while the computer slept is visible.
 		Now: func() time.Time { return time.Now().Round(0) },
 	}
+	a.Entries = defaultEntries()
 	a.screen = NewHomeScreen(a)
 	return a, nil
 }
@@ -104,10 +110,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch m.String() {
 		case "ctrl+c":
-			if l, ok := a.screen.(leaver); ok {
-				l.Leave(a)
-			}
-			a.SaveErr(a.Store.SaveProfile())
 			return a, tea.Quit
 		case "ctrl+t":
 			a.cycleStyle()
@@ -127,19 +129,34 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
+// terminalKey identifies the terminal, because focus reporting is a property
+// of the terminal and not of the user.
+func terminalKey() string {
+	return os.Getenv("TERM_PROGRAM") + "|tmux=" + strconv.FormatBool(os.Getenv("TMUX") != "")
+}
+
 // noteFocusEvents remembers that this terminal reports focus changes, so later
 // rounds do not pause on idle.
 func (a *App) noteFocusEvents() {
 	a.focusSeen = true
-	if p := a.Store.Profile(); !p.FocusEvents {
-		p.FocusEvents = true
+	if p := a.Store.Profile(); !p.FocusTerminals[terminalKey()] {
+		p.FocusTerminals[terminalKey()] = true
 		a.SaveErr(a.Store.SaveProfile())
 	}
 }
 
-// focusEvents reads the flag again for a new session.
+// focusEvents reads the knowledge again for a new session.
 func (a *App) focusEvents() bool {
-	return a.focusSeen || a.Store.Profile().FocusEvents
+	return a.focusSeen || a.Store.Profile().FocusTerminals[terminalKey()]
+}
+
+// Shutdown saves what a screen has in flight and the profile. Run calls it
+// after the program ends, however it ended.
+func (a *App) Shutdown() {
+	if l, ok := a.screen.(leaver); ok {
+		l.Leave(a)
+	}
+	a.SaveErr(a.Store.SaveProfile())
 }
 
 func (a *App) cycleStyle() {
@@ -216,6 +233,26 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	_, err = tea.NewProgram(a).Run()
+	return runApp(a)
+}
+
+// runApp runs the program until it ends. A closed terminal (SIGHUP) ends it
+// like a quit, and Shutdown then saves the round in flight.
+func runApp(a *App, opts ...tea.ProgramOption) error {
+	p := tea.NewProgram(a, opts...)
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	defer signal.Stop(hup)
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-hup:
+			p.Quit()
+		case <-done:
+		}
+	}()
+	_, err := p.Run()
+	a.Shutdown()
 	return err
 }

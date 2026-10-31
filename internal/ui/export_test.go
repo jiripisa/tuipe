@@ -1,6 +1,10 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+)
 
 // TickMsg returns the tick of the round that is on screen, or nil.
 func TickMsg(a *App) tea.Msg {
@@ -57,3 +61,22 @@ func RoundSamples(a *App) []float64 {
 	}
 	return nil
 }
+
+// RoundLessonID returns the lesson of the current round.
+func RoundLessonID(a *App) string {
+	if r, ok := a.screen.(*roundScreen); ok {
+		return r.spec.LessonID
+	}
+	return ""
+}
+
+// RoundActive returns the active time of the current round.
+func RoundActive(a *App) time.Duration {
+	if r, ok := a.screen.(*roundScreen); ok {
+		return r.sess.Result(r.now).Metrics.Duration
+	}
+	return 0
+}
+
+// RunApp runs the program like Run does, with options for input and output.
+func RunApp(a *App, opts ...tea.ProgramOption) error { return runApp(a, opts...) }

@@ -42,13 +42,14 @@ const (
 
 // Home screen.
 const (
-	HomeRank         = "hodnost"
-	HomeUptime       = "uptime"
-	HomeUptimeFormat = "up %d d"
-	HomeBudgetSpent  = "rozpočet chyb na tento týden je vyčerpaný"
-	HomeQuickRun     = "Rychlovka"
-	HomeResume       = "pokračuj: %s"
-	HomeNotReady     = "zatím není hotové"
+	HomeRank        = "hodnost"
+	HomeUptime      = "uptime"
+	HomeUptimeDay   = "up 1 day"
+	HomeUptimeDays  = "up %d days"
+	HomeBudgetSpent = "rozpočet chyb na tento týden je vyčerpaný"
+	HomeQuickRun    = "Rychlovka"
+	HomeResume      = "pokračuj: %s"
+	HomeNotReady    = "zatím není hotové"
 
 	MenuStandup  = "Denní standup"
 	MenuSprint   = "Sprint"
@@ -74,6 +75,9 @@ const (
 // Results screen. The diff labels are padded to one width.
 const (
 	ResultsOld      = "HEAD~1"
+	ResultsNoBase   = "/dev/null"
+	ResultsCommit   = "commit %s  %s"
+	DrillTitle      = "drill"
 	ResultsNew      = "ty"
 	ResultsWPM      = "wpm  "
 	ResultsAccuracy = "přes."

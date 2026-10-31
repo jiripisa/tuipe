@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/recommend"
+	"github.com/jiripisa/tuipe/internal/streak"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
@@ -32,21 +33,23 @@ type menuEntry struct {
 	open  func(*App) (Screen, tea.Cmd) // nil until the screen exists
 }
 
-var homeEntries = []menuEntry{
-	{EntryStandup, text.MenuStandup, nil},
-	{EntrySprint, text.MenuSprint, nil},
-	{EntryCareer, text.MenuCareer, nil},
-	{EntryPractice, text.MenuPractice, nil},
-	{EntryIncident, text.MenuIncident, nil},
-	{EntryStats, text.MenuStats, nil},
-	{EntrySettings, text.MenuSettings, nil},
+func defaultEntries() []menuEntry {
+	return []menuEntry{
+		{EntryStandup, text.MenuStandup, nil},
+		{EntrySprint, text.MenuSprint, nil},
+		{EntryCareer, text.MenuCareer, nil},
+		{EntryPractice, text.MenuPractice, nil},
+		{EntryIncident, text.MenuIncident, nil},
+		{EntryStats, text.MenuStats, nil},
+		{EntrySettings, text.MenuSettings, nil},
+	}
 }
 
 // RegisterEntry wires a home menu entry to its screen. Until an entry is
 // registered it shows that it is not ready.
-func RegisterEntry(id entryID, open func(*App) (Screen, tea.Cmd)) {
-	if i := slices.IndexFunc(homeEntries, func(e menuEntry) bool { return e.id == id }); i >= 0 {
-		homeEntries[i].open = open
+func (a *App) RegisterEntry(id entryID, open func(*App) (Screen, tea.Cmd)) {
+	if i := slices.IndexFunc(a.Entries, func(e menuEntry) bool { return e.id == id }); i >= 0 {
+		a.Entries[i].open = open
 	}
 }
 
@@ -56,12 +59,13 @@ type homeScreen struct {
 	resume string // lesson title when a lesson can be continued
 	sel    int
 	note   string // shown under the menu, such as "not ready"
+	up     streak.Status
 }
 
 // NewHomeScreen builds the home screen. The recommended round is selected, or
 // the lesson to continue when a round was left unfinished.
 func NewHomeScreen(a *App) Screen {
-	h := &homeScreen{pick: a.recommended()}
+	h := &homeScreen{pick: a.recommended(), up: a.uptime()}
 	if r := a.Store.Profile().Resume; r != nil && r.LessonID != "" {
 		if title, ok := a.lessonTitle(r.LessonID); ok {
 			h.pick = recommend.Pick{Kind: recommend.Lesson, LessonID: r.LessonID}
@@ -88,7 +92,7 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return h, nil
 	}
 	h.note = ""
-	count := len(homeEntries) + 1
+	count := len(a.Entries) + 1
 	switch k.String() {
 	case "up", "k":
 		h.sel = (h.sel + count - 1) % count
@@ -98,7 +102,7 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		if h.sel == 0 {
 			return NewRoundScreen(a, h.pick, quickRun), nil
 		}
-		if open := homeEntries[h.sel-1].open; open != nil {
+		if open := a.Entries[h.sel-1].open; open != nil {
 			return open(a)
 		}
 		h.note = text.HomeNotReady
@@ -126,9 +130,8 @@ func (h *homeScreen) pickLabel(a *App) string {
 func (h *homeScreen) View(a *App, w, hgt int) string {
 	st := a.Style
 	dim := func(s string) string { return st.Base().Foreground(st.Dim).Render(s) }
-	up := a.uptime()
-	uptime := fmt.Sprintf(text.HomeUptimeFormat, up.Days)
-	if up.ForgivenThisWeek {
+	uptime := uptimeText(h.up.Days)
+	if h.up.ForgivenThisWeek {
 		uptime += " (" + text.HomeBudgetSpent + ")"
 	}
 	lines := []string{
@@ -137,22 +140,35 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 		"",
 	}
 	labels := []string{h.pickLabel(a)}
-	for _, e := range homeEntries {
+	for _, e := range a.Entries {
 		labels = append(labels, e.label)
 	}
+	selLine := 0
 	for i, l := range labels {
-		switch {
-		case i == h.sel:
+		if i == h.sel {
+			selLine = len(lines)
 			lines = append(lines, st.Base().Foreground(st.Accent).Bold(true).Render("> "+l))
-		default:
+		} else {
 			lines = append(lines, st.Base().Foreground(st.Fg).Render("  "+l))
 		}
 		if i == 0 {
 			lines = append(lines, "")
 		}
 	}
+	// Keep the selection on screen: scroll the body when the window is short.
+	if rows := hgt - 3; rows > 0 && selLine >= rows {
+		lines = lines[selLine-rows+1:]
+	}
 	if h.note != "" {
 		lines = append(lines, "", dim(h.note))
 	}
 	return style.Frame(st, w, hgt, text.AppName, strings.Join(lines, "\n"), text.HintHome)
+}
+
+// uptimeText reads like a server uptime: "up 1 day", "up 23 days".
+func uptimeText(days int) string {
+	if days == 1 {
+		return text.HomeUptimeDay
+	}
+	return fmt.Sprintf(text.HomeUptimeDays, days)
 }

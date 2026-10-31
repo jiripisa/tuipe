@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"time"
+	"unicode"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
+	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 const (
@@ -102,7 +104,7 @@ func (a *App) drillSpec(p recommend.Pick) play.Spec {
 		Focus: p.Focus, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed,
 	})
 	return play.Spec{
-		Kind: play.KindDrill, Title: "drill", Text: txt,
+		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,
 		Targets:     a.chapterTargets(),
 		Ghost:       ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs),
 		GhostIsPace: true,
@@ -134,10 +136,7 @@ func (a *App) withReplay(spec play.Spec) (play.Spec, error) {
 
 // recommended picks the next round for the quick run.
 func (a *App) recommended() recommend.Pick {
-	runs, err := a.Store.Runs()
-	if err != nil {
-		a.SaveErr(err)
-	}
+	runs, _ := a.Store.Runs() // a damaged history only affects the incident rhythm
 	seed := uint64(a.Now().UnixNano())
 	return recommend.Next(recommend.State{
 		Curr: a.Curr, Lib: a.Lib, Profile: a.Store.Profile(), Stats: a.stats(),
@@ -157,9 +156,11 @@ type roundScreen struct {
 	alive bool // a tick is in flight
 	now   time.Time
 
-	menu    pauseMenu
-	samples []float64
-	sampled int
+	menu      pauseMenu
+	resumeSet bool // Profile.Resume names this lesson
+	left      bool // Leave has run
+	samples   []float64
+	sampled   int
 }
 
 // NewRoundScreen builds the screen for a recommended round. When the round
@@ -183,6 +184,7 @@ func (r *roundScreen) begin(a *App) {
 	r.now = a.Now()
 	r.sess = play.New(r.spec, a.Layout, a.stats(), a.focusEvents())
 	r.menu = pauseMenu{}
+	r.resumeSet = false
 	r.samples, r.sampled = nil, 0
 }
 
@@ -196,7 +198,12 @@ func (r *roundScreen) Init(*App) tea.Cmd {
 }
 
 // Leave saves the lesson to continue when the app quits mid-round.
-func (r *roundScreen) Leave(a *App) { r.abandon(a, r.now) }
+func (r *roundScreen) Leave(a *App) {
+	if !r.left {
+		r.left = true
+		r.abandon(a, r.now)
+	}
+}
 
 func (r *roundScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	now := a.Now() // one reading per update
@@ -212,6 +219,10 @@ func (r *roundScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 			return r.finish(a, now), nil
 		}
 		return r, tickCmd(r.gen)
+	case tea.WindowSizeMsg:
+		if a.tooSmall() { // below 40 x 8 the round waits for more room
+			r.sess.Pause(now)
+		}
 	case tea.FocusMsg:
 		r.sess.Focus(true, now)
 	case tea.BlurMsg:
@@ -249,13 +260,15 @@ func (r *roundScreen) key(m tea.KeyPressMsg, a *App, now time.Time) (Screen, tea
 	switch {
 	case m.Code == tea.KeyEnter:
 		r.sess.Key(play.Input{Rune: '\n', Alt: alt}, now)
-	case m.Code == tea.KeyTab:
-		r.sess.Key(play.Input{Rune: '\t', Alt: alt}, now)
+	case m.Text == "" && alt && unicode.IsPrint(m.Code):
+		// The terminal decoder drops Text for Alt chords.
+		r.sess.Key(play.Input{Rune: m.Code, Alt: true}, now)
 	default:
 		for _, c := range m.Text {
 			r.sess.Key(play.Input{Rune: c, Alt: alt}, now)
 		}
 	}
+	r.rememberLesson(a, now)
 	r.sample(now)
 	if r.sess.Done() {
 		return r.finish(a, now), nil
@@ -271,17 +284,29 @@ func (r *roundScreen) restart(a *App, now time.Time) tea.Cmd {
 	return r.Init(a)
 }
 
-// abandon feeds the keys so far into the statistics and remembers the lesson to
-// continue. It adds no run.
+// rememberLesson writes Profile.Resume at the first keystroke of a lesson, so
+// a closed window or a killed process still offers to continue it.
+func (r *roundScreen) rememberLesson(a *App, now time.Time) {
+	if r.resumeSet || r.spec.LessonID == "" {
+		return
+	}
+	if _, log := r.sess.PartialLog(); len(log) == 0 {
+		return
+	}
+	r.resumeSet = true
+	a.Store.Profile().Resume = &store.Resume{
+		Kind: resumeKindLesson, LessonID: r.spec.LessonID, Day: now.Local().Format(dateLayout),
+	}
+	a.SaveErr(a.Store.SaveProfile())
+}
+
+// abandon feeds the keys so far into the statistics. It adds no run and keeps
+// Resume as rememberLesson set it.
 func (r *roundScreen) abandon(a *App, now time.Time) {
 	if r.sess.Done() {
 		return
 	}
 	r.feedStats(a, now)
-	p := a.Store.Profile()
-	if r.spec.LessonID != "" {
-		p.Resume = &store.Resume{Kind: resumeKindLesson, LessonID: r.spec.LessonID, Day: now.Local().Format(dateLayout)}
-	}
 	a.SaveErr(a.Store.SaveProfile())
 }
 
