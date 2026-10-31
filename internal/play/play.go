@@ -96,6 +96,7 @@ type Session struct {
 	lastSeen    time.Time // last Tick or Key: Frame never evaluates a hint later than this
 	seen        bool
 	altWarning  bool
+	altIgnored  int // Alt presses that were not the expected character
 	lost        bool
 	lostElapsed time.Duration
 }
@@ -280,6 +281,7 @@ func (s *Session) Key(in Input, at time.Time) {
 	}
 	if in.Alt && !s.expects(in.Rune) {
 		s.altWarning = true
+		s.altIgnored++
 		return
 	}
 	s.altWarning = false
@@ -312,6 +314,10 @@ func (s *Session) Key(in Input, at time.Time) {
 	s.see(at)
 	s.noteHint(at)
 }
+
+// AltIgnored is the number of Alt presses the session dropped because they
+// were not the character it waited for.
+func (s *Session) AltIgnored() int { return s.altIgnored }
 
 // expects reports whether r is exactly the rune the round waits for.
 func (s *Session) expects(r rune) bool {

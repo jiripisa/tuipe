@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -52,29 +54,76 @@ const (
 // firstRunScreen is the whole first run: style, checks and the fork.
 type firstRunScreen struct {
 	step    frStep
-	styleAt int // index in style.All()
-	check   int // index into checkRunes
+	checks  []rune // the telltale characters the layout can type
+	check   int    // index into checks
+	note    string // shown under the current check, such as "not needed yet"
 	layouts []*layout.Layout
 	pickAt  int
 	forkAt  int
+	hands   handText
 }
 
 // NewFirstRunScreen builds the first-run flow, which starts with the style choice.
-func NewFirstRunScreen(a *App) Screen {
-	f := &firstRunScreen{}
+func NewFirstRunScreen(a *App) Screen { return &firstRunScreen{} }
+
+// styleIndex is the position of the current style in the cycle.
+func styleIndex(a *App) int {
 	for i, s := range style.All() {
 		if s.ID == a.Style.ID {
-			f.styleAt = i
+			return i
 		}
 	}
-	return f
+	return 0
 }
 
-// availableLayouts are the built-in layouts followed by the user's own.
+// telltales are the characters of checkRunes that the layout can type.
+func telltales(l *layout.Layout) []rune {
+	var out []rune
+	for _, r := range checkRunes {
+		if _, ok := l.Route(r); ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// needsOption reports whether the layout types r with Option held, which is
+// what a terminal that treats Option as Alt breaks.
+func needsOption(l *layout.Layout, r rune) bool {
+	route, _ := l.Route(r)
+	for _, c := range route {
+		if slices.Contains(c.Mods, "option") {
+			return true
+		}
+	}
+	return false
+}
+
+// startCheck begins the check with the characters the layout can type. A layout
+// that can type none of them has nothing to check.
+func (f *firstRunScreen) startCheck(a *App) {
+	f.checks, f.check, f.note = telltales(a.Layout), 0, ""
+	f.step = stepCheck
+	if len(f.checks) == 0 {
+		f.step = stepFork
+	}
+}
+
+// loadLayouts are the built-in layouts followed by the user's own. A bad user
+// file is skipped.
+func loadLayouts(st *store.Store) ([]*layout.Layout, error) {
+	all, err := layout.Builtin()
+	if err != nil {
+		return nil, err
+	}
+	user, _ := layout.LoadDir(filepath.Join(st.ConfigDir(), userLayoutDir))
+	return append(all, user...), nil
+}
+
+// availableLayouts is loadLayouts for the first run, where built-ins cannot fail.
 func availableLayouts(a *App) []*layout.Layout {
-	all, _ := layout.Builtin()
-	user, _ := layout.LoadDir(filepath.Join(a.Store.ConfigDir(), userLayoutDir)) // a bad file is skipped
-	return append(all, user...)
+	all, _ := loadLayouts(a.Store)
+	return all
 }
 
 func hasLayoutFor(ls []*layout.Layout, system string) bool {
@@ -122,6 +171,7 @@ func (f *firstRunScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		if k.String() == "enter" {
 			return finishFirstRun(a), nil
 		}
+		f.hands.key(k)
 	}
 	return f, nil
 }
@@ -130,18 +180,16 @@ func (f *firstRunScreen) updateStyle(k tea.KeyPressMsg, a *App) (Screen, tea.Cmd
 	styles := style.All()
 	switch k.String() {
 	case "up", "k":
-		f.styleAt = (f.styleAt + len(styles) - 1) % len(styles)
-		a.Style = styles[f.styleAt] // the sample switches live
+		a.Style = styles[(styleIndex(a)+len(styles)-1)%len(styles)] // the sample switches live
 	case "down", "j":
-		f.styleAt = (f.styleAt + 1) % len(styles)
-		a.Style = styles[f.styleAt]
+		a.Style = styles[(styleIndex(a)+1)%len(styles)]
 	case "enter":
 		cfg := a.Store.Config()
 		cfg.Style = string(a.Style.ID)
 		a.SaveErr(a.Store.SaveConfig(cfg))
 		f.layouts = availableLayouts(a)
 		if hasLayoutFor(f.layouts, goos) {
-			f.step = stepCheck
+			f.startCheck(a)
 		} else {
 			f.step = stepNoLayout
 		}
@@ -167,30 +215,42 @@ func typedRune(k tea.KeyPressMsg) (r rune, alt, ok bool) {
 }
 
 func (f *firstRunScreen) updateCheck(k tea.KeyPressMsg, a *App) {
-	if k.String() == "esc" {
+	switch k.String() {
+	case "esc":
 		f.step = stepFork
+		return
+	case "tab": // the way to the picker for a layout that really differs
+		f.openPicker(a)
 		return
 	}
 	r, alt, ok := typedRune(k)
+	want := f.checks[f.check]
+	f.note = ""
 	switch {
 	case !ok:
-	case r == checkRunes[f.check]:
-		if f.check++; f.check == len(checkRunes) {
+	case r == want:
+		if f.check++; f.check == len(f.checks) {
 			f.step = stepFork
 		}
-	case alt && f.check > 0:
+	case alt && needsOption(a.Layout, want):
 		f.step = stepOptionHelp // Option arrived as Alt: nothing is saved, the user re-tests
 	case alt:
+	case f.check == 0:
+		f.openPicker(a) // the very first key is the layout's own: it differs
 	default:
-		f.layouts = availableLayouts(a)
-		f.pickAt = 0
-		for i, l := range f.layouts {
-			if l.ID == a.Layout.ID {
-				f.pickAt = i
-			}
-		}
-		f.step = stepPicker
+		f.note = text.FirstRunCheckLater // a key not yet learned says nothing about the layout
 	}
+}
+
+func (f *firstRunScreen) openPicker(a *App) {
+	f.layouts = availableLayouts(a)
+	f.pickAt = 0
+	for i, l := range f.layouts {
+		if l.ID == a.Layout.ID {
+			f.pickAt = i
+		}
+	}
+	f.step = stepPicker
 }
 
 func (f *firstRunScreen) updatePicker(k tea.KeyPressMsg, a *App) {
@@ -209,8 +269,7 @@ func (f *firstRunScreen) updatePicker(k tea.KeyPressMsg, a *App) {
 		cfg := a.Store.Config()
 		cfg.Layout = l.ID
 		a.SaveErr(a.Store.SaveConfig(cfg))
-		f.check = 0
-		f.step = stepCheck
+		f.startCheck(a)
 	}
 }
 
@@ -257,33 +316,40 @@ func (f *firstRunScreen) View(a *App, w, h int) string {
 			acc(shortPath(filepath.Join(a.Store.ConfigDir(), userLayoutDir), bw)), "", fg(text.FirstRunNoLayoutDocs))
 		return frame(text.FirstRunNoLayoutTitle, body, text.FirstRunContinueHint)
 	case stepCheck:
-		r := checkRunes[f.check]
-		body := []string{"", acc(fmt.Sprintf(text.FirstRunCheckAsk, string(r), f.check+1, len(checkRunes)))}
+		r := f.checks[f.check]
+		body := []string{"", acc(fmt.Sprintf(text.FirstRunCheckAsk, string(r), f.check+1, len(f.checks)))}
 		if how := hint.Text(a.Layout, r); how != "" {
+			_, how, _ = strings.Cut(how, " → ") // the character itself is already asked for
 			body = append(body, "")
 			for _, l := range prose(fmt.Sprintf(text.FirstRunCheckHow, how)) {
 				body = append(body, dim(l))
 			}
 		}
+		if f.note != "" {
+			body = append(body, "")
+			for _, l := range prose(f.note) {
+				body = append(body, fg(l))
+			}
+		}
 		return frame(text.FirstRunCheckTitle, body, text.FirstRunCheckHint)
 	case stepPicker:
-		var body []string
+		var head, list, tail []string
 		for _, l := range prose(fmt.Sprintf(text.FirstRunPickAsk, a.Layout.Name)) {
-			body = append(body, fg(l))
+			head = append(head, fg(l))
 		}
-		body = append(body, "")
+		head = append(head, "")
 		for i, l := range f.layouts {
-			name := l.Name
-			if l.OS != "" {
-				name += " (" + l.OS + ")"
-			}
 			if i == f.pickAt {
-				body = append(body, acc("> "+name))
+				list = append(list, acc("> "+l.Name))
 			} else {
-				body = append(body, fg("  "+name))
+				list = append(list, fg("  "+l.Name))
 			}
 		}
-		return frame(text.FirstRunPickTitle, scrollTo(body, len(body)-len(f.layouts)+f.pickAt, h-3), text.FirstRunPickHint)
+		tail = []string{"", dim(text.FirstRunNoLayoutHow),
+			acc(shortPath(filepath.Join(a.Store.ConfigDir(), userLayoutDir), bw)), dim(text.FirstRunNoLayoutDocs)}
+		room := h - 3 - len(head) - len(tail)
+		body := append(head, scrollTo(list, f.pickAt, room)...)
+		return frame(text.FirstRunPickTitle, append(body, tail...), text.FirstRunPickHint)
 	case stepOptionHelp:
 		var body []string
 		for _, l := range prose(text.FirstRunOptionWhy) {
@@ -294,8 +360,14 @@ func (f *firstRunScreen) View(a *App, w, h int) string {
 		for _, l := range prose(intro) {
 			body = append(body, acc(l))
 		}
-		if setting != "" {
-			body = append(body, fg(" "+setting))
+		for _, l := range strings.Split(setting, "\n") {
+			if l != "" {
+				body = append(body, fg(" "+l))
+			}
+		}
+		body = append(body, "")
+		for _, l := range prose(text.OptionReload) {
+			body = append(body, dim(l))
 		}
 		return frame(text.FirstRunOptionTitle, body, text.FirstRunOptionHint)
 	case stepFork:
@@ -305,11 +377,43 @@ func (f *firstRunScreen) View(a *App, w, h int) string {
 		body = append(body, choice(1, f.forkAt, text.ForkPlacement, text.ForkPlacementNote)...)
 		return frame(text.FirstRunForkTitle, body, text.FirstRunForkHint)
 	}
-	var body []string
-	for _, l := range prose(text.FirstRunZeroText) {
-		body = append(body, fg(l))
+	return f.hands.view(a, w, h)
+}
+
+// handText is the hand-position text of chapter 0. It scrolls when the window
+// is too small to show all of it.
+type handText struct{ off, max int }
+
+func (t *handText) key(k tea.KeyPressMsg) {
+	switch k.String() {
+	case "up", "k":
+		t.off--
+	case "down", "j":
+		t.off++
+	case "pgup":
+		t.off -= 5
+	case "pgdown":
+		t.off += 5
 	}
-	return frame(text.FirstRunZeroTitle, body, text.FirstRunContinueHint)
+	t.off = max(0, min(t.off, t.max))
+}
+
+func (t *handText) view(a *App, w, h int) string {
+	st := a.Style
+	var lines []string
+	for _, l := range strings.Split(ansi.Wordwrap(text.FirstRunZeroText, max(w-4, 10), ""), "\n") {
+		lines = append(lines, " "+st.Base().Foreground(st.Fg).Render(l))
+	}
+	rows := h - 3
+	if len(lines) > rows && rows > 0 { // drop the blank separators before scrolling
+		lines = slices.DeleteFunc(lines, func(l string) bool { return strings.TrimSpace(ansi.Strip(l)) == "" })
+	}
+	t.max = max(0, len(lines)-rows)
+	t.off = min(t.off, t.max)
+	if rows > 0 && len(lines) > rows {
+		lines = lines[t.off : t.off+rows]
+	}
+	return style.Frame(st, w, h, text.FirstRunZeroTitle, strings.Join(lines, "\n"), text.FirstRunHandHint)
 }
 
 // scrollTo keeps line sel within the first rows lines of body.
@@ -334,8 +438,8 @@ func (f *firstRunScreen) styleView(a *App, w, h int) string {
 	base := roundview.Render(st, v, w, h)
 
 	box := []string{st.Base().Foreground(st.Accent).Bold(true).Render(text.FirstRunWelcome), ""}
-	for i, s := range style.All() {
-		if i == f.styleAt {
+	for _, s := range style.All() {
+		if s.ID == st.ID {
 			box = append(box, st.Base().Foreground(st.Accent).Bold(true).Render("> "+s.Name))
 		} else {
 			box = append(box, st.Base().Foreground(st.Fg).Render("  "+s.Name))

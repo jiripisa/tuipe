@@ -272,12 +272,12 @@ const (
 
 	FirstRunCheckTitle = "Kontrola klávesnice"
 	FirstRunCheckAsk   = "Napište znak:  %s   (%d/%d)"
-	FirstRunCheckHow   = "Na vašem rozložení: %s"
-	FirstRunCheckHint  = "Esc přeskočit kontrolu · Ctrl+C konec"
+	FirstRunCheckHow   = "Jak ho napsat: %s"
+	FirstRunCheckLater = "Tuhle klávesu zatím znát nemusíte, učí se později. Zkuste ji znovu, nebo kontrolu přeskočte klávesou Esc."
+	FirstRunCheckHint  = "Esc přeskočit · Tab jiné rozložení"
 
 	FirstRunPickTitle = "Rozložení klávesnice"
 	FirstRunPickAsk   = "Napsaný znak neodpovídá rozložení %s. Které rozložení používáte?"
-	FirstRunPickUser  = "vlastní soubor"
 	FirstRunPickHint  = "↑↓ výběr · Enter potvrdit · Esc přeskočit kontrolu"
 
 	FirstRunOptionTitle = "Option se chová jako Alt"
@@ -285,15 +285,16 @@ const (
 	FirstRunOptionHint  = "Enter zkusit znovu · Esc přeskočit kontrolu"
 
 	OptionTerminalApp = "Terminal.app: Nastavení › Profily › Klávesnice, vypněte volbu:"
-	OptionITerm       = "iTerm2: Settings › Profiles › Keys › General, nastavte:"
+	OptionITerm       = "iTerm2: Settings › Profiles › Keys › General, nastavte obě klávesy Option (znak @ se píše pravou):"
 	OptionGhostty     = "Ghostty: do konfigurace přidejte řádek:"
 	OptionKitty       = "kitty: do kitty.conf přidejte řádek:"
 	OptionWezTerm     = "WezTerm: do wezterm.lua přidejte řádek:"
 	OptionAlacritty   = "Alacritty: do alacritty.toml, sekce [window], přidejte řádek:"
+	OptionReload      = "Po změně nastavení terminál znovu načtěte nebo ho restartujte."
 	OptionGeneric     = "Váš terminál jsem nepoznal. V nastavení terminálu vypněte, aby Option fungoval jako Meta nebo Alt (anglicky „Option as Meta“ či „Option as Alt“)."
 
 	OptionSettingTerminalApp = `Use Option as Meta key`
-	OptionSettingITerm       = `Left Option key = Normal`
+	OptionSettingITerm       = "Left Option key = Normal\nRight Option key = Normal"
 	OptionSettingGhostty     = `macos-option-as-alt = false`
 	OptionSettingKitty       = `macos_option_as_alt no`
 	OptionSettingWezTerm     = `config.send_composed_key_when_left_alt_is_pressed = true`
@@ -307,14 +308,18 @@ const (
 
 	FirstRunForkTitle = "Kde začínáte?"
 	ForkFromZero      = "Začínám od nuly"
-	ForkFromZeroNote  = "Projdete se od domovské pozice."
+	ForkFromZeroNote  = "Začnete od domovské pozice."
 	ForkPlacement     = "Vstupní pohovor"
 	ForkPlacementNote = "Asi 3 minuty. Přeskočí, co už umíte."
 	FirstRunForkHint  = "↑↓ výběr · Enter potvrdit · Ctrl+C konec"
 
+	FirstRunHandHint  = "↑↓ posun · Enter pokračovat"
 	FirstRunZeroTitle = "Domovská pozice"
-	FirstRunZeroText  = "Prsty leží na domovské řadě: levý ukazováček na f, pravý na j. Na obou klávesách nahmatáte malý výstupek, podle něj se trefíte poslepu.\n\nPalce patří na mezerník. Každý prst obsluhuje svou oblast kláves a po stisku se vrací zpět na domovskou pozici.\n\nNa klávesnici se nedívejte, ani když to zpočátku zpomalí. Právě tak se to naučíte."
+	FirstRunZeroText  = "Prsty leží na domovské řadě: levý ukazovák na f, pravý na j. Na obou klávesách nahmatáte malý výstupek, podle něj se trefíte poslepu.\n\nPalce patří na mezerník. Každý prst obsluhuje svou oblast kláves a po stisku se vrací zpět na domovskou pozici.\n\nNa klávesnici se nedívejte, ani když to zpočátku zpomalí. Právě tak se to naučíte."
 )
+
+// Unknown layout in the config (%q is its id).
+const UnknownLayout = "Rozložení „%s“ jsem nenašel, používám macOS Czech QWERTY."
 
 // Placement test (Vstupní pohovor).
 const (
@@ -323,7 +328,8 @@ const (
 	PlacementStageIntro = "Fáze %d/%d: %s"
 	PlacementRules      = "Bez nápovědy. Pište, jak umíte. Když to nepůjde, pohovor skončí a nic se neděje."
 	PlacementPrevOK     = "Předchozí fáze splněna: %.0f WPM, přesnost %.0f %%."
-	PlacementStageHint  = "Enter začít · Ctrl+C konec"
+	PlacementStageHint  = "Enter začít · Esc ukončit pohovor · Ctrl+C konec"
+	PlacementOptionNote = "Když Option nepíše znaky, fáze skončí po pěti pokusech. Pohovor ukončíte klávesou Esc."
 
 	PlacementStageLetters    = "Písmena"
 	PlacementStageDiacritics = "Diakritika"
@@ -333,7 +339,7 @@ const (
 	PlacementStageCode       = "Skutečný kód"
 
 	OfferTitle    = "Pracovní nabídka"
-	OfferGreeting = "Vážený kandidáte,"
+	OfferGreeting = "Dobrý den,"
 	OfferFromZero = "pohovor skončil u první fáze. To je v pořádku, začínáte od nuly a každý někde začíná."
 	OfferHolding  = "Hodnost: %s."
 	OfferRank     = "na základě pohovoru Vám nabízíme pozici: %s."

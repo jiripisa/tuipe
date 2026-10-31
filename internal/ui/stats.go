@@ -382,7 +382,9 @@ func (s *statsScreen) trendSeries() map[string]series {
 	}
 	for _, r := range s.runs {
 		date := r.At.Local().Format(dateLayout)
-		add(text.StatsGroupOverall, date, r)
+		if r.Mode != "placement" { // a test is no everyday typing
+			add(text.StatsGroupOverall, date, r)
+		}
 		if g := s.groupOf[r.LessonID]; g != "" {
 			add(g, date, r)
 		}

@@ -153,11 +153,10 @@ func (a *App) withReplay(spec play.Spec) (play.Spec, error) {
 
 // recommended picks the next round for the quick run.
 func (a *App) recommended() recommend.Pick {
-	runs, _ := a.Store.Runs() // a damaged history only affects the incident rhythm
 	seed := uint64(a.Now().UnixNano())
 	return recommend.Next(recommend.State{
 		Curr: a.Curr, Lib: a.Lib, Profile: a.Store.Profile(), Stats: a.stats(),
-		RunCount: len(runs), Rand: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)),
+		RunCount: a.runCadence(), Rand: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)),
 	})
 }
 
@@ -413,4 +412,17 @@ func (r *roundScreen) View(a *App, w, h int) string {
 		return r.menu.overlay(a.Style, view, w, h)
 	}
 	return view
+}
+
+// runCadence counts the runs that set the rhythm of incidents. Placement runs
+// are no part of it.
+func (a *App) runCadence() int {
+	runs, _ := a.Store.Runs() // a damaged history only affects the incident rhythm
+	n := 0
+	for _, r := range runs {
+		if r.Mode != "placement" {
+			n++
+		}
+	}
+	return n
 }

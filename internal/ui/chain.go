@@ -80,8 +80,7 @@ func NewChain(a *App, kind string, picks []recommend.Pick, minutes int) Screen {
 }
 
 func (a *App) planState(p *store.Profile, st *stats.Stats, rng *rand.Rand) recommend.State {
-	runs, _ := a.Store.Runs() // a damaged history only affects the incident rhythm
-	return recommend.State{Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: st, RunCount: len(runs), Rand: rng}
+	return recommend.State{Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: st, RunCount: a.runCadence(), Rand: rng}
 }
 
 // newSprintState snapshots what the plan and the Retro need: the character

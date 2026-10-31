@@ -67,18 +67,25 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 	if layoutID == "" {
 		layoutID = defaultLayout
 	}
-	all, err := layout.Builtin()
+	all, err := loadLayouts(st)
 	if err != nil {
 		return nil, err
 	}
-	var lay *layout.Layout
+	var lay, def *layout.Layout
 	for _, l := range all {
 		if l.ID == layoutID {
 			lay = l
 		}
+		if l.ID == defaultLayout {
+			def = l
+		}
 	}
-	if lay == nil {
-		return nil, fmt.Errorf("unknown layout %q", layoutID)
+	notice := ""
+	if lay == nil { // a removed layout file must never stop the app from starting
+		if def == nil {
+			return nil, fmt.Errorf("missing built-in layout %q", defaultLayout)
+		}
+		lay, notice = def, fmt.Sprintf(text.UnknownLayout, layoutID)
 	}
 	styleID := style.ID(cfg.Style)
 	if styleID == "" {
@@ -92,6 +99,7 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 		// and a gap while the computer slept is visible.
 		Now: func() time.Time { return time.Now().Round(0) },
 	}
+	a.saveWarn = notice
 	a.Entries = defaultEntries()
 	a.RegisterEntry(EntryStandup, openStandup)
 	a.RegisterEntry(EntrySprint, openSprint)

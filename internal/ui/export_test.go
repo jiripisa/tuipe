@@ -144,3 +144,6 @@ func SetGOOS(s string) func() {
 	goos = s
 	return func() { goos = old }
 }
+
+// RunCadence is the number of runs the recommender counts for its rhythm.
+func RunCadence(a *App) int { return a.runCadence() }

@@ -63,7 +63,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 		ID: runID(now, hash), At: now, Mode: modeName(spec),
 		Session: a.sessionOf(spec), LessonID: spec.LessonID, TextHash: hash, LayoutID: a.Layout.ID,
 		WPM: r.Metrics.WPM, Accuracy: r.Metrics.Accuracy, Score: r.Metrics.Score,
-		Stars: r.Stars, DurationMs: r.Metrics.Duration.Milliseconds(),
+		Stars: runStars(spec, r), DurationMs: r.Metrics.Duration.Milliseconds(),
 		Paused: r.Paused, HintUsed: r.HintUsed,
 	}
 	if r.GhostDelta != nil {
@@ -119,11 +119,12 @@ func (a *App) skippedBy(chapterID string) []string {
 
 // How a round was started, as stored on its run.
 const (
-	sessionQuick    = "quick"
-	sessionStandup  = kindStandup
-	sessionSprint   = kindSprint
-	sessionCareer   = "career"
-	sessionPractice = "practice"
+	sessionQuick     = "quick"
+	sessionStandup   = kindStandup
+	sessionSprint    = kindSprint
+	sessionCareer    = "career"
+	sessionPractice  = "practice"
+	sessionPlacement = "placement"
 )
 
 // sessionOf says how the round of spec was started: inside a Standup or Sprint,
@@ -138,6 +139,14 @@ func (a *App) sessionOf(spec play.Spec) string {
 		return spec.Session
 	}
 	return sessionQuick
+}
+
+// runStars are the stars stored on a run. A placement test grants none.
+func runStars(spec play.Spec, r play.Result) int {
+	if spec.Kind == play.KindPlacement {
+		return 0
+	}
+	return r.Stars
 }
 
 func modeName(spec play.Spec) string {

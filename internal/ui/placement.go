@@ -25,8 +25,15 @@ type placementScreen struct {
 	passed []placement.Stage // stages passed so far
 	last   *score.Metrics    // result of the stage before, for the intro
 	offer  bool              // the test is over and the job offer is shown
-	placed int               // chapters the test completed
+	placed int               // chapters the test newly completed
+	hands  bool              // the hand-position text follows a result that starts from zero
+	text   handText
 }
+
+// maxIgnoredAlt is how many Alt presses the Option stage puts up with. A user
+// whose terminal turns Option into Alt who skipped the check would otherwise
+// never get a wrong key logged, and the stage would never end.
+const maxIgnoredAlt = 5
 
 // NewPlacementScreen builds the placement test. next opens the screen that
 // follows the job offer; the home screen when it is nil.
@@ -62,17 +69,27 @@ func (p *placementScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return p, nil
 	}
 	switch {
+	case p.hands && k.String() == "enter":
+		return p.leave(a), nil
+	case p.hands:
+		p.text.key(k)
+	case p.offer && k.String() == "enter" && len(a.Store.Profile().Completed) == 0:
+		p.hands = true // starting from zero, as after the fork
 	case p.offer && k.String() == "enter":
-		if p.next == nil {
-			return NewHomeScreen(a), nil
-		}
-		return p.next(a), nil
+		return p.leave(a), nil
 	case !p.offer && k.String() == "enter":
 		return p.round(a), nil
 	case !p.offer && k.String() == "esc":
 		return p.finish(a), nil
 	}
 	return p, nil
+}
+
+func (p *placementScreen) leave(a *App) Screen {
+	if p.next == nil {
+		return NewHomeScreen(a)
+	}
+	return p.next(a)
 }
 
 // round starts the current stage, without hints.
@@ -83,6 +100,7 @@ func (p *placementScreen) round(a *App) Screen {
 		Title:    fmt.Sprintf(text.PlacementRoundTitle, p.at+1, len(p.stages), p.stageTitle(a, st)),
 		Text:     st.Text,
 		HintsOff: true,
+		Session:  sessionPlacement,
 	}
 	if st.ID == "code" {
 		spec.Lang = "go"
@@ -97,7 +115,7 @@ func (p *placementScreen) round(a *App) Screen {
 					wrong++
 				}
 			}
-			return placement.AbortEarly(len(log), wrong)
+			return placement.AbortEarly(len(log), wrong) || r.sess.AltIgnored() >= maxIgnoredAlt
 		},
 		done: func(a *App, res play.Result, now time.Time) Screen {
 			return p.stageEnded(a, st, spec, res, r.sess.Done(), now)
@@ -132,9 +150,15 @@ func (p *placementScreen) stageEnded(a *App, st placement.Stage, spec play.Spec,
 // It runs on top of what is completed, so the rank cannot fall.
 func (p *placementScreen) finish(a *App) Screen {
 	out := placement.Evaluate(a.Curr, p.passed)
-	a.Curr.ApplySkip(a.Store.Profile(), a.stats(), out.Completed)
+	profile := a.Store.Profile()
+	p.placed = 0
+	for _, id := range out.Completed {
+		if !a.Curr.IsDone(profile, id) {
+			p.placed++
+		}
+	}
+	a.Curr.ApplySkip(profile, a.stats(), out.Completed)
 	a.SaveErr(a.Store.SaveProfile())
-	p.placed = len(out.Completed)
 	p.offer = true
 	return p
 }
@@ -155,10 +179,17 @@ func (p *placementScreen) View(a *App, w, h int) string {
 		return style.Frame(st, w, h, title, " "+strings.Join(body, "\n "), hint)
 	}
 
+	if p.hands {
+		return p.text.view(a, w, h)
+	}
 	if !p.offer {
 		cur := p.stages[p.at]
 		body := []string{"", acc(fmt.Sprintf(text.PlacementStageIntro, p.at+1, len(p.stages), p.stageTitle(a, cur))), ""}
 		body = append(body, prose(text.PlacementRules, fg)...)
+		if cur.ID == "option" {
+			body = append(body, "")
+			body = append(body, prose(text.PlacementOptionNote, dim)...)
+		}
 		if p.last != nil {
 			body = append(body, "")
 			body = append(body, prose(fmt.Sprintf(text.PlacementPrevOK, p.last.WPM, p.last.Accuracy*100), dim)...)

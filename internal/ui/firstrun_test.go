@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,29 @@ os = "linux"
 [[row]]
 keys = [{ id = "k1", label = "a", hand = "left", finger = "pinky" }]
 `
+
+// czechCopy is the shipped layout under another id and name, as a user would
+// write a layout file for a keyboard that differs only a little.
+func czechCopy(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile("../layout/data/macos-czech-qwerty.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := strings.Replace(string(b), `id = "macos-czech-qwerty"`, `id = "user-test"`, 1)
+	return strings.Replace(out, `name = "macOS Czech QWERTY"`, `name = "Testovací rozložení"`, 1)
+}
+
+func writeUserLayout(t *testing.T, st *store.Store, content string) {
+	t.Helper()
+	dir := filepath.Join(st.ConfigDir(), "layouts")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "user.toml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // firstRunApp is an app on a fresh profile in a 60 × 18 window, on macOS, in an
 // unknown terminal. The first-run screen is on top.
@@ -150,16 +174,11 @@ func TestLayoutCheckPassesOnExpectedChars(t *testing.T) {
 
 func TestLayoutMismatchOpensPicker(t *testing.T) {
 	a, st, _ := firstRunApp(t)
-	dir := filepath.Join(st.ConfigDir(), "layouts")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "user.toml"), []byte(userLayout), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeUserLayout(t, st, czechCopy(t))
 	a.Update(enter)
 	a.Update(key('2')) // a US layout types 2 where ě should come
-	showsAll(t, a, "macOS Czech QWERTY", "Testovací rozložení")
+	showsAll(t, a, "macOS Czech QWERTY", "Testovací rozložení", "docs/layouts.md", "cfg/layouts")
+	showsNone(t, a, "(darwin)", "(linux)")
 	showsNone(t, a, "Vítejte")
 	fits(t, a)
 	a.Update(down)
@@ -199,7 +218,7 @@ func TestOptionAsMetaShowsTerminalSpecificHelp(t *testing.T) {
 		want []string
 	}{
 		{"Terminal.app", map[string]string{"TERM_PROGRAM": "Apple_Terminal"}, []string{"Use Option as Meta key"}},
-		{"iTerm2", map[string]string{"TERM_PROGRAM": "iTerm.app"}, []string{"Left Option key", "Normal"}},
+		{"iTerm2", map[string]string{"TERM_PROGRAM": "iTerm.app"}, []string{"Left Option key", "Right Option key", "Normal"}},
 		{"Ghostty", map[string]string{"TERM_PROGRAM": "ghostty"}, []string{"macos-option-as-alt = false"}},
 		{"kitty", map[string]string{"KITTY_WINDOW_ID": "1"}, []string{"macos_option_as_alt no"}},
 		{"WezTerm", map[string]string{"TERM_PROGRAM": "WezTerm"}, []string{"send_composed_key_when_left_alt_is_pressed = true"}},
@@ -217,9 +236,11 @@ func TestOptionAsMetaShowsTerminalSpecificHelp(t *testing.T) {
 			a.Update(key('ě'))
 			a.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModAlt}) // Option+b arrives as Alt+b
 			showsAll(t, a, tc.want...)
+			showsAll(t, a, "znovu načtěte")
 			fits(t, a)
-			if st.Config().Layout != "" || st.Profile().Completed["x"] || st.Profile().FirstRunDone {
-				t.Errorf("the help saved something: %+v", st.Config())
+			if st.Config().Layout != "" || len(st.Profile().Completed) != 0 || st.Profile().FirstRunDone {
+				t.Errorf("the help saved something: config %+v, completed %v, done %v",
+					st.Config(), st.Profile().Completed, st.Profile().FirstRunDone)
 			}
 			// Retry goes back to the same step and the fixed key passes.
 			a.Update(enter)
@@ -354,7 +375,7 @@ func TestPlacementResultIsAJobOfferAndAppliesSkip(t *testing.T) {
 	p.Resume = &store.Resume{Kind: "lesson", LessonID: "keep-me"}
 	toPlacement(t, a)
 	for i := range 6 {
-		showsAll(t, a, "Vstupní pohovor", string(rune('1'+i))+"/6")
+		showsAll(t, a, "Vstupní pohovor", "Esc ukončit", string(rune('1'+i))+"/6")
 		fits(t, a)
 		playStage(t, a, clk)
 	}
@@ -437,6 +458,8 @@ func TestBadStageEndsPlacementEarly(t *testing.T) {
 		t.Error("the aborted stage left no evidence in the statistics")
 	}
 	a.Update(enter)
+	showsAll(t, a, "Domovská pozice", "ukazovák") // as when starting from zero
+	a.Update(enter)
 	if ui.ScreenName(a) != "home" {
 		t.Errorf("screen = %s, want home", ui.ScreenName(a))
 	}
@@ -454,6 +477,8 @@ func TestSlowFirstStageFailsWithoutHumiliation(t *testing.T) {
 	if len(st.Profile().Completed) != 0 {
 		t.Errorf("completed %v", st.Profile().Completed)
 	}
+	showsAll(t, a, "Dobrý den,")
+	showsNone(t, a, "Vážený")
 }
 
 func TestFailedStageEndsTheTestAndKeepsEarlierStages(t *testing.T) {
@@ -501,4 +526,243 @@ func TestPlacementCanBeRetaken(t *testing.T) {
 	if !back || ui.ScreenName(a) != "home" {
 		t.Errorf("next called %v, screen %s", back, ui.ScreenName(a))
 	}
+}
+
+// ---- Review fixes ----
+
+func reopen(t *testing.T, st *store.Store) (*ui.App, *store.Store) {
+	t.Helper()
+	cfg := st.ConfigDir()
+	_ = st.Close()
+	st2, err := store.Open(cfg, filepath.Join(filepath.Dir(cfg), "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st2.Close() })
+	lib, _ := content.Load()
+	a, err := ui.New(st2, lib)
+	if err != nil {
+		t.Fatalf("ui.New after the restart: %v", err)
+	}
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	return a, st2
+}
+
+func TestPickedUserLayoutSurvivesARestart(t *testing.T) {
+	a, st, _ := firstRunApp(t)
+	writeUserLayout(t, st, czechCopy(t))
+	a.Update(enter)
+	a.Update(key('2'))
+	a.Update(down)
+	a.Update(enter)
+	if a.Layout.ID != "user-test" {
+		t.Fatalf("layout = %s", a.Layout.ID)
+	}
+	b, _ := reopen(t, st)
+	if b.Layout.ID != "user-test" {
+		t.Errorf("layout after the restart = %s, want user-test", b.Layout.ID)
+	}
+}
+
+func TestUnknownLayoutInTheConfigFallsBackWithANotice(t *testing.T) {
+	a, st, _ := firstRunApp(t)
+	cfg := st.Config()
+	cfg.Layout = "gone"
+	if err := st.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	st.Profile().FirstRunDone = true
+	b, _ := reopen(t, st)
+	_ = a
+	if b.Layout.ID != "macos-czech-qwerty" {
+		t.Errorf("layout = %s, want the default", b.Layout.ID)
+	}
+	showsAll(t, b, "gone")
+}
+
+func TestWrongKeyAfterTheFirstCharKeepsProgressAndNeverOpensThePicker(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key('ě'))
+	a.Update(key('x')) // a beginner who does not know the { key yet
+	showsAll(t, a, "{", "2/3", "později", "Esc")
+	showsNone(t, a, "Které rozložení")
+	fits(t, a)
+	a.Update(key('{'))
+	a.Update(key('y'))
+	showsAll(t, a, "@", "3/3", "později")
+	showsNone(t, a, "Které rozložení", "1/3")
+	a.Update(key('@'))
+	showsAll(t, a, "Začínám od nuly")
+}
+
+func TestPickerIsReachableByTabAtAnyCheckStep(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key('ě'))
+	a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	showsAll(t, a, "Které rozložení", "docs/layouts.md")
+	a.Update(enter) // the same layout again restarts the check
+	showsAll(t, a, "1/3")
+}
+
+func TestPickedLayoutWithoutTelltaleCharsSkipsTheCheck(t *testing.T) {
+	a, st, _ := firstRunApp(t)
+	writeUserLayout(t, st, userLayout) // no characters at all
+	a.Update(enter)
+	a.Update(key('2'))
+	a.Update(down)
+	a.Update(enter)
+	showsAll(t, a, "Začínám od nuly")
+}
+
+func TestPickedLayoutChecksOnlyWhatItCanType(t *testing.T) {
+	a, st, _ := firstRunApp(t)
+	writeUserLayout(t, st, userLayout+"\n[[char]]\nc = \"{\"\nroute = [\"option+k1\"]\n")
+	a.Update(enter)
+	a.Update(key('2'))
+	a.Update(down)
+	a.Update(enter)
+	showsAll(t, a, "{", "1/1")
+	a.Update(tea.KeyPressMsg{Code: 'q', Mod: tea.ModAlt})
+	showsAll(t, a, "Option se chová jako Alt")
+	a.Update(enter)
+	a.Update(key('{'))
+	showsAll(t, a, "Začínám od nuly")
+}
+
+func TestStyleMarkerFollowsCtrlT(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl}) // editor -> velin
+	if a.Style.ID != "velin" {
+		t.Fatalf("style = %s", a.Style.ID)
+	}
+	if !strings.Contains(view(a), "> Velín") {
+		t.Errorf("the marker did not follow:\n%s", view(a))
+	}
+	a.Update(down) // fosfor, the next one after velin
+	if a.Style.ID != "fosfor" {
+		t.Errorf("Down after Ctrl+T: style = %s, want fosfor", a.Style.ID)
+	}
+}
+
+func TestHandPositionTextScrollsInASmallWindow(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	passChecks(t, a)
+	a.Update(enter)
+	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
+	if strings.Contains(view(a), "naučíte") {
+		t.Fatal("the whole text cannot fit 40 x 8; the test needs a scroll")
+	}
+	for range 30 {
+		a.Update(down)
+	}
+	showsAll(t, a, "naučíte")
+}
+
+func TestOptionStageEndsAfterFiveIgnoredAltPresses(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	toPlacement(t, a)
+	for range 4 {
+		playStage(t, a, clk)
+	}
+	showsAll(t, a, "5/6", "Esc") // the option stage, with its note
+	a.Update(enter)
+	meta := tea.KeyPressMsg{Code: 'ƒ', Mod: tea.ModAlt}
+	for i := range 4 {
+		clk.advance(200 * time.Millisecond)
+		a.Update(meta)
+		if ui.ScreenName(a) != "round" {
+			t.Fatalf("the stage ended after %d presses, want 5", i+1)
+		}
+	}
+	clk.advance(200 * time.Millisecond)
+	a.Update(meta)
+	if ui.ScreenName(a) != "placement" {
+		t.Fatalf("screen after 5 ignored Alt presses = %s, want the offer", ui.ScreenName(a))
+	}
+	showsAll(t, a, "Medior")
+	for _, ch := range a.Curr.Chapters() {
+		if want := ch.Number <= 7; st.Profile().Completed[ch.ID] != want {
+			t.Errorf("chapter %d completed = %v, want %v", ch.Number, st.Profile().Completed[ch.ID], want)
+		}
+	}
+}
+
+func TestPlacementRunsHaveNoStarsAndTheirOwnSession(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	toPlacement(t, a)
+	for range 6 {
+		playStage(t, a, clk)
+	}
+	runs, _ := st.Runs()
+	if len(runs) != 6 {
+		t.Fatalf("runs = %d", len(runs))
+	}
+	for _, r := range runs {
+		if r.Stars != 0 || r.Session != "placement" {
+			t.Errorf("run %s: stars %d session %q, want 0 and placement", r.ID, r.Stars, r.Session)
+		}
+	}
+	ui.SetScreen(a, ui.NewStatsScreen(a))
+	showsAll(t, a, "Vstupní pohovor")
+	showsNone(t, a, "Rychlovka", "★")
+	a.Update(tab)
+	a.Update(tab)
+	a.Update(tab) // records
+	showsNone(t, a, "Vstupní pohovor ·")
+}
+
+func TestPlacementRunsAreNoCadenceAndNoOverallTrend(t *testing.T) {
+	a, st, clk := statsApp(t, 80, 24)
+	for i := range 6 {
+		addRun(t, st, store.Run{ID: fmt.Sprintf("p%d", i), At: clk.t.Add(-time.Duration(i+1) * time.Minute), Mode: "placement", Session: "placement", WPM: 60, Accuracy: 1})
+	}
+	addRun(t, st, store.Run{ID: "q", At: clk.t, Mode: "drill", WPM: 40, Accuracy: 1})
+	if n := ui.RunCadence(a); n != 1 {
+		t.Errorf("cadence = %d, want 1 (placement runs skipped)", n)
+	}
+	openStats(t, a)
+	a.Update(tab)
+	a.Update(tab)
+	var overall []string
+	for _, l := range strings.Split(view(a), "\n") {
+		if f := strings.Fields(strings.TrimPrefix(l, "│")); len(f) > 0 && f[0] == "celkem" {
+			overall = append(overall, strings.Join(f[1:], " "))
+		}
+	}
+	if len(overall) != 2 {
+		t.Fatalf("overall rows = %v in\n%s", overall, view(a))
+	}
+	// The placement runs share the day with a 40 wpm drill: the median must be the drill's.
+	if !strings.Contains(overall[0], "40") || strings.Contains(overall[0], "60") {
+		t.Errorf("overall WPM trend = %q, want only the 40 wpm drill", overall[0])
+	}
+}
+
+func TestRetakeWithNothingNewSaysSo(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	p := st.Profile()
+	p.FirstRunDone = true
+	for _, ch := range a.Curr.Chapters() {
+		if ch.Number <= 8 {
+			a.Curr.CompleteChapter(p, ch.ID)
+		}
+	}
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	playStage(t, a, clk) // letters: chapters 0-4, all done already
+	failStage(t, a, clk)
+	showsAll(t, a, "nic nepřidal", "Senior")
+	showsNone(t, a, "Odemčeno", "nabízíme")
+}
+
+func TestPlacementCountsOnlyNewlyUnlockedChapters(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	p := st.Profile()
+	chs := a.Curr.Chapters()
+	a.Curr.CompleteChapter(p, chs[0].ID)
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	playStage(t, a, clk) // letters: chapters 0-4, one done already
+	failStage(t, a, clk)
+	showsAll(t, a, "Odemčeno: 4 kapitol")
 }
