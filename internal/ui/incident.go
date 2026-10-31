@@ -178,7 +178,11 @@ func (s *severityScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		}
 		return NewHomeScreen(a), nil
 	case "enter":
-		return NewIncidentScreen(a, s.inc, severities[s.sel], s.next), nil
+		round := NewIncidentScreen(a, s.inc, severities[s.sel], s.next)
+		if r, ok := round.(*roundScreen); ok && s.back != nil { // picked from the incident list
+			r.spec.Session = sessionCareer
+		}
+		return round, nil
 	}
 	return s, nil
 }

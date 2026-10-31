@@ -239,9 +239,9 @@ const (
 
 // More statistics strings.
 const (
-	StatsModePractice  = "trénink"
-	StatsModeTestOut   = "test-out"
-	StatsModePlacement = "vstupní pohovor"
+	StatsModePractice  = "Trénink"
+	StatsModeTestOut   = "Test-out"
+	StatsModePlacement = "Vstupní pohovor"
 	StatsRecordScore   = "skóre"
 	StatsWPM           = "WPM"
 	StatsAccuracy      = "Přesnost"
@@ -255,4 +255,11 @@ var StatsTabs = [...]string{"git log", "heatmap", "trendy", "rekordy"}
 var (
 	StatsHandNames   = [...]string{"levý", "pravý"}
 	StatsFingerNames = [...]string{"malíček", "prsteník", "prostředník", "ukazovák", "palec"}
+)
+
+// Sessions: how a round was started.
+const (
+	StatsSessionQuick   = "Rychlovka"
+	StatsSessionStandup = "Standup"
+	StatsSessionSprint  = "Sprint"
 )

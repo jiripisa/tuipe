@@ -60,7 +60,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 
 	run := store.Run{
 		ID: runID(now, hash), At: now, Mode: modeName(spec),
-		LessonID: spec.LessonID, TextHash: hash, LayoutID: a.Layout.ID,
+		Session: a.sessionOf(spec), LessonID: spec.LessonID, TextHash: hash, LayoutID: a.Layout.ID,
 		WPM: r.Metrics.WPM, Accuracy: r.Metrics.Accuracy, Score: r.Metrics.Score,
 		Stars: r.Stars, DurationMs: r.Metrics.Duration.Milliseconds(),
 		Paused: r.Paused, HintUsed: r.HintUsed,
@@ -114,6 +114,29 @@ func (a *App) skippedBy(chapterID string) []string {
 		}
 	}
 	return []string{chapterID}
+}
+
+// How a round was started, as stored on its run.
+const (
+	sessionQuick    = "quick"
+	sessionStandup  = kindStandup
+	sessionSprint   = kindSprint
+	sessionCareer   = "career"
+	sessionPractice = "practice"
+)
+
+// sessionOf says how the round of spec was started: inside a Standup or Sprint,
+// by hand in Practice, from the career or incident list, or as a quick run.
+func (a *App) sessionOf(spec play.Spec) string {
+	switch {
+	case a.chain != nil:
+		return a.chain.kind
+	case spec.Practice:
+		return sessionPractice
+	case spec.Session != "":
+		return spec.Session
+	}
+	return sessionQuick
 }
 
 func modeName(spec play.Spec) string {

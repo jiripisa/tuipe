@@ -46,6 +46,7 @@ type Run struct {
 	ID                                 string
 	At                                 time.Time
 	Mode, LessonID, TextHash, LayoutID string
+	Session                            string // how the round was started: quick, standup, sprint, career or practice; empty in old runs
 	WPM, Accuracy, Score               float64
 	Stars                              int
 	DurationMs                         int64

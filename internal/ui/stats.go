@@ -42,9 +42,6 @@ var trendGroups = []string{
 	text.StatsGroupDigits, text.StatsGroupShift, text.StatsGroupOption,
 }
 
-// recordModes are the run modes that have a personal best, in display order.
-var recordModes = []string{"lesson", "code", "incident", "drill", "practice"}
-
 // statsScreen shows the history: git log, heatmap, trends and personal bests.
 // The runs are read once when the screen opens.
 type statsScreen struct {
@@ -185,7 +182,7 @@ func (s *statsScreen) gitLog(a *App, rows int) []string {
 // runLine is a run like a git log entry: hash, WPM, accuracy, stars, the lead
 // on the ghost and what was typed.
 func (s *statsScreen) runLine(a *App, r store.Run) string {
-	line := fmt.Sprintf("%s  %2.0f wpm  %.1f %%  %s", r.ID, r.WPM, r.Accuracy*100, starBar(r.Stars))
+	line := fmt.Sprintf("%s  %2.0f wpm  %-7s %s", r.ID, r.WPM, fmt.Sprintf("%.1f %%", r.Accuracy*100), starBar(r.Stars))
 	if r.GhostDeltaMs != nil {
 		line += fmt.Sprintf("  %+.1f s", float64(*r.GhostDeltaMs)/1000)
 	}
@@ -193,13 +190,17 @@ func (s *statsScreen) runLine(a *App, r store.Run) string {
 	if r.LessonID != "" {
 		title, _ = a.lessonTitle(r.LessonID)
 	}
+	name := modeLabel(r.Mode)
+	if l := sessionLabel(sessionOfRun(r)); l != "" {
+		name += " · " + l
+	}
 	switch {
 	case r.Mode == "lesson" && title != "":
 		return line + "  " + title
 	case title != "":
-		return line + "  " + modeLabel(r.Mode) + ": " + title
+		return line + "  " + name + ": " + title
 	}
-	return line + "  " + modeLabel(r.Mode)
+	return line + "  " + name
 }
 
 // keyOf is the key a character ends on: the last chord of its route.
@@ -450,27 +451,67 @@ func (s *statsScreen) trends(a *App) []string {
 	return out
 }
 
-// records lists the best run of each mode by Score. Paused runs and lost
+// sessionOfRun is how a run was started; runs from before sessions were
+// recorded count as quick runs.
+func sessionOfRun(r store.Run) string {
+	if r.Session == "" {
+		return sessionQuick
+	}
+	return r.Session
+}
+
+// sessionLabel names a quick run, Standup or Sprint; other sessions have no
+// label of their own, since the mode says what was typed.
+func sessionLabel(session string) string {
+	switch session {
+	case sessionQuick:
+		return text.StatsSessionQuick
+	case sessionStandup:
+		return text.StatsSessionStandup
+	case sessionSprint:
+		return text.StatsSessionSprint
+	}
+	return ""
+}
+
+// recordRow is a personal best category: a run belongs to the one of its
+// session (quick run, Standup, Sprint) and to the one of its mode (lesson,
+// code, incident).
+type recordRow struct {
+	label string
+	has   func(store.Run) bool
+}
+
+var recordRows = []recordRow{
+	{text.StatsSessionQuick, func(r store.Run) bool { return sessionOfRun(r) == sessionQuick }},
+	{text.StatsModeLesson, func(r store.Run) bool { return r.Mode == "lesson" }},
+	{text.StatsModeCode, func(r store.Run) bool { return r.Mode == "code" }},
+	{text.StatsModeIncident, func(r store.Run) bool { return r.Mode == "incident" }},
+	{text.StatsSessionStandup, func(r store.Run) bool { return sessionOfRun(r) == sessionStandup }},
+	{text.StatsSessionSprint, func(r store.Run) bool { return sessionOfRun(r) == sessionSprint }},
+}
+
+// records lists the best run of each category by Score. Paused runs and lost
 // incidents do not count.
 func (s *statsScreen) records(a *App) []string {
 	st := a.Style
-	best := map[string]store.Run{}
-	for _, r := range s.runs {
-		if r.Paused || lostIncident(r) {
-			continue
-		}
-		if b, ok := best[r.Mode]; !ok || r.Score > b.Score {
-			best[r.Mode] = r
-		}
-	}
 	var out []string
-	for _, mode := range recordModes {
-		r, ok := best[mode]
-		if !ok {
+	for _, row := range recordRows {
+		var best *store.Run
+		for i := range s.runs {
+			r := &s.runs[i]
+			if r.Paused || lostIncident(*r) || !row.has(*r) {
+				continue
+			}
+			if best == nil || r.Score > best.Score {
+				best = r
+			}
+		}
+		if best == nil {
 			continue
 		}
 		out = append(out, st.Base().Foreground(st.Fg).Render(fmt.Sprintf("%-*s%2.0f wpm  %.1f %%  %s %.1f",
-			trendLabelCol, modeLabel(mode), r.WPM, r.Accuracy*100, text.StatsRecordScore, r.Score)))
+			trendLabelCol, row.label, best.WPM, best.Accuracy*100, text.StatsRecordScore, best.Score)))
 	}
 	if len(out) == 0 {
 		return []string{st.Base().Foreground(st.Dim).Render(text.StatsEmpty)}

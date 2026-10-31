@@ -33,6 +33,7 @@ type Spec struct {
 	Title, Lang, LessonID string
 	ChapterID             string // the chapter a test-out would complete
 	Practice              bool   // chosen by hand in Practice, for the run's mode
+	Session               string // how the round was started, for the run record; empty counts as a quick run
 	Text                  string
 	Targets               score.Targets
 	HintsOff              bool

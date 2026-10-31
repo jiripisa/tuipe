@@ -470,7 +470,7 @@ func TestPersonalBestsPerMode(t *testing.T) {
 	if strings.Contains(s, "90 wpm") || strings.Contains(s, "80 wpm") {
 		t.Errorf("a paused run or a lost incident counted as a record:\n%s", s)
 	}
-	if l := nthLine(s, text.StatsModeDrill, 0); l != "" {
+	if l := nthLine(s, text.StatsSessionStandup, 0); l != "" {
 		t.Errorf("a mode without runs must not be listed: %q", l)
 	}
 }
@@ -511,5 +511,135 @@ func TestTabsSwitchWithTabAndArrowsAndEscGoesHome(t *testing.T) {
 	a.Update(esc)
 	if ui.ScreenName(a) != "home" {
 		t.Errorf("Esc leads to %s, want home", ui.ScreenName(a))
+	}
+}
+
+// onlyRun returns the single run in the store.
+func onlyRun(t *testing.T, st *store.Store) store.Run {
+	t.Helper()
+	runs, _ := st.Runs()
+	if len(runs) != 1 {
+		t.Fatalf("runs = %d, want 1", len(runs))
+	}
+	return runs[0]
+}
+
+func TestFinishWritesTheSessionOfEveryWayToStartARound(t *testing.T) {
+	t.Run("quick", func(t *testing.T) {
+		a, st, clk := playApp(t)
+		a.Update(enter) // the recommended round
+		typeKeys(a, clk, -1)
+		if got := onlyRun(t, st).Session; got != "quick" {
+			t.Errorf("Session = %q, want quick", got)
+		}
+	})
+	t.Run("career", func(t *testing.T) {
+		a, st, clk := playApp(t)
+		tall(a)
+		openFromHome(t, a, homeCareer, "career")
+		a.Update(enter)
+		typeKeys(a, clk, -1)
+		if got := onlyRun(t, st).Session; got != "career" {
+			t.Errorf("Session = %q, want career", got)
+		}
+	})
+	t.Run("practice", func(t *testing.T) {
+		a, st, clk := playApp(t)
+		tall(a)
+		openPractice(t, a, practiceLesson)
+		a.Update(enter)
+		typeKeys(a, clk, -1)
+		if got := onlyRun(t, st).Session; got != "practice" {
+			t.Errorf("Session = %q, want practice", got)
+		}
+	})
+	t.Run("standup", func(t *testing.T) {
+		a, st, clk := playApp(t)
+		openEntry(a, homeStandup)
+		typeKeys(a, clk, -1)
+		if got := onlyRun(t, st).Session; got != "standup" {
+			t.Errorf("Session = %q, want standup", got)
+		}
+	})
+	t.Run("sprint", func(t *testing.T) {
+		a, st, clk := playApp(t)
+		openEntry(a, homeSprint)
+		a.Update(enter)
+		typeKeys(a, clk, -1)
+		if got := onlyRun(t, st).Session; got != "sprint" {
+			t.Errorf("Session = %q, want sprint", got)
+		}
+	})
+	t.Run("incident from the list", func(t *testing.T) {
+		a, st, clk := playApp(t)
+		openFromHome(t, a, homeIncident, "incident-list")
+		a.Update(enter)
+		a.Update(enter)
+		typeKeys(a, clk, -1)
+		if got := onlyRun(t, st).Session; got != "career" {
+			t.Errorf("Session = %q, want career", got)
+		}
+	})
+}
+
+func TestRecordsPerSessionAndMode(t *testing.T) {
+	a, st, clk := statsApp(t, 80, 24)
+	id, _ := lessonOf(t, a, 1)
+	add := func(r store.Run) {
+		r.At = daysAgo(clk, 0)
+		addRun(t, st, r)
+	}
+	add(store.Run{ID: "q1", Session: "quick", Mode: "drill", WPM: 41, Accuracy: 0.95, Score: 33})
+	add(store.Run{ID: "q0", Mode: "drill", WPM: 44, Accuracy: 0.96, Score: 37}) // no session: quick
+	add(store.Run{ID: "s1", Session: "standup", Mode: "drill", WPM: 52, Accuracy: 0.97, Score: 46})
+	add(store.Run{ID: "p1", Session: "sprint", Mode: "lesson", LessonID: id, WPM: 58, Accuracy: 0.98, Score: 53})
+	add(store.Run{ID: "p2", Session: "sprint", Mode: "code", WPM: 60, Accuracy: 0.99, Score: 57, Paused: true})
+	add(store.Run{ID: "l1", Session: "career", Mode: "lesson", LessonID: id, WPM: 47, Accuracy: 0.94, Score: 36})
+	openStats(t, a)
+	for range 3 {
+		a.Update(tab)
+	}
+	s := screen(a)
+	for label, want := range map[string]string{
+		text.StatsSessionQuick:   "44 wpm  96.0 %",
+		text.StatsSessionStandup: "52 wpm  97.0 %",
+		text.StatsSessionSprint:  "58 wpm  98.0 %",
+		text.StatsModeLesson:     "58 wpm  98.0 %",
+	} {
+		if l := nthLine(s, label, 0); !strings.Contains(l, want) {
+			t.Errorf("record %q = %q, want it to contain %q:\n%s", label, l, want, s)
+		}
+	}
+	if l := nthLine(s, text.StatsModeCode, 0); l != "" {
+		t.Errorf("a paused run set a code record: %q", l)
+	}
+}
+
+func TestGitLogNamesTheSessionAndAlignsAccuracy(t *testing.T) {
+	a, st, clk := statsApp(t, 100, 30)
+	addRun(t, st, store.Run{ID: "aaaaaaa", At: daysAgo(clk, 0), Session: "standup", Mode: "drill", WPM: 70, Accuracy: 1, Stars: 3})
+	addRun(t, st, store.Run{ID: "bbbbbbb", At: daysAgo(clk, 0).Add(-time.Minute), Session: "sprint", Mode: "code", WPM: 5, Accuracy: 0.5})
+	addRun(t, st, store.Run{ID: "ccccccc", At: daysAgo(clk, 0).Add(-2 * time.Minute), Session: "quick", Mode: "drill", WPM: 30, Accuracy: 0.9})
+	openStats(t, a)
+	s := screen(a)
+	stars := func(id string) int { // the offset of the stars from the hash
+		for _, l := range strings.Split(s, "\n") {
+			if i := strings.Index(l, id); i >= 0 {
+				return strings.IndexAny(l, "★☆") - i
+			}
+		}
+		return -1
+	}
+	if stars("aaaaaaa") != stars("bbbbbbb") || stars("bbbbbbb") != stars("ccccccc") {
+		t.Errorf("the stars column is not aligned (100.0 %% pushes it):\n%s", s)
+	}
+	for id, want := range map[string]string{
+		"aaaaaaa": text.StatsSessionStandup, "bbbbbbb": text.StatsSessionSprint, "ccccccc": text.StatsSessionQuick,
+	} {
+		if l := nthLine(s, id, 0); !strings.Contains(l, want) {
+			if l = nthLine(s, "> "+id, 0); !strings.Contains(l, want) {
+				t.Errorf("line of %s lacks the session %q: %q", id, want, l)
+			}
+		}
 	}
 }

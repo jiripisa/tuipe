@@ -203,6 +203,7 @@ func (c *careerScreen) start(a *App, r careerRow) (Screen, tea.Cmd) {
 		c.note = err.Error()
 		return c, nil
 	}
+	spec.Session = sessionCareer
 	return newRound(a, spec, again), nil
 }
 
