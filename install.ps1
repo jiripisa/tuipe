@@ -97,5 +97,11 @@ try {
     Install-Tuipe
 } catch {
     Write-Host "Chyba: $($_.Exception.Message)" -ForegroundColor Red
-    # Not `exit`: under `irm | iex` it would close the user's terminal.
+    if ($PSCommandPath) {
+        # Run as a file: report failure to the caller.
+        exit 1
+    }
+    # Under `irm | iex` an `exit` would close the user's terminal, so only
+    # flag the failure.
+    $global:LASTEXITCODE = 1
 }
