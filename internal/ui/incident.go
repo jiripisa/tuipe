@@ -1,0 +1,468 @@
+package ui
+
+import (
+	"fmt"
+	"image/color"
+	"slices"
+	"strings"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/jiripisa/tuipe/internal/content"
+	"github.com/jiripisa/tuipe/internal/engine"
+	"github.com/jiripisa/tuipe/internal/hint"
+	"github.com/jiripisa/tuipe/internal/incident"
+	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/recommend"
+	"github.com/jiripisa/tuipe/internal/store"
+	"github.com/jiripisa/tuipe/internal/ui/style"
+	"github.com/jiripisa/tuipe/internal/ui/text"
+)
+
+// severities in the order the picker offers them.
+var severities = []incident.Severity{incident.SEV3, incident.SEV2, incident.SEV1}
+
+// story is an incident being played: its steps lie in one text, one newline
+// apart, so the position of the cursor tells the step.
+type story struct {
+	inc    content.Incident
+	sev    incident.Severity
+	starts []int // index of the first cell of each step
+}
+
+func newStory(inc content.Incident, sev incident.Severity) *story {
+	s := &story{inc: inc, sev: sev}
+	at := 0
+	for _, st := range inc.Steps {
+		s.starts = append(s.starts, at)
+		at += len([]rune(st.Text)) + 1 // the Enter that ends the step
+	}
+	return s
+}
+
+func joinSteps(inc content.Incident) string {
+	parts := make([]string, len(inc.Steps))
+	for i, st := range inc.Steps {
+		parts[i] = st.Text
+	}
+	return strings.Join(parts, "\n")
+}
+
+// step is the index of the step the cursor is in. The Enter that ends a step
+// still belongs to it.
+func (s *story) step(pos int) int {
+	i := 0
+	for j, start := range s.starts {
+		if start <= pos {
+			i = j
+		}
+	}
+	return i
+}
+
+// view is the prompt, language and right-hand info of the round screen.
+func (s *story) view(pos int, active time.Duration) (prompt, lang, info string) {
+	i := s.step(pos)
+	secs := int(active.Seconds())
+	return s.inc.Steps[i].Prompt, s.inc.Steps[i].Lang,
+		fmt.Sprintf(text.RoundIncidentInfo, s.inc.ID, i+1, len(s.inc.Steps), secs/60, secs%60)
+}
+
+func (a *App) incidentByID(id string) (content.Incident, bool) {
+	i := slices.IndexFunc(a.Lib.Incidents, func(inc content.Incident) bool { return inc.ID == id })
+	if i < 0 {
+		return content.Incident{}, false
+	}
+	return a.Lib.Incidents[i], true
+}
+
+// incidentTargets are the targets of the last lesson of the incident's chapter,
+// or of the nearest earlier chapter that has lessons.
+func (a *App) incidentTargets(chapterID string) (targets play.Spec) {
+	chs := a.Curr.Chapters()
+	i := slices.IndexFunc(chs, func(c content.ChapterDef) bool { return c.ID == chapterID })
+	if i < 0 {
+		targets.Targets = a.chapterTargets()
+		return targets
+	}
+	targets.HintsOff = chs[i].Number == hintsOffChapter
+	for j := i; j >= 0; j-- {
+		if n := len(chs[j].Lessons); n > 0 {
+			targets.Targets = a.Curr.Targets(chs[j].Lessons[n-1].ID)
+			return targets
+		}
+	}
+	return targets
+}
+
+// incidentSpec builds the round of an incident: all steps as one text, the
+// SLA calibrated to the player's recent pace, the replay ghost of the best win.
+func (a *App) incidentSpec(inc content.Incident, sev incident.Severity) (play.Spec, error) {
+	if len(inc.Steps) == 0 {
+		return play.Spec{}, fmt.Errorf("incident %q has no steps", inc.ID)
+	}
+	txt := joinSteps(inc)
+	keys := 0
+	for _, c := range engine.Prepare(txt).Cells {
+		if !c.Auto {
+			keys++
+		}
+	}
+	runs, _ := a.Store.Runs() // a damaged history only affects the calibration
+	params := incident.NewParams(sev, recommend.BaseWPM(runs), keys)
+	spec := a.incidentTargets(inc.Chapter)
+	spec.Kind, spec.Title, spec.Lang, spec.Text = play.KindIncident, inc.Title, inc.Steps[0].Lang, txt
+	spec.Incident = &params
+	return a.withReplay(spec)
+}
+
+// NewIncidentScreen builds the round of an incident at the given severity. When
+// it cannot be built it returns the home screen, with a warning on the status line.
+func NewIncidentScreen(a *App, inc content.Incident, sev incident.Severity, next func(*App) Screen) Screen {
+	spec, err := a.incidentSpec(inc, sev)
+	if err != nil {
+		a.SaveErr(err)
+		return NewHomeScreen(a)
+	}
+	r := &roundScreen{spec: spec, next: next, story: newStory(inc, sev)}
+	r.begin(a)
+	return r
+}
+
+// severityScreen asks how hard the incident should be.
+type severityScreen struct {
+	inc  content.Incident
+	sel  int
+	next func(*App) Screen // after the incident
+	back func(*App) Screen // where Esc goes; the home screen when nil
+}
+
+// NewSeverityScreen offers the severities of an incident, SEV3 first.
+func NewSeverityScreen(a *App, inc content.Incident, next, back func(*App) Screen) Screen {
+	return &severityScreen{inc: inc, next: next, back: back}
+}
+
+func (s *severityScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
+	k, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
+	n := len(severities)
+	switch k.String() {
+	case "up", "k":
+		s.sel = (s.sel + n - 1) % n
+	case "down", "j":
+		s.sel = (s.sel + 1) % n
+	case "esc":
+		if s.back != nil {
+			return s.back(a), nil
+		}
+		return NewHomeScreen(a), nil
+	case "enter":
+		return NewIncidentScreen(a, s.inc, severities[s.sel], s.next), nil
+	}
+	return s, nil
+}
+
+func (s *severityScreen) View(a *App, w, h int) string {
+	st := a.Style
+	runs, _ := a.Store.Runs()
+	labels := []string{text.IncidentSev3, text.IncidentSev2, text.IncidentSev1}
+	lines := []string{
+		st.Base().Foreground(st.Fg).Bold(true).Render(s.inc.ID + "  " + s.inc.Title),
+		st.Base().Foreground(st.Dim).Render(fmt.Sprintf(text.IncidentBaseWPM, recommend.BaseWPM(runs))),
+		"",
+	}
+	for i, l := range labels {
+		if i == s.sel {
+			lines = append(lines, st.Base().Foreground(st.Accent).Bold(true).Render("> "+l))
+		} else {
+			lines = append(lines, st.Base().Foreground(st.Fg).Render("  "+l))
+		}
+	}
+	return style.Frame(st, w, h, text.AppName+" · "+text.IncidentSeverity, strings.Join(lines, "\n"), text.HintIncident)
+}
+
+// incidentListScreen lists the incidents the player may start: chapter bosses
+// and free-play extras of unlocked chapters.
+type incidentListScreen struct{ sel int }
+
+// NewIncidentListScreen builds the list opened by the home menu.
+func NewIncidentListScreen(a *App) Screen { return &incidentListScreen{} }
+
+func (l *incidentListScreen) entries(a *App) []content.Incident {
+	p := a.Store.Profile()
+	var out []content.Incident
+	for _, inc := range a.Lib.Incidents {
+		if a.Curr.IsUnlocked(p, inc.Chapter) && len(a.Layout.Unresolved(joinSteps(inc))) == 0 {
+			out = append(out, inc)
+		}
+	}
+	return out
+}
+
+func (l *incidentListScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
+	k, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return l, nil
+	}
+	list := l.entries(a)
+	n := len(list)
+	switch k.String() {
+	case "up", "k":
+		l.sel--
+	case "down", "j":
+		l.sel++
+	case "esc":
+		return NewHomeScreen(a), nil
+	case "enter":
+		if n > 0 {
+			again := func(*App) Screen { return l }
+			return NewSeverityScreen(a, list[(l.sel%n+n)%n], again, again), nil
+		}
+	}
+	if n > 0 {
+		l.sel = (l.sel%n + n) % n
+	}
+	return l, nil
+}
+
+func (l *incidentListScreen) View(a *App, w, h int) string {
+	st := a.Style
+	p := a.Store.Profile()
+	list := l.entries(a)
+	if len(list) == 0 {
+		body := st.Base().Foreground(st.Dim).Render(text.IncidentListEmpty)
+		return style.Frame(st, w, h, text.AppName+" · "+text.IncidentTitle, body, text.HintIncident)
+	}
+	var lines []string
+	for i, inc := range list {
+		best := text.IncidentListNone
+		if b := p.IncidentBest[inc.ID]; b != "" {
+			best = fmt.Sprintf(text.IncidentListBest, b)
+		}
+		row := ansi.Truncate(inc.ID+"  "+inc.Title, max(w-4-len([]rune(best))-1, 1), "…")
+		row += strings.Repeat(" ", max(w-4-ansi.StringWidth(row)-len([]rune(best)), 1)) + best
+		if i == l.sel {
+			lines = append(lines, st.Base().Foreground(st.Accent).Bold(true).Render("> "+row))
+		} else {
+			lines = append(lines, st.Base().Foreground(st.Fg).Render("  "+row))
+		}
+	}
+	if avail := h - 3; avail > 0 && len(lines) > avail {
+		top := min(max(l.sel-avail/2, 0), len(lines)-avail)
+		lines = lines[top : top+avail]
+	}
+	return style.Frame(st, w, h, text.AppName+" · "+text.IncidentTitle, strings.Join(lines, "\n"), text.HintIncident)
+}
+
+// parseSeverity reads a stored severity.
+func parseSeverity(name string) (incident.Severity, bool) {
+	for _, s := range severities {
+		if s.String() == name {
+			return s, true
+		}
+	}
+	return 0, false
+}
+
+// harderOf is the stored severity to keep: the harder of the stored one and sev.
+func harderOf(stored string, sev incident.Severity) string {
+	if old, ok := parseSeverity(stored); ok && old > sev {
+		return stored
+	}
+	return sev.String()
+}
+
+// incidentResultsScreen is the win screen, or the postmortem of a lost incident.
+type incidentResultsScreen struct {
+	res      play.Result
+	spec     play.Spec
+	story    *story
+	prev     *store.Run
+	next     func(*App) Screen
+	promoted []string // dry promotion lines, when the chapter just completed
+	focus    []rune   // damaged characters a drill can train
+}
+
+// NewIncidentResultsScreen records the finished incident and shows it. A win
+// records the best severity and completes the chapter whose boss it is; a loss
+// records only the run and the keystrokes.
+func NewIncidentResultsScreen(a *App, r play.Result, spec play.Spec, st *story, next func(*App) Screen) Screen {
+	s := &incidentResultsScreen{res: r, spec: spec, story: st, next: next}
+	s.prev = a.previousBest(r.Text.Hash) // before Finish adds this run
+	if r.Incident != nil && r.Incident.Won {
+		s.promoted = a.recordIncidentWin(st)
+	} else {
+		for _, c := range r.Incident.DamageChars {
+			if c != '\n' && c != ' ' {
+				s.focus = append(s.focus, c)
+			}
+		}
+	}
+	a.Finish(spec, r) // Finish has shown any save error
+	return s
+}
+
+// recordIncidentWin keeps the hardest severity won and completes the chapter
+// the incident ends. It returns the promotion lines when the chapter has just
+// been completed. The caller saves the profile.
+func (a *App) recordIncidentWin(st *story) []string {
+	p := a.Store.Profile()
+	boss, isBoss := a.Curr.IncidentDef(st.inc.Chapter)
+	isBoss = isBoss && boss.ID == st.inc.ID
+	firstWin := isBoss && !p.Completed[st.inc.Chapter] && p.IncidentBest[st.inc.ID] == ""
+	before := a.Curr.RankOf(p)
+	p.IncidentBest[st.inc.ID] = harderOf(p.IncidentBest[st.inc.ID], st.sev)
+	if !isBoss {
+		return nil
+	}
+	a.Curr.CompleteChapter(p, st.inc.Chapter)
+	if !firstWin {
+		return nil
+	}
+	lines := []string{fmt.Sprintf(text.IncidentPromoted, a.chapterTitle(st.inc.Chapter))}
+	if after := a.Curr.RankOf(p); after != before {
+		lines = append(lines, fmt.Sprintf(text.IncidentRank, before, after))
+	}
+	return lines
+}
+
+func (a *App) chapterTitle(id string) string {
+	for _, ch := range a.Curr.Chapters() {
+		if ch.ID == id {
+			return ch.Title
+		}
+	}
+	return id
+}
+
+func (s *incidentResultsScreen) won() bool { return s.res.Incident.Won }
+
+func (s *incidentResultsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
+	k, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
+	switch k.String() {
+	case "enter":
+		if s.next == nil {
+			return NewHomeScreen(a), nil
+		}
+		return s.next(a), nil
+	case "esc":
+		return NewHomeScreen(a), nil
+	case "d":
+		if !s.won() && len(s.focus) > 0 {
+			return s.drill(a), nil
+		}
+	}
+	return s, nil
+}
+
+// drill trains the damaged characters with everything their chapter unlocked.
+func (s *incidentResultsScreen) drill(a *App) Screen {
+	unlocked := a.Curr.AllowedAt(s.story.inc.Chapter)
+	allowed := func(r rune) bool {
+		return (unlocked(r) || slices.Contains(s.focus, r)) && a.Curr.CanType(r)
+	}
+	spec := a.generatedSpec(fmt.Sprintf(text.PostmortemDrill, string(s.focus)), s.focus, allowed, s.spec.Targets)
+	return newRound(a, spec, s.next)
+}
+
+func (s *incidentResultsScreen) View(a *App, w, h int) string {
+	var body []string
+	hintLine := text.HintIncidentWon
+	if s.won() {
+		body = s.winLines(a)
+	} else {
+		body = s.postmortemLines(a, w-4)
+		hintLine = text.HintPostmortemBare
+		if len(s.focus) > 0 {
+			hintLine = text.HintPostmortem
+		}
+	}
+	if rows := h - 3; len(body) > rows {
+		body = body[:max(rows, 0)]
+	}
+	return style.Frame(a.Style, w, h, text.AppName+" · "+s.story.inc.ID, strings.Join(body, "\n"), hintLine)
+}
+
+func (s *incidentResultsScreen) winLines(a *App) []string {
+	st := a.Style
+	paint := func(col color.Color, line string) string { return st.Base().Foreground(col).Render(line) }
+	o := s.res.Incident
+	lines := []string{
+		st.Base().Foreground(st.OK).Bold(true).Render(text.IncidentWon),
+		paint(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title),
+		"",
+		paint(st.Fg, fmt.Sprintf(text.IncidentMTTR, o.MTTR.Seconds())),
+		paint(st.Fg, fmt.Sprintf(text.IncidentSLALeft, o.SLA)),
+		paint(st.Fg, fmt.Sprintf(text.IncidentSevShown, s.story.sev)),
+		"",
+	}
+	if s.prev != nil && s.prev.Incident != nil {
+		lines = append(lines, paint(st.Dim, fmt.Sprintf(text.IncidentPrev, float64(s.prev.Incident.MTTRMs)/1000, s.prev.Incident.SLA)))
+	} else {
+		lines = append(lines, paint(st.Dim, text.IncidentFirst))
+	}
+	if d := s.res.GhostDelta; d != nil {
+		if *d >= 0 {
+			lines = append(lines, paint(st.OK, fmt.Sprintf(text.IncidentAhead, d.Seconds())))
+		} else {
+			lines = append(lines, paint(st.Bad, fmt.Sprintf(text.IncidentBehind, -d.Seconds())))
+		}
+	}
+	n := max(0, min(s.res.Stars, maxStars))
+	lines = append(lines, "", paint(st.Accent, text.ResultsStars+"  "+starBar(n)))
+	if s.res.Paused {
+		lines = append(lines, paint(st.Dim, text.ResultsPaused))
+	}
+	if s.res.HintUsed {
+		lines = append(lines, paint(st.Dim, text.ResultsHintUsed))
+	}
+	if len(s.promoted) > 0 {
+		lines = append(lines, "")
+		for _, l := range s.promoted {
+			lines = append(lines, paint(st.Accent, l))
+		}
+	}
+	return lines
+}
+
+// postmortemLines is the blameless postmortem: what happened, which characters
+// were damaged and how to type them, the cause and the follow-up.
+func (s *incidentResultsScreen) postmortemLines(a *App, width int) []string {
+	st := a.Style
+	paint := func(col color.Color, line string) []string {
+		return strings.Split(st.Base().Foreground(col).Render(ansi.Wordwrap(line, max(width, 10), "")), "\n")
+	}
+	lines := paint(st.Bad, text.PostmortemTitle)
+	lines[0] = st.Base().Foreground(st.Bad).Bold(true).Render(text.PostmortemTitle)
+	lines = append(lines, paint(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title)...)
+	lines = append(lines, "")
+	lines = append(lines, paint(st.Fg, text.PostmortemSummary)...)
+	damaged := s.res.Incident.DamageChars
+	if len(damaged) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, paint(st.Fg, text.PostmortemImpact)...)
+		for _, r := range damaged {
+			t := hint.Text(a.Layout, r)
+			if t == "" {
+				t = string(r)
+			}
+			lines = append(lines, paint(st.Accent, "  "+t)...)
+		}
+		lines = append(lines, "")
+		lines = append(lines, paint(st.Fg, text.PostmortemCause)...)
+	} else {
+		lines = append(lines, "")
+		lines = append(lines, paint(st.Fg, text.PostmortemSlow)...)
+	}
+	if len(s.focus) > 0 {
+		lines = append(lines, paint(st.Fg, text.PostmortemAction)...)
+	}
+	return lines
+}

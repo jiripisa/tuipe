@@ -29,6 +29,12 @@ func ScreenName(a *App) string {
 		return "career"
 	case *practiceScreen:
 		return "practice"
+	case *severityScreen:
+		return "severity"
+	case *incidentListScreen:
+		return "incident-list"
+	case *incidentResultsScreen:
+		return "incident-results"
 	}
 	return "other"
 }
@@ -93,4 +99,20 @@ func RoundHint(a *App) *play.HintInfo {
 		return r.sess.Frame(r.now).Hint
 	}
 	return nil
+}
+
+// RoundSpec returns the spec of the current round.
+func RoundSpec(a *App) play.Spec {
+	if r, ok := a.screen.(*roundScreen); ok {
+		return r.spec
+	}
+	return play.Spec{}
+}
+
+// RoundFrame returns the frame of the current round.
+func RoundFrame(a *App) play.Frame {
+	if r, ok := a.screen.(*roundScreen); ok {
+		return r.sess.Frame(r.now)
+	}
+	return play.Frame{}
 }

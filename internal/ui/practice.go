@@ -143,11 +143,6 @@ func (p *practiceScreen) add(a *App, r rune) {
 	p.chars = append(p.chars, r)
 }
 
-func (a *App) canType(r rune) bool {
-	_, ok := a.Layout.Route(r)
-	return ok
-}
-
 func (a *App) seed() int64 { return a.Now().UnixNano() }
 
 // startChars drills the chosen characters with everything the layout can type.

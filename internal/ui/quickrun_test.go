@@ -801,9 +801,13 @@ func TestSpecFor(t *testing.T) {
 	if err != nil || !drill.GhostIsPace || drill.Ghost == nil || drill.Kind != play.KindDrill {
 		t.Errorf("drill: err %v pace %v ghost %v", err, drill.GhostIsPace, drill.Ghost)
 	}
-	inc, _ := a.SpecFor(recommend.Pick{Kind: recommend.Incident, Seed: 1})
-	if inc.Kind != play.KindDrill {
-		t.Errorf("incident maps to %v, want a drill for now", inc.Kind)
+	if _, err := a.SpecFor(recommend.Pick{Kind: recommend.Incident, Seed: 1}); err == nil {
+		t.Error("an incident pick without an id must be an error, not a drill")
+	}
+	_, boss := bossChapter(t, a)
+	inc, err := a.SpecFor(recommend.Pick{Kind: recommend.Incident, IncidentID: boss.ID})
+	if err != nil || inc.Kind != play.KindIncident || inc.Incident == nil || inc.Title != boss.Title {
+		t.Errorf("incident: err %v kind %v params %v", err, inc.Kind, inc.Incident)
 	}
 	playLesson(t, a, clk, 200*time.Millisecond, false)
 	spec, _ = a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: id})

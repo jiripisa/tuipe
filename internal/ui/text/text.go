@@ -151,3 +151,40 @@ const (
 	HintPractice       = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
 	HintPracticeChars  = "Enter spustit · Backspace smazat · Esc zpět · Ctrl+T styl"
 )
+
+// Incidents: the severity picker, the list, the round and the two endings.
+const (
+	IncidentTitle     = "Incident v produkci"
+	IncidentSeverity  = "Závažnost incidentu"
+	IncidentBaseWPM   = "tvé základní tempo: %.0f wpm"
+	IncidentSev3      = "SEV3  běžné tempo, nikdo nevolá"
+	IncidentSev2      = "SEV2  o 5 % rychleji, někdo už píše do chatu"
+	IncidentSev1      = "SEV1  o 15 % rychleji, volá ředitel"
+	IncidentListEmpty = "Žádný odemčený incident. V produkci je zatím klid."
+	IncidentListBest  = "[%s]"
+	IncidentListNone  = "[ ]"
+	HintIncident      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
+	RoundIncidentInfo = "%s  %d/%d  %d:%02d"
+
+	IncidentWon      = "INCIDENT VYŘEŠEN"
+	IncidentMTTR     = "MTTR      %.1f s"
+	IncidentSLALeft  = "SLA       %.2f %%"
+	IncidentSevShown = "závažnost %s"
+	IncidentFirst    = "první řešení tohoto incidentu, není s čím srovnávat"
+	IncidentPrev     = "minule: MTTR %.1f s, SLA %.2f %%"
+	IncidentAhead    = "duch: o %.1f s před minulým řešením"
+	IncidentBehind   = "duch: o %.1f s za minulým řešením"
+	IncidentPromoted = "Kapitola „%s“ uzavřena. Nikdo nepanikaří."
+	IncidentRank     = "Hodnost: %s → %s. HR byla informována."
+
+	PostmortemTitle    = "POSTMORTEM (bez hledání viníka)"
+	PostmortemSummary  = "Souhrn: SLA kleslo na SLO, služba je nedostupná."
+	PostmortemImpact   = "Dopad: tyto znaky selhaly, píšou se takto:"
+	PostmortemCause    = "Příčina: prsty, ne lidé. Nikdo nebude potrestán."
+	PostmortemSlow     = "Příčina: pomalost, ne chyby. Nikdo nebude potrestán."
+	PostmortemAction   = "Opatření: drill na tyto znaky. Termín: hned."
+	PostmortemDrill    = "trénink po incidentu: %s"
+	HintPostmortem     = "d drill na znaky · Enter další · Esc domů · Ctrl+T styl"
+	HintPostmortemBare = "Enter další · Esc domů · Ctrl+T styl"
+	HintIncidentWon    = "Enter další · Esc domů · Ctrl+T styl"
+)

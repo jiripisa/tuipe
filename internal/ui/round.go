@@ -13,6 +13,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/generate"
 	"github.com/jiripisa/tuipe/internal/ghost"
+	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -58,8 +59,13 @@ func (a *App) SpecFor(p recommend.Pick) (play.Spec, error) {
 		return a.lessonSpec(p.LessonID)
 	case recommend.Code:
 		return a.codeSpec(p.SnippetID)
+	case recommend.Incident:
+		inc, ok := a.incidentByID(p.IncidentID)
+		if !ok {
+			return play.Spec{}, fmt.Errorf("unknown incident %q", p.IncidentID)
+		}
+		return a.incidentSpec(inc, incident.SEV3)
 	}
-	// An incident is a drill until the incident screen exists.
 	return a.drillSpec(p), nil
 }
 
@@ -151,6 +157,7 @@ func quickRun(a *App) Screen { return NewRoundScreen(a, a.recommended(), quickRu
 type roundScreen struct {
 	spec  play.Spec
 	next  func(*App) Screen
+	story *story // set for an incident
 	sess  *play.Session
 	gen   int
 	alive bool // a tick is in flight
@@ -166,6 +173,14 @@ type roundScreen struct {
 // NewRoundScreen builds the screen for a recommended round. When the round
 // cannot be built it returns the home screen, with a warning on the status line.
 func NewRoundScreen(a *App, pick recommend.Pick, next func(*App) Screen) Screen {
+	if pick.Kind == recommend.Incident {
+		inc, ok := a.incidentByID(pick.IncidentID)
+		if !ok {
+			a.SaveErr(fmt.Errorf("unknown incident %q", pick.IncidentID))
+			return NewHomeScreen(a)
+		}
+		return NewSeverityScreen(a, inc, next, nil) // SEV3 is selected: Enter starts a quick run
+	}
 	spec, err := a.SpecFor(pick)
 	if err != nil {
 		a.SaveErr(err)
@@ -324,6 +339,9 @@ func (r *roundScreen) feedStats(a *App, now time.Time) {
 
 // finish turns a finished session into the results screen.
 func (r *roundScreen) finish(a *App, now time.Time) Screen {
+	if r.story != nil {
+		return NewIncidentResultsScreen(a, r.sess.Result(now), r.spec, r.story, r.next)
+	}
 	return NewResultsScreen(a, r.sess.Result(now), r.spec, r.next)
 }
 
@@ -345,10 +363,14 @@ func (r *roundScreen) sample(now time.Time) {
 
 func (r *roundScreen) View(a *App, w, h int) string {
 	f := r.sess.Frame(r.now)
-	view := roundview.Render(a.Style, roundview.View{
+	v := roundview.View{
 		Frame: f, Title: r.spec.Title, Lang: r.spec.Lang, Layout: a.Layout,
 		Stars: a.Store.Profile().Stars[r.spec.LessonID], Throughput: r.samples,
-	}, w, h)
+	}
+	if r.story != nil {
+		v.Prompt, v.Lang, v.RightInfo = r.story.view(f.Pos, r.sess.Result(r.now).Metrics.Duration)
+	}
+	view := roundview.Render(a.Style, v, w, h)
 	if f.ManualPause {
 		return r.menu.overlay(a.Style, view, w, h)
 	}

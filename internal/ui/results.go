@@ -150,14 +150,17 @@ func (a *App) uptime() streak.Status {
 	return streak.Compute(days, a.Now().Local().Format(dateLayout))
 }
 
-// previousBest is the best earlier run on the same text that did not pause:
-// the one the ghost was recorded from.
+// lostIncident reports a stored run of an incident that was not won.
+func lostIncident(r store.Run) bool { return r.Incident != nil && !r.Incident.Won }
+
+// previousBest is the best earlier run on the same text that did not pause and
+// was not a lost incident: the one the ghost was recorded from.
 func (a *App) previousBest(hash string) *store.Run {
 	runs, _ := a.Store.Runs()
 	var best *store.Run
 	for i := range runs {
 		r := &runs[i]
-		if r.TextHash == hash && !r.Paused && (best == nil || r.Score > best.Score) {
+		if r.TextHash == hash && !r.Paused && !lostIncident(*r) && (best == nil || r.Score > best.Score) {
 			best = r
 		}
 	}
