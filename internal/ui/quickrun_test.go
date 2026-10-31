@@ -397,7 +397,9 @@ func TestSaveFailureStillShowsResults(t *testing.T) {
 
 func TestUnregisteredHomeEntryIsNotReady(t *testing.T) {
 	a, _, _ := playApp(t)
-	a.Update(down)
+	for range 6 { // the statistics entry has no screen yet
+		a.Update(down)
+	}
 	a.Update(enter)
 	if ui.ScreenName(a) != "home" || !strings.Contains(screen(a), "zatím není hotové") {
 		t.Errorf("expected the not-ready note:\n%s", screen(a))

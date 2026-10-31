@@ -188,3 +188,33 @@ const (
 	HintPostmortemBare = "Enter další · Esc domů · Ctrl+T styl"
 	HintIncidentWon    = "Enter další · Esc domů · Ctrl+T styl"
 )
+
+// Standup, Sprint and Retro.
+const (
+	ChainStandup = "Standup %d/%d"
+	ChainSprint  = "Sprint %d:%02d / %d:%02d"
+
+	HomeDone     = "hotovo"
+	HomeContinue = "pokračovat"
+
+	SprintTitle  = "Sprint"
+	SprintAsk    = "Jak dlouhý sprint?"
+	SprintOption = "%d minut"
+	HintSprint   = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
+
+	RetroTitle      = "Retro"
+	RetroHead       = "git log --stat --since=7.days"
+	RetroRuns       = "%d kol v tomto sprintu"
+	RetroNoRuns     = "Prázdný commit: žádné dokončené kolo, není co hodnotit."
+	RetroWPM        = "wpm   %6.1f  (%+.1f)"
+	RetroAccuracy   = "přes. %5.1f %%  (%+.1f p. b.)"
+	RetroWPMNew     = "wpm   %6.1f"
+	RetroAccNew     = "přes. %5.1f %%"
+	RetroNoPrev     = "Předchozích 7 dní bez kol: není s čím srovnávat."
+	RetroImproved   = "zlepšeno: %s"
+	RetroWorsened   = "zhoršeno: %s"
+	RetroCharShift  = "%s %+.0f p. b."
+	RetroNoShift    = "Znaky: žádná změna, která by stála za záznam."
+	RetroNoSnapshot = "Znaky: chybí snímek ze startu sprintu, nemám co porovnat."
+	HintRetro       = "Enter domů · Esc domů · Ctrl+T styl"
+)

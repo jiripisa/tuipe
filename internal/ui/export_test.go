@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/recommend"
+	"github.com/jiripisa/tuipe/internal/store"
 )
 
 // TickMsg returns the tick of the round that is on screen, or nil.
@@ -35,6 +37,10 @@ func ScreenName(a *App) string {
 		return "incident-list"
 	case *incidentResultsScreen:
 		return "incident-results"
+	case *retroScreen:
+		return "retro"
+	case *sprintPickerScreen:
+		return "sprint-minutes"
 	}
 	return "other"
 }
@@ -116,3 +122,6 @@ func RoundFrame(a *App) play.Frame {
 	}
 	return play.Frame{}
 }
+
+// SprintPlan regenerates the plan of a sprint from its saved state.
+func SprintPlan(a *App, s *store.SprintState) []recommend.Pick { return a.sprintPlan(s) }

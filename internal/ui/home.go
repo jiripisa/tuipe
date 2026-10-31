@@ -65,6 +65,11 @@ type homeScreen struct {
 // NewHomeScreen builds the home screen. The recommended round is selected, or
 // the lesson to continue when a round was left unfinished.
 func NewHomeScreen(a *App) Screen {
+	a.chain = nil
+	// A Sprint left on an earlier day ends with a Retro on the part that was done.
+	if r := a.Store.Profile().Resume; r != nil && r.Kind == resumeKindSprint && r.Day != a.today() {
+		return NewRetroScreen(a, a.sessionRuns(r.Sprint))
+	}
 	h := &homeScreen{pick: a.recommended(), up: a.uptime()}
 	if r := a.Store.Profile().Resume; r != nil && r.LessonID != "" {
 		if title, ok := a.lessonTitle(r.LessonID); ok {
@@ -141,7 +146,7 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 	}
 	labels := []string{h.pickLabel(a)}
 	for _, e := range a.Entries {
-		labels = append(labels, e.label)
+		labels = append(labels, e.label+a.entryNote(e.id))
 	}
 	selLine := 0
 	for i, l := range labels {
@@ -171,4 +176,16 @@ func uptimeText(days int) string {
 		return text.HomeUptimeDay
 	}
 	return fmt.Sprintf(text.HomeUptimeDays, days)
+}
+
+// entryNote is the state of an entry shown after its label: a Standup done
+// today, a Sprint to continue.
+func (a *App) entryNote(id entryID) string {
+	switch {
+	case id == EntryStandup && a.Store.Profile().StandupDay == a.today():
+		return " (" + text.HomeDone + ")"
+	case id == EntrySprint && a.sprintToContinue() != nil:
+		return " (" + text.HomeContinue + ")"
+	}
+	return ""
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"time"
 	"unicode"
 
@@ -300,6 +301,7 @@ func (r *roundScreen) key(m tea.KeyPressMsg, a *App, now time.Time) (Screen, tea
 // It is not a failure: nothing is added to the run history.
 func (r *roundScreen) restart(a *App, now time.Time) tea.Cmd {
 	r.feedStats(a, now)
+	r.countPartial(a, now)
 	r.begin(a)
 	return r.Init(a)
 }
@@ -307,13 +309,17 @@ func (r *roundScreen) restart(a *App, now time.Time) tea.Cmd {
 // rememberLesson writes Profile.Resume at the first keystroke of a lesson, so
 // a closed window or a killed process still offers to continue it.
 func (r *roundScreen) rememberLesson(a *App, now time.Time) {
-	if r.resumeSet || r.spec.LessonID == "" {
+	if r.resumeSet || (r.spec.LessonID == "" && a.chain == nil) {
 		return
 	}
 	if _, log := r.sess.PartialLog(); len(log) == 0 {
 		return
 	}
 	r.resumeSet = true
+	if a.chain != nil { // a Sprint continues as a whole, not as this lesson
+		a.chain.started(a)
+		return
+	}
 	a.Store.Profile().Resume = &store.Resume{
 		Kind: resumeKindLesson, LessonID: r.spec.LessonID, Day: now.Local().Format(dateLayout),
 	}
@@ -327,7 +333,15 @@ func (r *roundScreen) abandon(a *App, now time.Time) {
 		return
 	}
 	r.feedStats(a, now)
+	r.countPartial(a, now)
 	a.SaveErr(a.Store.SaveProfile())
+}
+
+// countPartial gives the chain the active time of keys that did not become a run.
+func (r *roundScreen) countPartial(a *App, now time.Time) {
+	if _, log := r.sess.PartialLog(); len(log) > 0 {
+		a.chain.partial(a, r.sess.Result(now).Metrics.Duration)
+	}
 }
 
 func (r *roundScreen) feedStats(a *App, now time.Time) {
@@ -367,8 +381,12 @@ func (r *roundScreen) View(a *App, w, h int) string {
 		Frame: f, Title: r.spec.Title, Lang: r.spec.Lang, Layout: a.Layout,
 		Stars: a.Store.Profile().Stars[r.spec.LessonID], Throughput: r.samples,
 	}
+	active := r.sess.Result(r.now).Metrics.Duration
 	if r.story != nil {
-		v.Prompt, v.Lang, v.RightInfo = r.story.view(f.Pos, r.sess.Result(r.now).Metrics.Duration)
+		v.Prompt, v.Lang, v.RightInfo = r.story.view(f.Pos, active)
+	}
+	if label := a.chain.label(active); label != "" {
+		v.RightInfo = strings.TrimSpace(label + "  " + v.RightInfo)
 	}
 	view := roundview.Render(a.Style, v, w, h)
 	if f.ManualPause {

@@ -45,6 +45,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	if !testOut {
 		p.Resume = nil // a test-out is no part of the lesson to continue
 	}
+	a.chain.finished(a, r) // may set Resume again, for a Sprint
 
 	var errs []error
 	hash := r.Text.Hash
@@ -259,6 +260,9 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	}
 	full = append(full, "", stars)
 	full = append(full, verdict...)
+	if label := a.chain.label(0); label != "" {
+		full = append(full, "", dim(label))
+	}
 	body := full
 	if len(body) > rows {
 		body = append([]string{commit}, added...)

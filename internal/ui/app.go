@@ -49,6 +49,7 @@ type App struct {
 	Entries   []menuEntry // home menu entries; later screens register theirs
 	focusSeen bool        // a focus message has arrived in this process
 	tickGen   int         // identifies the running round tick; older ticks are dropped
+	chain     *chain      // the Standup or Sprint being played; nil outside one
 }
 
 // initer is implemented by a screen that needs a command when it appears,
@@ -92,6 +93,8 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 		Now: func() time.Time { return time.Now().Round(0) },
 	}
 	a.Entries = defaultEntries()
+	a.RegisterEntry(EntryStandup, openStandup)
+	a.RegisterEntry(EntrySprint, openSprint)
 	a.RegisterEntry(EntryCareer, func(a *App) (Screen, tea.Cmd) { return NewCareerScreen(a), nil })
 	a.RegisterEntry(EntryIncident, func(a *App) (Screen, tea.Cmd) { return NewIncidentListScreen(a), nil })
 	a.RegisterEntry(EntryPractice, func(a *App) (Screen, tea.Cmd) { return NewPracticeScreen(a), nil })
