@@ -1,0 +1,45 @@
+ tuipe  ::  kapitola 6 / symboly  ::  lekce 4                               ★★☆
+
+
+
+
+
+
+
+
+           }↵
+           return n, nil↵
+       }↵
+       ↵
+       // Handle answers one request and logs a failure.↵
+       func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
+           if err := s.auth(r); err != nil {↵
+               http.Error(w, "unauthorized", 401)↵
+               return↵
+           }↵
+           port, err := parsePort(r.URL.Query().Get("port"))↵
+           if err != nil {↵
+               http.Error(w, err.Error(), 400)↵
+               return↵
+           }↵
+           fmt.Fprintf(w, "port %d\n", port)↵
+       }
+
+       HEAD~1 ░░░░░░░░░░░░░░░░░░░░░░░▒                -0.8 s za duchem
+       ty     ███████████████████████▍
+
+       62 wpm   98.1 %   série 379
+
+
+
+
+
+
+
+
+       { → levý Option + í (pravý prsteník)
+             <   +   ě   š   č   ř   ž   ý   á   í   é   =   ´
+               q   w   e   r   t   y   u   i   o   p   ú   )
+                a   s   d   f   g   h   j   k   l   ů   §   ¨   ↵
+              \   z   x   c   v   b   n   m   ,   .   -
+              ⇧    ⌥         space         ⌥    ⇧

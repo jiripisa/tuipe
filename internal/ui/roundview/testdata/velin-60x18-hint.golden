@@ -1,0 +1,18 @@
+╭─ POSTUP ─────────╮╭─ PROPUSTNOST ────╮╭─ HEAD~1 ─────────╮
+│ 63 %   379 / 601 ││ 62 wpm           ││ -0.8 s           │
+│ ██████████░░░░░░ ││      ▁▂▃▄▆▇▅▇█▇█ ││ série 379  98.1 %│
+╰──────────────────╯╰──────────────────╯╰──────────────────╯
+╭─ kapitola 6 / symboly  ::  lekce 4 ──────────────── ★★☆ ─╮
+│ // Handle answers one request and logs a failure.↵       │
+│ func (s *Server) Get(w http.ResponseWriter, r *Req) {↵   │
+│     if err := s.auth(r); err != nil {↵                   │
+│         http.Error(w, "unauthorized", 401)↵              │
+│         return↵                                          │
+╰──────────────────────────────────────────────────────────╯
+╭─ KLÁVESNICE ─────────────────────────╮╭─ DALŠÍ ZNAK ─────╮
+│      < + ě š č ř ž ý á í é = ´       ││ { levý Option +  │
+│       q w e r t y u i o p ú )        ││ í                │
+│       a s d f g h j k l ů § ¨ ↵      ││ pravý prsteník   │
+│      \ z x c v b n m , . -           ││                  │
+│       ⇧  ⌥   space   ⌥  ⇧            ││ NEJSLABŠÍ { } ~ \│
+╰──────────────────────────────────────╯╰──────────────────╯

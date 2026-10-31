@@ -1,0 +1,17 @@
+ tuipe  ::  kapitola 6 / symboly  ::  lekce 4           ★★☆
+ func parsePort(s string) (int, error) {↵
+     n, err := strconv.Atoi(strings.TrimSpace(s))↵
+     if err != nil {↵
+         return 0, fmt.Errorf("bad port %q: %w", s, err)↵
+     }↵
+
+ HEAD~1 ░░░▒                           +1.4 s před duchem
+ ty     ████
+
+ 62 wpm   98.1 %   série 25
+
+
+
+
+
+

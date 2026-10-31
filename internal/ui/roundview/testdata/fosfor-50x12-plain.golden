@@ -1,0 +1,11 @@
+ 62 wpm  98.1 %
+ oprava: přihlášení už nepadá na prázdném hesle
+ a správně vrací chybu 401. Čeština v chybových
+ hláškách se zobrazuje bez rozbitých znaků,
+ protože odpověď má konečně správné kódování.
+ Přidali jsme také test pro dlouhé uživatelské
+ jméno a odstranili starý přepínač, který už
+ nikdo nepoužíval. Příští týden doplníme
+ stránkování do seznamu uživatelů a zrychlíme
+ hledání podle e-mailu.
+

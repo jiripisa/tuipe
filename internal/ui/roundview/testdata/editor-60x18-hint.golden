@@ -1,0 +1,17 @@
+ main.go   kapitola 6 / symboly  ::  lekce 4            ★★☆
+12 ↵
+13 // Handle answers one request and logs a failure.↵
+14 func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
+15     if err := s.auth(r); err != nil {↵
+16         http.Error(w, "unauthorized", 401)↵
+17         return↵
+18     }↵
+19     port, err := parsePort(r.URL.Query().Get("port"))↵
+20     if err != nil {↵
+── { → levý Option + í (pravý prsteník) ────────────────────
+   <   +   ě   š   č   ř   ž   ý   á   í   é   =   ´
+     q   w   e   r   t   y   u   i   o   p   ú   )
+      a   s   d   f   g   h   j   k   l   ů   §   ¨   ↵
+    \   z   x   c   v   b   n   m   ,   .   -
+    ⇧    ⌥         space         ⌥    ⇧
+ PSANÍ  62 wpm  98.1 %  HEAD~1 -0.8 s      série 379  14:53

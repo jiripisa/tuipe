@@ -1,0 +1,17 @@
+ tuipe  ::  kapitola 7 / kód  ::  lekce 2               ★★☆
+     value = int(text.strip())↵
+     if value < 1 or value > 65535:↵
+         raise ValueError("port out of range")↵
+     return value↵
+ ↵
+ ↵
+ def main():↵
+     print(parse_port("8080"))
+
+  PAUZA    62 wpm   98.1 %   série 79
+ pokračujte stiskem klávesy
+
+
+
+
+

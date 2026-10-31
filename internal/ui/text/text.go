@@ -38,3 +38,37 @@ const NewerData = "Data uložila novější verze tuipe. Spusťte „tuipe upgra
 
 // HintQuit is the footer hint of the start screen.
 const HintQuit = "Ctrl+T styl · Ctrl+C konec"
+
+// Labels of the round screen. HEAD~1, SLA and wpm are the app's own terms.
+const (
+	RoundGhost      = "HEAD~1"
+	RoundYou        = "ty"
+	RoundAhead      = "před duchem"
+	RoundBehind     = "za duchem"
+	RoundStreak     = "série"
+	RoundSLA        = "SLA"
+	RoundWPM        = "wpm"
+	RoundAccuracy   = "přes."
+	RoundTyping     = "PSANÍ"
+	RoundPaused     = "PAUZA"
+	RoundResume     = "pokračujte stiskem klávesy"
+	RoundAltWarning = "Terminál bere Option jako Alt. V nastavení to změňte."
+	RoundProgress   = "postup"
+	RoundChars      = "znaky"
+	RoundLine       = "řádek"
+	RoundErrors     = "chyby"
+	RoundWeak       = "nejslabší"
+	RoundOverview   = "přehled"
+	RoundProseFile  = "text.txt"
+)
+
+// Panel titles of the Velín layout.
+const (
+	RoundPanelProgress = "POSTUP"
+	RoundThroughput    = "PROPUSTNOST"
+	RoundPanelStats    = "STATISTIKA"
+	RoundPanelOverview = "PŘEHLED"
+	RoundPanelKeyboard = "KLÁVESNICE"
+	RoundNextChar      = "DALŠÍ ZNAK"
+	RoundWeakest       = "NEJSLABŠÍ"
+)
