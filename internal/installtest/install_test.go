@@ -610,3 +610,28 @@ func TestInstallPs1ViaIex(t *testing.T) {
 		t.Fatalf("missing final line:\n%s", out)
 	}
 }
+
+// install.ps1 cannot run off Windows, so pin the properties that keep it
+// working on a bare Windows PowerShell 5.1.
+func TestInstallPs1StaticProperties(t *testing.T) {
+	b, err := os.ReadFile("../../install.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(b, []byte{0xEF, 0xBB, 0xBF}) {
+		t.Fatal("install.ps1 must start with a UTF-8 BOM for Windows PowerShell 5.1")
+	}
+	src := string(b)
+	for _, banned := range []string{"Expand-Archive", "Get-FileHash"} {
+		if strings.Contains(src, banned) {
+			t.Fatalf("install.ps1 must not depend on the script-backed %s", banned)
+		}
+	}
+	// Preferences must be set inside the function, never at script level.
+	fn := strings.Index(src, "function Install-Tuipe")
+	for _, pref := range []string{"$ErrorActionPreference =", "Set-StrictMode"} {
+		if i := strings.Index(src, pref); i < fn {
+			t.Fatalf("%s is set outside Install-Tuipe", pref)
+		}
+	}
+}

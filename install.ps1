@@ -1,4 +1,4 @@
-# tuipe installer for Windows (PowerShell 5.1 or newer).
+﻿# tuipe installer for Windows (PowerShell 5.1 or newer).
 #
 #   irm https://raw.githubusercontent.com/jiripisa/tuipe/main/install.ps1 | iex
 #
@@ -7,17 +7,26 @@
 #   TUIPE_API_BASE     GitHub API base (default: https://api.github.com)
 #
 # Everything lives in Install-Tuipe, called on the last line, so a truncated
-# download cannot run half a script.
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
+# download cannot run half a script. Preferences are set inside the function
+# and the function is removed afterwards, so nothing leaks into the user's
+# session under `iex`. This file starts with a UTF-8 BOM so Windows PowerShell
+# 5.1 reads the Czech text correctly when run as a file.
 
 function Install-Tuipe {
+    $ErrorActionPreference = 'Stop'
+    Set-StrictMode -Version Latest
+
+    # Runs $Action; any failure becomes the given Czech message, never raw .NET text.
+    function Invoke-Step([string]$Message, [scriptblock]$Action) {
+        try { & $Action } catch { throw $Message }
+    }
+
     $repo = 'jiripisa/tuipe'
     $api = if ($env:TUIPE_API_BASE) { $env:TUIPE_API_BASE } else { 'https://api.github.com' }
     $dir = if ($env:TUIPE_INSTALL_DIR) { $env:TUIPE_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'tuipe\bin' }
 
     # Windows PowerShell 5.1 may default to old TLS versions.
-    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
 
     $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
     switch ($arch) {
@@ -27,67 +36,116 @@ function Install-Tuipe {
     }
 
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ('tuipe-install-' + [Guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Path $tmp | Out-Null
+    Invoke-Step 'Nepodařilo se vytvořit dočasnou složku.' { [void][IO.Directory]::CreateDirectory($tmp) }
+    $staged = $null
     try {
         Write-Host 'Zjišťuji nejnovější verzi tuipe...'
         try {
-            $release = Invoke-RestMethod -Uri "$api/repos/$repo/releases/latest" -Headers @{ Accept = 'application/vnd.github+json' }
+            $release = Invoke-RestMethod -Uri "$api/repos/$repo/releases/latest" -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30
         } catch {
-            throw 'Nepodařilo se načíst informace o vydání. Zkontrolujte připojení k internetu.'
+            $code = 0
+            if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) {
+                $code = [int]$_.Exception.Response.StatusCode
+            }
+            switch ($code) {
+                0 { throw 'Nelze se spojit s GitHubem. Zkontrolujte připojení k internetu a zkuste to znovu.' }
+                404 { throw 'Zatím neexistuje žádné vydání ke stažení.' }
+                403 { throw 'GitHub dočasně odmítl dotaz (příliš mnoho požadavků). Zkuste to za chvíli.' }
+                429 { throw 'GitHub dočasně odmítl dotaz (příliš mnoho požadavků). Zkuste to za chvíli.' }
+                default { throw "GitHub odpověděl nečekaně (HTTP $code)." }
+            }
         }
-        $tag = $release.tag_name
-        if (-not $tag) { throw 'V odpovědi chybí číslo verze.' }
+        $tag = if ($release.PSObject.Properties['tag_name']) { [string]$release.tag_name } else { '' }
+        if (-not $tag) { throw 'GitHub odpověděl nečekaně (chybí číslo verze).' }
         $version = $tag -replace '^v', ''
 
         $archive = "tuipe_${version}_windows_${goarch}.zip"
-        $archiveAsset = $release.assets | Where-Object { $_.name -eq $archive } | Select-Object -First 1
-        $sumsAsset = $release.assets | Where-Object { $_.name -eq 'checksums.txt' } | Select-Object -First 1
+        $assets = @($release.assets)
+        $archiveAsset = $assets | Where-Object { $_.name -eq $archive } | Select-Object -First 1
+        $sumsAsset = $assets | Where-Object { $_.name -eq 'checksums.txt' } | Select-Object -First 1
         if (-not $archiveAsset) { throw "Verze $tag nemá soubor $archive." }
         if (-not $sumsAsset) { throw "Verze $tag nemá soubor checksums.txt." }
 
         Write-Host "Stahuji tuipe $tag (windows/$goarch)..."
         $archivePath = Join-Path $tmp $archive
         $sumsPath = Join-Path $tmp 'checksums.txt'
-        try {
-            Invoke-WebRequest -Uri $archiveAsset.browser_download_url -OutFile $archivePath -UseBasicParsing
-            Invoke-WebRequest -Uri $sumsAsset.browser_download_url -OutFile $sumsPath -UseBasicParsing
-        } catch {
-            throw 'Stažení se nezdařilo. Zkontrolujte připojení k internetu.'
+        Invoke-Step 'Stažení se nezdařilo. Zkontrolujte připojení k internetu.' {
+            Invoke-WebRequest -Uri $archiveAsset.browser_download_url -OutFile $archivePath -UseBasicParsing -TimeoutSec 300
+            Invoke-WebRequest -Uri $sumsAsset.browser_download_url -OutFile $sumsPath -UseBasicParsing -TimeoutSec 60
         }
 
         $want = $null
-        foreach ($line in Get-Content -Path $sumsPath) {
-            $parts = $line -split '\s+'
+        $lines = Invoke-Step 'Nepodařilo se přečíst checksums.txt.' { Get-Content -LiteralPath $sumsPath }
+        foreach ($line in $lines) {
+            $parts = @(([string]$line).Trim() -split '\s+')
             if ($parts.Count -eq 2 -and $parts[1].TrimStart('*') -eq $archive) { $want = $parts[0].ToLower(); break }
         }
         if (-not $want) { throw "V checksums.txt chybí kontrolní součet pro $archive." }
-        $got = (Get-FileHash -Path $archivePath -Algorithm SHA256).Hash.ToLower()
+        $got = Invoke-Step 'Nepodařilo se spočítat kontrolní součet.' {
+            $sha = [Security.Cryptography.SHA256]::Create()
+            $stream = [IO.File]::OpenRead($archivePath)
+            try { ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLower() }
+            finally { $stream.Dispose(); $sha.Dispose() }
+        }
         if ($got -ne $want) { throw 'Kontrolní součet nesouhlasí, nic jsem neinstaloval.' }
 
         $unpacked = Join-Path $tmp 'x'
-        Expand-Archive -Path $archivePath -DestinationPath $unpacked
+        Invoke-Step "Archiv $archive je poškozený." {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [IO.Compression.ZipFile]::ExtractToDirectory($archivePath, $unpacked)
+        }
         $exe = Join-Path $unpacked 'tuipe.exe'
-        if (-not (Test-Path -LiteralPath $exe)) { throw "Archiv $archive neobsahuje program tuipe.exe." }
+        if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Archiv $archive neobsahuje program tuipe.exe." }
 
-        New-Item -ItemType Directory -Path $dir -Force | Out-Null
         $target = Join-Path $dir 'tuipe.exe'
-        # Copy next to the target first, then rename: the install is all or nothing.
+        $old = $target + '.old'
+        if (Test-Path -LiteralPath $target -PathType Container) {
+            throw "$target je složka, ne program. Přesuňte ji a spusťte instalaci znovu."
+        }
+        Invoke-Step "Nepodařilo se vytvořit složku $dir." { [void][IO.Directory]::CreateDirectory($dir) }
         $staged = Join-Path $dir '.tuipe.new.exe'
-        Copy-Item -LiteralPath $exe -Destination $staged -Force
-        Move-Item -LiteralPath $staged -Destination $target -Force
+        Invoke-Step "Nepodařilo se zapsat do $dir." { Copy-Item -LiteralPath $exe -Destination $staged -Force }
+        # A running tuipe.exe cannot be overwritten but can be renamed: move it
+        # aside first and roll back if the new file cannot take its place.
+        $hadOld = Test-Path -LiteralPath $target -PathType Leaf
+        try {
+            if ($hadOld) {
+                Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
+                Move-Item -LiteralPath $target -Destination $old -Force
+            }
+            try {
+                Move-Item -LiteralPath $staged -Destination $target -Force
+            } catch {
+                if ($hadOld) { Move-Item -LiteralPath $old -Destination $target -Force }
+                throw
+            }
+        } catch {
+            throw "Nepodařilo se nainstalovat do $dir. Zavřete spuštěný tuipe a zkuste to znovu."
+        }
+        $staged = $null
+        Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
     } finally {
+        if ($staged) { Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue }
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    # Add the folder to the user's PATH only when it is absent.
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = if ($userPath) { $userPath -split ';' | Where-Object { $_ } } else { @() }
+    # Make plain `tuipe` work: this session now, new terminals via the user PATH.
     $trimmed = $dir.TrimEnd('\')
-    $present = $entries | Where-Object { $_.TrimEnd('\') -ieq $trimmed }
-    if (-not $present) {
-        $newPath = if ($userPath) { $userPath.TrimEnd(';') + ';' + $dir } else { $dir }
-        [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-        Write-Host "Složka $dir byla přidána do vaší PATH. Otevřete nový terminál, aby se změna projevila."
+    $inSession = @(([string]$env:Path) -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ieq $trimmed })
+    if ($inSession.Count -eq 0) {
+        $env:Path = ([string]$env:Path).TrimEnd(';') + ';' + $dir
+    }
+    try {
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $entries = @(([string]$userPath) -split ';' | Where-Object { $_ })
+        $present = @($entries | Where-Object { $_.TrimEnd('\') -ieq $trimmed })
+        if ($present.Count -eq 0) {
+            $newPath = if ($userPath) { $userPath.TrimEnd(';') + ';' + $dir } else { $dir }
+            [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+            Write-Host "Složka $dir byla přidána do vaší PATH. Nové terminály ji uvidí, otevřete nový terminál."
+        }
+    } catch {
+        Write-Host "Složku $dir se nepodařilo přidat do PATH. Přidejte ji ručně." -ForegroundColor Yellow
     }
 
     Write-Host 'tuipe nainstalováno. Spusťte: tuipe'
@@ -104,4 +162,6 @@ try {
     # Under `irm | iex` an `exit` would close the user's terminal, so only
     # flag the failure.
     $global:LASTEXITCODE = 1
+} finally {
+    Remove-Item -LiteralPath Function:\Install-Tuipe -ErrorAction SilentlyContinue
 }
