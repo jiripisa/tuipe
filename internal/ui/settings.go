@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -48,14 +49,13 @@ func NewSettingsScreen(a *App) Screen {
 	return s
 }
 
-// brokenName is the file name at the start of a layout loading error, which
-// reads "<path>: <reason>".
+// brokenName is the file name of a layout loading error.
 func brokenName(err error) string {
-	msg := err.Error()
-	if i := strings.Index(msg, ".toml: "); i >= 0 {
-		return filepath.Base(msg[:i+len(".toml")])
+	var fe *layout.FileError
+	if errors.As(err, &fe) {
+		return filepath.Base(fe.Path)
 	}
-	return msg
+	return err.Error()
 }
 
 func (s *settingsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
@@ -86,11 +86,9 @@ func (s *settingsScreen) change(a *App, step int) (Screen, tea.Cmd) {
 		styles := style.All()
 		a.setStyle(styles[(styleIndex(a)+step+len(styles))%len(styles)].ID)
 	case setLayout:
-		i := 0
-		for j, l := range s.layouts {
-			if l.ID == a.Layout.ID {
-				i = j
-			}
+		i := s.current(a)
+		if i < 0 { // the active layout is not listed: start from the first or the last
+			i = map[bool]int{true: -1, false: 0}[step > 0]
 		}
 		if l := s.layouts[(i+step+len(s.layouts))%len(s.layouts)]; l.ID != a.Layout.ID {
 			a.setLayout(l)
@@ -106,6 +104,17 @@ func (s *settingsScreen) change(a *App, step int) (Screen, tea.Cmd) {
 		}
 	}
 	return s, nil
+}
+
+// current is the index of the active layout in the list, or -1 when it is not
+// there.
+func (s *settingsScreen) current(a *App) int {
+	for i, l := range s.layouts {
+		if l.ID == a.Layout.ID {
+			return i
+		}
+	}
+	return -1
 }
 
 func (s *settingsScreen) View(a *App, w, h int) string {
@@ -147,17 +156,30 @@ func (s *settingsScreen) View(a *App, w, h int) string {
 		body = append(body, "")
 		body = append(body, prose(s.note, dim)...)
 	}
-	for _, name := range s.broken {
+	if len(s.broken) > 0 {
 		body = append(body, "")
-		body = append(body, prose(fmt.Sprintf(text.SettingsBrokenLayout, name), bad)...)
+		body = append(body, prose(fmt.Sprintf(text.SettingsBrokenLayout, strings.Join(s.broken, ", ")), bad)...)
+	}
+	cur := s.current(a)
+	if cur < 0 {
+		body = append(body, "")
+		body = append(body, prose(fmt.Sprintf(text.SettingsLayoutMissing, a.Layout.Name), bad)...)
 	}
 	body = append(body, "", dim(text.SettingsLayoutList))
-	for _, l := range s.layouts {
+
+	// The list takes the rows that are left and scrolls to keep the active
+	// layout in view.
+	room := max(1, h-3-len(body)) // body rows of the frame: all but borders and footer
+	top := 0
+	if len(s.layouts) > room {
+		top = min(max(cur-room/2, 0), len(s.layouts)-room)
+	}
+	for i := top; i < min(top+room, len(s.layouts)); i++ {
 		mark := "  "
-		if l.ID == a.Layout.ID {
+		if i == cur {
 			mark = "• "
 		}
-		body = append(body, fg(mark+l.Name))
+		body = append(body, fg(mark+s.layouts[i].Name))
 	}
 	return style.Frame(st, w, h, text.AppName+" · "+text.SettingsTitle, " "+strings.Join(body, "\n "), text.HintSettings)
 }

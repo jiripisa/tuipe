@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
@@ -150,8 +151,15 @@ func (s *statsScreen) View(a *App, w, h int) string {
 	default:
 		body = s.records(a)
 	}
+	var wrapped []string // a message longer than the window wraps instead of being cut
+	for _, l := range body {
+		if ansi.StringWidth(l) > w-2 {
+			l = ansi.Wordwrap(l, max(w-2, 1), "")
+		}
+		wrapped = append(wrapped, l)
+	}
 	return style.Frame(st, w, h, text.AppName+" · "+text.MenuStats,
-		strings.Join(append([]string{head}, body...), "\n"), text.HintStats)
+		strings.Join(append([]string{head}, wrapped...), "\n"), text.HintStats)
 }
 
 // modeLabel names a non-lesson mode.

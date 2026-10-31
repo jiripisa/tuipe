@@ -362,6 +362,9 @@ const (
 	// SettingsBrokenLayout reports a user layout file that could not be read
 	// (%s is the file name).
 	SettingsBrokenLayout = "Rozložení ze souboru %s jsem nenačetl."
-	SettingsRetakeNote   = "Pohovor nikdy nesníží hodnost."
-	HintSettings         = "↑↓ výběr · Enter ←→ změnit · Esc domů · Ctrl+T styl"
+	// SettingsLayoutMissing is shown when the layout in use has no file in the
+	// list (%s is its name).
+	SettingsLayoutMissing = "Používané rozložení „%s“ není v seznamu."
+	SettingsRetakeNote    = "Pohovor nikdy nesníží hodnost."
+	HintSettings          = "↑↓ výběr · Enter ←→ změnit · Esc domů · Ctrl+T styl"
 )

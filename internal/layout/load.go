@@ -62,6 +62,17 @@ func Builtin() ([]*Layout, error) {
 	return out, nil
 }
 
+// FileError is a layout file that could not be read or parsed.
+type FileError struct {
+	Path string
+	Err  error
+}
+
+func (e *FileError) Error() string { return e.Path + ": " + e.Err.Error() }
+
+// Unwrap returns the underlying error.
+func (e *FileError) Unwrap() error { return e.Err }
+
 // LoadDir loads user layout files (*.toml) from dir. A bad file yields an error and is skipped.
 // A missing directory yields no layouts and no errors.
 func LoadDir(dir string) ([]*Layout, []error) {
@@ -81,7 +92,7 @@ func LoadDir(dir string) ([]*Layout, []error) {
 				continue
 			}
 		}
-		errs = append(errs, fmt.Errorf("%s: %w", p, err))
+		errs = append(errs, &FileError{Path: p, Err: err})
 	}
 	return layouts, errs
 }

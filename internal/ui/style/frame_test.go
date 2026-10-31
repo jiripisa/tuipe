@@ -27,3 +27,29 @@ func TestFrameIsExactlyWindowSizedAtAnyWidth(t *testing.T) {
 		}
 	}
 }
+
+func TestClipHookFiresOnOversizedBody(t *testing.T) {
+	var got []string
+	style.ClipHook = func(what string) { got = append(got, what) }
+	t.Cleanup(func() { style.ClipHook = nil })
+	s := style.All()[0]
+
+	style.Frame(s, 30, 8, "t", "a\nb", "foot")
+	if len(got) != 0 {
+		t.Fatalf("a body that fits fired the hook: %v", got)
+	}
+	style.Frame(s, 30, 8, "t", strings.Repeat("row\n", 20), "foot")
+	if len(got) == 0 {
+		t.Error("too many rows did not fire the hook")
+	}
+	got = nil
+	style.Frame(s, 30, 8, "t", strings.Repeat("x", 60), "foot")
+	if len(got) == 0 {
+		t.Error("a too wide line did not fire the hook")
+	}
+	got = nil
+	style.Frame(s, 30, 8, "t", "a", strings.Repeat("f", 60))
+	if len(got) == 0 {
+		t.Error("a too wide footer did not fire the hook")
+	}
+}

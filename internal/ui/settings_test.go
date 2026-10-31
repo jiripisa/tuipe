@@ -12,6 +12,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/incident"
+	"github.com/jiripisa/tuipe/internal/layout"
+	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -194,6 +196,40 @@ func TestRetakePlacementFromSettings(t *testing.T) {
 	}
 }
 
+func TestActiveLayoutStaysVisibleInALongList(t *testing.T) {
+	a, st, _ := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	writeUserLayout(t, st, czechCopy(t))
+	for i := range 12 {
+		body := strings.NewReplacer(`id = "user-test"`, fmt.Sprintf(`id = "user-%02d"`, i),
+			`name = "Testovací rozložení"`, fmt.Sprintf(`name = "Rozložení č. %02d"`, i)).Replace(czechCopy(t))
+		if err := os.WriteFile(filepath.Join(st.ConfigDir(), "layouts", fmt.Sprintf("l%02d.toml", i)), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	openSettings(t, a)
+	onRow(a, rowLayout)
+	for range 9 {
+		a.Update(enter)
+		if !strings.Contains(screen(a), "• "+a.Layout.Name) {
+			t.Fatalf("the active layout %q is not marked in view:\n%s", a.Layout.Name, screen(a))
+		}
+	}
+}
+
+func TestActiveLayoutMissingFromTheListIsSaid(t *testing.T) {
+	a, st, _ := playApp(t)
+	writeUserLayout(t, st, czechCopy(t))
+	openSettings(t, a)
+	a.Layout = &layout.Layout{ID: "gone", Name: "Zmizelé"} // a file removed while the app runs
+	showsAll(t, a, fmt.Sprintf(text.SettingsLayoutMissing, "Zmizelé"))
+	onRow(a, rowLayout)
+	a.Update(enter)
+	if a.Layout.ID != "macos-czech-qwerty" {
+		t.Errorf("Enter from an unlisted layout gave %s, want the first one", a.Layout.ID)
+	}
+}
+
 // fitCase reaches a screen through the app.
 type fitCase struct {
 	name  string
@@ -223,6 +259,11 @@ func statsTab(n int) func(t *testing.T) *ui.App {
 			addRun(t, st, store.Run{ID: fmt.Sprintf("r%05d", i), At: daysAgo(clk, i/3), Mode: "lesson", LessonID: id,
 				WPM: float64(30 + i), Accuracy: 0.95, Stars: i % 4})
 		}
+		chars := map[rune]stats.Entry{}
+		for i, r := range "asdfjklqwerty" {
+			chars[r] = stats.Entry{LatencyMs: float64(1000 - 50*i), Samples: 10}
+		}
+		setStats(a, chars)
 		openStats(t, a)
 		for range n {
 			a.Update(tab)
@@ -268,12 +309,21 @@ var fitCases = []fitCase{
 	{"settings", func(t *testing.T) *ui.App {
 		a, st, _ := playApp(t)
 		writeUserLayout(t, st, "broken [[[")
-		if err := os.WriteFile(filepath.Join(st.ConfigDir(), "layouts", "good.toml"), []byte(czechCopy(t)), 0o644); err != nil {
+		for i := range 8 { // many layouts and a second broken file: the longest state
+			body := strings.Replace(czechCopy(t), `id = "user-test"`, fmt.Sprintf(`id = "user-%d"`, i), 1)
+			if err := os.WriteFile(filepath.Join(st.ConfigDir(), "layouts", fmt.Sprintf("good%d.toml", i)), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(st.ConfigDir(), "layouts", "worse.toml"), []byte("[[["), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		openSettings(t, a)
 		onRow(a, rowLayout)
-		a.Update(enter) // the longest state: the stats warning shows
+		for range 5 {
+			a.Update(enter) // the stats warning shows and the active layout is deep in the list
+		}
+		onRow(a, 2) // and the retake note
 		return a
 	}},
 	{"first-run-style", firstRunReach(func(t *testing.T, a *ui.App) {})},
@@ -307,12 +357,17 @@ func TestAllSharedScreensFitInAllStyles(t *testing.T) {
 	for _, c := range fitCases {
 		t.Run(c.name, func(t *testing.T) {
 			a := c.reach(t)
+			var where string
+			var clips []string
+			style.ClipHook = func(what string) { clips = append(clips, where+": "+what) }
+			t.Cleanup(func() { style.ClipHook = nil })
 			for _, st := range style.All() {
 				for _, sz := range sizes {
 					w, h := sz[0], sz[1]
 					a.Style = st
 					a.Update(tea.WindowSizeMsg{Width: w, Height: h})
 					// The screen's own view, before the app pads or cuts it.
+					where = fmt.Sprintf("%s %s %dx%d", c.name, st.ID, w, h)
 					lines := strings.Split(ui.RawView(a), "\n")
 					if len(lines) != h {
 						t.Errorf("%s %dx%d: %d lines, want %d:\n%s", st.ID, w, h, len(lines), h, ansi.Strip(strings.Join(lines, "\n")))
@@ -325,6 +380,9 @@ func TestAllSharedScreensFitInAllStyles(t *testing.T) {
 						}
 					}
 				}
+			}
+			for _, c := range clips {
+				t.Errorf("content was clipped, %s", c)
 			}
 		})
 	}

@@ -111,6 +111,17 @@ func (s Style) Fill(content string, w, h int) string {
 	return strings.Join(out, "\n")
 }
 
+// ClipHook, when set, is called by Frame with a description each time it
+// discards a body row or cuts a line that did not fit. It is nil in production;
+// tests set it to make clipping visible.
+var ClipHook func(what string)
+
+func clipped(what string) {
+	if ClipHook != nil {
+		ClipHook(what)
+	}
+}
+
 // Frame draws the structure shared by all screens in a w × h box: a border with
 // the title in its top edge, the body, and the footer on the last inner line.
 func Frame(s Style, w, h int, title, body, footer string) string {
@@ -136,6 +147,17 @@ func Frame(s Style, w, h int, title, body, footer string) string {
 		bodyRows--
 	}
 	bl := strings.Split(body, "\n")
+	for i, l := range bl {
+		switch {
+		case i >= bodyRows && strings.TrimSpace(ansi.Strip(l)) != "":
+			clipped("body row " + ansi.Strip(l))
+		case i < bodyRows && ansi.StringWidth(l) > iw:
+			clipped("body line " + ansi.Strip(l))
+		}
+	}
+	if ansi.StringWidth(footer) > iw {
+		clipped("footer " + footer)
+	}
 	for i := 0; i < ih; i++ {
 		var inner string
 		switch {

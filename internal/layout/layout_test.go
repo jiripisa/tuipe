@@ -1,6 +1,7 @@
 package layout_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -140,5 +141,18 @@ func TestLoadDirMissingDirIsEmpty(t *testing.T) {
 	layouts, errs := layout.LoadDir(filepath.Join(t.TempDir(), "absent"))
 	if len(layouts) != 0 || len(errs) != 0 {
 		t.Fatalf("got %d layouts, %d errors", len(layouts), len(errs))
+	}
+}
+
+func TestLoadDirErrorsNameTheirFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.toml")
+	if err := os.WriteFile(path, []byte("[[["), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, errs := layout.LoadDir(dir)
+	var fe *layout.FileError
+	if len(errs) != 1 || !errors.As(errs[0], &fe) || fe.Path != path || fe.Err == nil {
+		t.Fatalf("errors = %v, want one FileError for %s", errs, path)
 	}
 }
