@@ -16,6 +16,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
+	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
@@ -144,6 +145,13 @@ func TestIncidentRunsAllStepsWithSharedMeter(t *testing.T) {
 	if spec.Incident == nil || *spec.Incident != want {
 		t.Fatalf("spec.Incident = %+v, want %+v", spec.Incident, want)
 	}
+	if spec.Severity != "SEV3" || len(spec.Graces) != len(inc.Steps)-1 {
+		t.Errorf("severity %q graces %v, want SEV3 and one grace per step boundary", spec.Severity, spec.Graces)
+	}
+	at2 := len([]rune(inc.Steps[0].Text)) + 1
+	if want := time.Duration(len([]rune(inc.Steps[1].Prompt))) * time.Second / 20; spec.Graces[at2] != want {
+		t.Errorf("grace for step 2 = %v, want its prompt over 20 characters a second = %v", spec.Graces[at2], want)
+	}
 	if v := screen(a); !strings.Contains(v, firstWords(inc.Steps[0].Prompt, 3)) || !strings.Contains(v, fmt.Sprintf("%s  1/%d", inc.ID, len(inc.Steps))) {
 		t.Errorf("step 1 prompt or counter missing:\n%s", v)
 	}
@@ -193,7 +201,7 @@ func TestIncidentTakesTheLanguageOfTheCurrentStep(t *testing.T) {
 }
 
 func TestBreachShowsBlamelessPostmortemWithDrillKey(t *testing.T) {
-	a, st, _ := playApp(t)
+	a, st, clk := playApp(t)
 	ch, inc := bossChapter(t, a)
 	readyForBoss(a, st, ch)
 	startIncident(t, a, inc, incident.SEV3)
@@ -227,6 +235,7 @@ func TestBreachShowsBlamelessPostmortemWithDrillKey(t *testing.T) {
 	}
 
 	// One key starts a drill on the damaged characters.
+	clk.advance(time.Second)
 	a.Update(key('d'))
 	if ui.ScreenName(a) != "round" {
 		t.Fatalf("after d: %s, want a round", ui.ScreenName(a))
@@ -258,6 +267,7 @@ func TestBreachByTimeAloneBlamesNobodyAndOffersNoDrill(t *testing.T) {
 	if !strings.Contains(v, text.PostmortemSlow) || strings.Contains(v, text.PostmortemImpact) {
 		t.Errorf("a breach by time must say so and list no characters:\n%s", v)
 	}
+	clk.advance(time.Second)
 	a.Update(key('d'))
 	if ui.ScreenName(a) != "incident-results" {
 		t.Errorf("d without damaged characters left the postmortem: %s", ui.ScreenName(a))
@@ -327,7 +337,7 @@ func TestWinComparesWithTheGhostAndIgnoresLostRuns(t *testing.T) {
 	runs, _ := st.Runs()
 	first := runs[0].Incident
 	v := screen(a)
-	if want := fmt.Sprintf(text.IncidentPrev, float64(first.MTTRMs)/1000, first.SLA); !strings.Contains(v, want) {
+	if want := fmt.Sprintf(text.IncidentPrev, "SEV3", float64(first.MTTRMs)/1000, first.SLA); !strings.Contains(v, want) {
 		t.Errorf("the comparison must be against the first win, not the loss; want %q:\n%s", want, v)
 	}
 	if !strings.Contains(v, "duch: o ") || !strings.Contains(v, "před minulým řešením") {
@@ -450,7 +460,7 @@ func TestIncidentPathFromHomeToNextChapter(t *testing.T) {
 		t.Fatalf("after the incident: %s", ui.ScreenName(a))
 	}
 	if v := screen(a); !strings.Contains(v, fmt.Sprintf(text.IncidentPromoted, ch.Title)) || strings.Contains(v, "Hodnost:") {
-		t.Errorf("the chapter is closed, but the rank did not change, so only the chapter line belongs here:\n%s", v)
+		t.Errorf("the chapter is closed, but the rank did not change, so the rank line stays out:\n%s", v)
 	}
 	cur := a.Curr.CurrentChapter(p)
 	if cur.ID == ch.ID || cur.Number <= ch.Number {
@@ -460,6 +470,7 @@ func TestIncidentPathFromHomeToNextChapter(t *testing.T) {
 	if !ok {
 		t.Fatal("the next chapter has no lesson to offer")
 	}
+	clk.advance(time.Second)
 	a.Update(enter) // the next pick of the quick run
 	if ui.ScreenName(a) != "round" || ui.RoundLessonID(a) != next.ID {
 		t.Errorf("next pick: %s lesson %q, want round on %q", ui.ScreenName(a), ui.RoundLessonID(a), next.ID)
@@ -639,5 +650,213 @@ func TestPreviousBestIgnoresLostIncidentRuns(t *testing.T) {
 	typeKeys(a, clk, -1)
 	if v := screen(a); !strings.Contains(v, text.IncidentFirst) || strings.Contains(v, "minule") {
 		t.Errorf("a lost run was taken for the previous best:\n%s", v)
+	}
+}
+
+// prompt of step i, shortened to what must survive on screen
+func lastWords(s string, n int) string {
+	w := strings.Fields(s)
+	return strings.Join(w[max(0, len(w)-n):], " ")
+}
+
+// readStep lets the player read the prompt of the step at pos before typing:
+// 20 characters a second, with a tick every half second.
+func readStep(a *ui.App, clk *clock, prompt string) {
+	for left := time.Duration(len([]rune(prompt))) * time.Second / 20; left > 0; left -= 500 * time.Millisecond {
+		clk.advance(min(left, 500*time.Millisecond))
+		a.Update(ui.TickMsg(a))
+	}
+}
+
+// playReading types the incident at pace, reading every prompt but the first.
+func playReading(a *ui.App, clk *clock, inc content.Incident, perKey time.Duration) {
+	keys := ui.RoundKeys(a)
+	starts := map[int]string{}
+	at := 0
+	for i, st := range inc.Steps {
+		if i > 0 {
+			starts[at] = st.Prompt
+		}
+		at += len([]rune(st.Text)) + 1
+	}
+	for i, r := range keys {
+		if p, ok := starts[i]; ok {
+			readStep(a, clk, p)
+		}
+		clk.advance(perKey)
+		a.Update(key(r))
+	}
+}
+
+func slowTypist(t *testing.T, st *store.Store, clk *clock, wpm float64) {
+	t.Helper()
+	for i := range 4 {
+		if err := st.AppendRun(store.Run{ID: fmt.Sprint("w", i), At: clk.t, WPM: wpm}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestReadingThePromptsDoesNotCostTheIncident(t *testing.T) {
+	a, st, clk := playApp(t)
+	ch, inc := bossAt(t, a, 2)
+	readyForBoss(a, st, ch)
+	slowTypist(t, st, clk, 30)
+	a.Update(tea.FocusMsg{})
+	startIncident(t, a, inc, incident.SEV3)
+	playReading(a, clk, inc, 400*time.Millisecond) // 30 wpm
+	if ui.ScreenName(a) != "incident-results" || !strings.Contains(screen(a), text.IncidentWon) {
+		t.Fatalf("a 30 wpm typist who reads lost INC-1002:\n%s", screen(a))
+	}
+	runs, _ := st.Runs()
+	last := runs[len(runs)-1]
+	if realMs := last.DurationMs; realMs < 20000 {
+		t.Errorf("the MTTR must stay real active time, got %d ms", realMs)
+	}
+}
+
+func TestLongPromptReadingDoesNotTriggerIdlePause(t *testing.T) {
+	a, st, clk := playApp(t) // no focus reporting
+	ch, inc := bossAt(t, a, 2)
+	readyForBoss(a, st, ch)
+	slowTypist(t, st, clk, 30)
+	if len([]rune(inc.Steps[2].Prompt)) < 100 {
+		t.Fatalf("setup: prompt is %d characters", len([]rune(inc.Steps[2].Prompt)))
+	}
+	startIncident(t, a, inc, incident.SEV3)
+	playReading(a, clk, inc, 400*time.Millisecond)
+	runs, _ := st.Runs()
+	if len(runs) == 0 {
+		t.Fatalf("no run recorded:\n%s", screen(a))
+	}
+	if last := runs[len(runs)-1]; last.Paused {
+		t.Error("reading a prompt marked the run paused")
+	}
+	if g, _ := st.Ghost(engine.Prepare(joined(inc)).Hash); g == nil {
+		t.Error("the win lost its ghost to a retroactive idle pause")
+	}
+}
+
+func TestKeysAreIgnoredRightAfterTheEnding(t *testing.T) {
+	for _, name := range []string{"loss", "win"} {
+		t.Run(name, func(t *testing.T) {
+			a, st, clk := playApp(t)
+			ch, inc := bossChapter(t, a)
+			readyForBoss(a, st, ch)
+			startIncident(t, a, inc, incident.SEV3)
+			if name == "loss" {
+				breachByErrors(a)
+			} else {
+				typeKeys(a, clk, -1)
+			}
+			if ui.ScreenName(a) != "incident-results" {
+				t.Fatalf("setup: %s", ui.ScreenName(a))
+			}
+			clk.advance(600 * time.Millisecond)
+			a.Update(key('d'))
+			a.Update(enter)
+			a.Update(esc)
+			if ui.ScreenName(a) != "incident-results" {
+				t.Fatalf("typing ran on into the ending: %s after 600 ms", ui.ScreenName(a))
+			}
+			clk.advance(200 * time.Millisecond) // 800 ms in
+			a.Update(esc)
+			if ui.ScreenName(a) != "home" {
+				t.Errorf("after 800 ms Esc must work: %s", ui.ScreenName(a))
+			}
+		})
+	}
+}
+
+func TestRunRecordsTheSeverity(t *testing.T) {
+	for _, won := range []bool{true, false} {
+		a, st, clk := playApp(t)
+		ch, inc := bossChapter(t, a)
+		readyForBoss(a, st, ch)
+		startIncident(t, a, inc, incident.SEV2)
+		if won {
+			typeKeys(a, clk, -1)
+		} else {
+			breachByErrors(a)
+		}
+		runs, _ := st.Runs()
+		if len(runs) != 1 || runs[0].Incident == nil || runs[0].Incident.Severity != "SEV2" || runs[0].Incident.Won != won {
+			t.Errorf("won=%v: run %+v", won, runs)
+		}
+	}
+}
+
+func TestFreePlayWinBeforeTheLessonsClosesNothing(t *testing.T) {
+	a, st, clk := playApp(t)
+	ch, inc := bossAt(t, a, 4)
+	p := st.Profile()
+	before := a.Curr.RankOf(p)
+	startIncident(t, a, inc, incident.SEV3) // lessons of the chapter are unplayed
+	typeKeys(a, clk, -1)
+	if ui.ScreenName(a) != "incident-results" || !strings.Contains(screen(a), text.IncidentWon) {
+		t.Fatalf("setup: %s", screen(a))
+	}
+	if p.Completed[ch.ID] || a.Curr.IsDone(p, ch.ID) || a.Curr.RankOf(p) != before {
+		t.Errorf("a free-play win closed the chapter: completed %v rank %v", p.Completed[ch.ID], a.Curr.RankOf(p))
+	}
+	if strings.Contains(screen(a), "uzavřena") {
+		t.Errorf("a promotion line for a chapter that stays open:\n%s", screen(a))
+	}
+	if p.IncidentBest[inc.ID] != "SEV3" {
+		t.Errorf("IncidentBest = %q, want it recorded", p.IncidentBest[inc.ID])
+	}
+	if runs, _ := st.Runs(); len(runs) != 1 {
+		t.Errorf("runs = %d, want the win counted", len(runs))
+	}
+}
+
+func TestWinFitsASixtyByEighteenWindow(t *testing.T) {
+	a, st, clk := playApp(t)
+	ch, inc := bossAt(t, a, 4)
+	readyForBoss(a, st, ch)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	startIncident(t, a, inc, incident.SEV3)
+	typeKeys(a, clk, -1)
+	v := screen(a)
+	for _, want := range []string{"nepanikaří.", "HR byla informována."} {
+		if !strings.Contains(v, want) {
+			t.Errorf("the win screen cuts its text at 60 x 18; lacks %q:\n%s", want, v)
+		}
+	}
+}
+
+func TestPostmortemInATinyWindowStillNamesADamagedCharacter(t *testing.T) {
+	a, st, _ := playApp(t)
+	ch, inc := bossChapter(t, a)
+	readyForBoss(a, st, ch)
+	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
+	startIncident(t, a, inc, incident.SEV3)
+	a.Update(tea.WindowSizeMsg{Width: 80, Height: 24}) // typing needs room
+	first, _ := breachByErrors(a)
+	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
+	if v := screen(a); !strings.Contains(v, hint.Text(a.Layout, first)) || !strings.Contains(v, "d drill") {
+		t.Errorf("at 40 x 8 the damaged character %q and the drill key must show:\n%s", first, v)
+	}
+}
+
+func TestLongPromptIsNotCutAtSixtyByEighteen(t *testing.T) {
+	for _, id := range []style.ID{style.Editor, style.Fosfor, style.Velin} {
+		t.Run(string(id), func(t *testing.T) {
+			a, st, clk := playApp(t)
+			ch, inc := bossAt(t, a, 2)
+			readyForBoss(a, st, ch)
+			a.Style = style.ByID(id)
+			a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+			startIncident(t, a, inc, incident.SEV3)
+			typeKeys(a, clk, len([]rune(inc.Steps[0].Text+"\n"+inc.Steps[1].Text))+2) // into step 3
+			p := inc.Steps[2].Prompt
+			if len([]rune(p)) < 100 {
+				t.Fatalf("setup: prompt is %d characters", len([]rune(p)))
+			}
+			v := screen(a)
+			if !strings.Contains(v, lastWords(p, 1)) {
+				t.Errorf("the prompt is cut (want its last word %q):\n%s", lastWords(p, 1), v)
+			}
+		})
 	}
 }

@@ -43,7 +43,7 @@ func velin(s style.Style, v View, w, h int) []string {
 
 	textW := w - 3
 	rows := wrap(f.Cells, textW)
-	head := velinHead(s, v, textW)
+	head := velinHead(s, v, textW, h-velinBottomH-4-2) // inner rows of the text panel under the smallest top panels
 
 	wanted := len(rows) + len(head) + 2
 	topInner := 2
@@ -196,8 +196,8 @@ func velinThird(s style.Style, f play.Frame, w, h int) []string {
 }
 
 // velinHead is the story line at the top of the text panel.
-func velinHead(s style.Style, v View, w int) []string {
-	lines := wrapProse(v.Prompt, w-1, promptMaxRows)
+func velinHead(s style.Style, v View, w, textRoom int) []string {
+	lines := promptLines(v.Prompt, w-1, textRoom)
 	for i, row := range lines {
 		lines[i] = plain(s, s.Fg).render(row)
 	}

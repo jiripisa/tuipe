@@ -1,10 +1,10 @@
  run.sh   INC-2041               krok 2/3  zbývá 00:47  ★★☆
    INC-2041  Přihlašovací služba vrací 500. Monitoring to
-   hlásí od rána, zákazníci už volají. Podívej se, co se st…
+   hlásí od rána, zákazníci už volají. Podívej se, co se
+   stalo.
  1 kubectl -n auth get pods | grep -v Running↵
  2 kubectl -n auth logs deploy/auth --since=10m↵
  3 kubectl -n auth rollout undo deploy/auth
- ~
  ~
  ~
  ~

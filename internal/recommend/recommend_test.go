@@ -105,20 +105,49 @@ func TestRecommenderMix(t *testing.T) {
 	}
 }
 
-func TestIncidentComesFromUnlockedChapter(t *testing.T) {
+func TestIncidentComesFromCompletedChaptersOnly(t *testing.T) {
 	f := newFixture(t)
-	f.completeBefore(3)
-	p := recommend.Next(f.state(7, 1))
-	eq(t, p.Kind, recommend.Incident)
-	unlocked := map[string]bool{}
+	f.completeBefore(3) // chapters 1 and 2 are completed, 3 is current
+	done := map[string]bool{}
 	for _, ch := range f.curr.Chapters() {
-		if f.curr.IsUnlocked(f.prof, ch.ID) {
-			if inc, ok := f.curr.IncidentDef(ch.ID); ok {
-				unlocked[inc.ID] = true
-			}
+		if inc, ok := f.curr.IncidentDef(ch.ID); ok && f.curr.IsDone(f.prof, ch.ID) {
+			done[inc.ID] = true
 		}
 	}
-	eq(t, unlocked[p.IncidentID], true)
+	eq(t, len(done) >= 2, true)
+	for seed := uint64(1); seed < 40; seed++ {
+		p := recommend.Next(f.state(7, seed))
+		eq(t, p.Kind, recommend.Incident)
+		eq(t, done[p.IncidentID], true) // never the boss of chapter 3, which is not finished
+	}
+}
+
+func TestNoIncidentBeforeAnyChapterIsCompleted(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(1) // only onboarding is done: no boss may be offered early
+	for seed := uint64(1); seed < 20; seed++ {
+		p := recommend.Next(f.state(7, seed))
+		eq(t, p.Kind, recommend.Drill) // the 8th run falls back to a drill
+	}
+	picks := recommend.Sprint(f.state(0, 3), 10)
+	eq(t, picks[len(picks)-1].Kind, recommend.Drill)
+}
+
+func TestFreePlayExtrasComeWithTheirUnlockedChapter(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(11)
+	extras := map[string]bool{}
+	for seed := uint64(1); seed < 300; seed++ {
+		p := recommend.Next(f.state(7, seed))
+		eq(t, p.Kind, recommend.Incident)
+		for _, inc := range f.lib.Incidents {
+			if inc.ID == p.IncidentID {
+				extras[inc.ID] = inc.Chapter != "ch12" && inc.ID != "INC-1011"
+			}
+		}
+		eq(t, p.IncidentID != "INC-1011" && p.IncidentID != "INC-2004", true) // unfinished boss, locked chapter
+	}
+	eq(t, extras["INC-2001"] || extras["INC-2002"] || extras["INC-2003"], true)
 }
 
 func TestNoCodeBeforeChapter11(t *testing.T) {
@@ -269,7 +298,7 @@ func TestSprintBeforeChapter11HasNoCode(t *testing.T) {
 	for _, p := range picks {
 		eq(t, p.Kind == recommend.Code, false)
 	}
-	eq(t, picks[len(picks)-1].Kind, recommend.Incident)
+	eq(t, picks[len(picks)-1].Kind, recommend.Drill) // no boss is owed or finished yet
 }
 
 func TestBaseWPMFloor(t *testing.T) {
@@ -335,6 +364,6 @@ func TestEmptyProfileDoesNotPanic(t *testing.T) {
 	for _, minutes := range []int{10, 20, 30} {
 		picks := recommend.Sprint(s, minutes)
 		eq(t, picks[0].Kind, recommend.Drill)
-		eq(t, picks[len(picks)-1].Kind, recommend.Incident)
+		eq(t, picks[len(picks)-1].Kind, recommend.Drill) // an empty profile owes no incident yet
 	}
 }

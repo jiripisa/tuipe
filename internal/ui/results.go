@@ -71,7 +71,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	}
 	if r.Incident != nil {
 		run.Incident = &store.IncidentResult{
-			Won: r.Incident.Won, SLA: r.Incident.SLA, MTTRMs: r.Incident.MTTR.Milliseconds(),
+			Severity: spec.Severity, Won: r.Incident.Won, SLA: r.Incident.SLA, MTTRMs: r.Incident.MTTR.Milliseconds(),
 		}
 	}
 	errs = append(errs, a.Store.AppendRun(run), a.Store.SaveProfile())

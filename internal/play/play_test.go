@@ -635,3 +635,73 @@ func TestFirstKeyAfterPauseIsMarked(t *testing.T) {
 	eq(t, log[1].AfterPause, true)
 	eq(t, log[2].AfterPause, false)
 }
+
+func graceSpec(grace time.Duration) play.Spec {
+	p := incident.NewParams(incident.SEV3, 15, 600)
+	return play.Spec{
+		Kind: play.KindIncident, Text: "ab\ncd", Incident: &p,
+		Graces: map[int]time.Duration{3: grace},
+	}
+}
+
+func TestGraceHoldsTheMeterUntilTheFirstKeyOfTheNextStep(t *testing.T) {
+	s := newSession(t, graceSpec(4*time.Second), true)
+	press(s, 'a', 0)
+	press(s, 'b', 100)
+	press(s, '\n', 200)
+	atNewline := s.Frame(at(200)).SLA
+	s.Tick(at(2200)) // reading the prompt
+	eq(t, s.Frame(at(2200)).SLA, atNewline)
+	press(s, 'c', 3200) // 3 s later, still inside the 4 s grace
+	eq(t, s.Frame(at(3200)).SLA, atNewline)
+	press(s, 'd', 3400) // ordinary time burns again
+	eq(t, s.Frame(at(3400)).SLA < atNewline, true)
+	// MTTR stays the real active time.
+	eq(t, s.Result(at(3400)).Incident.MTTR, 3400*time.Millisecond)
+}
+
+func TestGraceBeyondTheCapBurnsNormally(t *testing.T) {
+	held := newSession(t, graceSpec(2*time.Second), true)
+	free := newSession(t, graceSpec(0), true)
+	for _, s := range []*play.Session{held, free} {
+		press(s, 'a', 0)
+		press(s, 'b', 100)
+		press(s, '\n', 200)
+		press(s, 'c', 5200) // 5 s of reading
+	}
+	h, f := held.Frame(at(5200)).SLA, free.Frame(at(5200)).SLA
+	eq(t, h > f, true) // 2 s were held
+	burn := incident.NewParams(incident.SEV3, 15, 600).BurnPerSec
+	eq(t, f-h > -2.1*burn && f-h < -1.9*burn, true)
+}
+
+func TestIdlePauseWaitsForTheGraceWindow(t *testing.T) {
+	s := newSession(t, graceSpec(20*time.Second), false) // no focus reporting
+	press(s, 'a', 0)
+	press(s, 'b', 100)
+	press(s, '\n', 200)
+	for ms := 1200; ms <= 15200; ms += 1000 {
+		s.Tick(at(ms))
+	}
+	eq(t, s.Frame(at(15200)).Paused, false)
+	for ms := 16200; ms <= 30200; ms += 1000 { // the window ended at 20.2 s
+		s.Tick(at(ms))
+	}
+	eq(t, s.Frame(at(30200)).Paused, true)
+	press(s, 'c', 31000)
+	r := s.Result(at(31000))
+	eq(t, r.Paused, true)
+	// The pause starts when the window ends, not at the last key.
+	eq(t, r.Metrics.Duration > 20*time.Second, true)
+}
+
+func TestFirstKeyEndsTheGraceWindow(t *testing.T) {
+	s := newSession(t, graceSpec(10*time.Second), false)
+	press(s, 'a', 0)
+	press(s, 'b', 100)
+	press(s, '\n', 200)
+	press(s, 'c', 1200)
+	s.Tick(at(4000))
+	s.Tick(at(7000)) // 5.8 s after the key: the normal idle rule applies again
+	eq(t, s.Frame(at(7000)).Paused, true)
+}

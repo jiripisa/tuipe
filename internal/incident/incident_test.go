@@ -2,9 +2,11 @@ package incident_test
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/incident"
 )
 
@@ -36,14 +38,52 @@ func TestPaceMultipliers(t *testing.T) {
 }
 
 func TestErrorsBurnBudget(t *testing.T) {
-	p := incident.NewParams(incident.SEV3, 40, 200)
-	m := incident.NewMeter(p)
-	for i := 0; i < 19; i++ {
+	// Up to 150 characters the budget is 20 errors.
+	for _, chars := range []int{50, 150} {
+		m := incident.NewMeter(incident.NewParams(incident.SEV3, 40, chars))
+		for i := 0; i < 19; i++ {
+			m.Error()
+		}
+		require(t, !m.Breached())
+		m.Error()
+		require(t, m.Breached())
+	}
+	// A longer incident forgives proportionally more: 40 errors at 300 characters.
+	m := incident.NewMeter(incident.NewParams(incident.SEV3, 40, 300))
+	for i := 0; i < 39; i++ {
 		m.Error()
 	}
 	require(t, !m.Breached())
 	m.Error()
-	require(t, m.Breached()) // 20 errors exhaust the budget
+	require(t, m.Breached())
+}
+
+// The longest incident, at the player's pace and 95 % accuracy, can be won.
+func TestLongestIncidentIsWinnableAtNinetyFivePercent(t *testing.T) {
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, inc := range lib.Incidents {
+		if inc.ID != "INC-1012" {
+			continue
+		}
+		var parts []string
+		for _, s := range inc.Steps {
+			parts = append(parts, s.Text)
+		}
+		chars := len([]rune(strings.Join(parts, "\n")))
+		p := incident.NewParams(incident.SEV3, 40, chars)
+		m := incident.NewMeter(p)
+		m.Advance(time.Duration(expectedSecs(40, 1.0, chars) * float64(time.Second)))
+		wrong := int(float64(chars) * 0.05 / 0.95) // 5 % of all key presses
+		for i := 0; i < wrong; i++ {
+			m.Error()
+		}
+		require(t, !m.Breached())
+		return
+	}
+	t.Fatal("INC-1012 not found")
 }
 
 func TestSlowPlayerBreachesAtTwiceTheTime(t *testing.T) {

@@ -181,7 +181,7 @@ func editor(s style.Style, v View, w, h int) []string {
 	gutter := max(len(strconv.Itoa(lineCount(f))), 2) + 1 // 3 cells leave a 56-cell line and its mark at width 60
 	rows := wrap(f.Cells, w-gutter)
 
-	prompt := wrapProse(v.Prompt, w-gutter, promptMaxRows)
+	prompt := promptLines(v.Prompt, w-gutter, h-1-hintRows-2)
 	bufferH := max(1, h-1-len(prompt)-hintRows-2)
 
 	lines := []string{editorTabs(s, v, w)}

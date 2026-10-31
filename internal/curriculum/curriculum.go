@@ -263,7 +263,7 @@ func (c *Curriculum) empty(i int) bool {
 
 // done reports whether the chapter at position i is completed. A chapter with
 // an incident is done when the incident was won (at SEV3 or harder, which is
-// all the profile records). Otherwise its last lesson needs one star. A
+// all the profile records) and its lessons have stars. Otherwise its last lesson needs one star. A
 // chapter with nothing to play counts as done.
 func (c *Curriculum) done(p *store.Profile, i int) bool {
 	ch := c.chapters[i]
@@ -271,10 +271,21 @@ func (c *Curriculum) done(p *store.Profile, i int) bool {
 		return true
 	}
 	if inc, ok := c.incident[ch.ID]; ok {
-		return p.IncidentBest[inc.ID] != ""
+		// A win before the lessons (free play) is recorded but closes nothing.
+		return p.IncidentBest[inc.ID] != "" && allStarred(p, ch.Lessons)
 	}
 	n := len(ch.Lessons)
 	return p.Stars[ch.Lessons[n-1].ID] >= 1
+}
+
+// allStarred reports whether every lesson has a star.
+func allStarred(p *store.Profile, lessons []content.LessonDef) bool {
+	for _, l := range lessons {
+		if p.Stars[l.ID] == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // earned is done without the vacuous case: the chapter was really completed.

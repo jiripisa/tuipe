@@ -39,6 +39,8 @@ type Spec struct {
 	Ghost                 *ghost.Ghost
 	GhostIsPace           bool
 	Incident              *incident.Params
+	Severity              string                // the incident's severity, for the run record
+	Graces                map[int]time.Duration // reading time held back at a step boundary, by the cell where the next step begins
 }
 
 // Input is one key press. Alt is set when the terminal reported Alt/Option held.
@@ -77,15 +79,24 @@ type Session struct {
 	hesBase    time.Time // start of the current hesitation, shifted by pauses
 	inited     bool
 
-	meterElapsed time.Duration
-	logLen       int
-	wrong        map[rune]int // wrong presses by expected character
-	hintUsed     bool
-	lastSeen     time.Time // last Tick or Key: Frame never evaluates a hint later than this
-	seen         bool
-	altWarning   bool
-	lost         bool
-	lostElapsed  time.Duration
+	meterElapsed time.Duration // the active time the meter has been advanced to
+
+	// Reading grace: after the Enter that ends an incident step the meter is
+	// held until the first key of the next step, for at most the grace.
+	inGrace     bool          // from that Enter to the next key
+	graceLeft   time.Duration // grace not yet used
+	graceTaken  time.Duration // grace used in this window, to undo after a retroactive pause
+	graceLastE  time.Duration // active time at the last sync
+	held        time.Duration // active time the meter did not burn
+	graceEnd    time.Time     // when the window ends, moved by pauses
+	logLen      int
+	wrong       map[rune]int // wrong presses by expected character
+	hintUsed    bool
+	lastSeen    time.Time // last Tick or Key: Frame never evaluates a hint later than this
+	seen        bool
+	altWarning  bool
+	lost        bool
+	lostElapsed time.Duration
 }
 
 // New starts a session. focusEvents tells whether the terminal reports focus changes.
@@ -171,6 +182,9 @@ func (s *Session) endPause(at time.Time) {
 	if s.inited {
 		s.hesBase = s.hesBase.Add(max(at.Sub(s.pausedFrom), 0))
 	}
+	if s.inGrace {
+		s.graceEnd = s.graceEnd.Add(max(at.Sub(s.pausedFrom), 0))
+	}
 	s.pause = pauseNone
 	s.round.Resume(at)
 	s.lastActive = at
@@ -182,8 +196,14 @@ func (s *Session) checkGaps(at time.Time) {
 	if s.pause != pauseNone || s.Done() {
 		return
 	}
-	if !s.focusEvents && !s.focusSeen && s.round.Started() && at.Sub(s.lastActive) >= gapIsSleep {
-		s.startPause(pauseAuto, s.lastActive)
+	// While a reading window is open, silence is reading and not idleness.
+	// Once it has ended the idle rule counts from its end.
+	idleFrom := s.lastActive
+	if s.inGrace && s.graceEnd.After(idleFrom) {
+		idleFrom = s.graceEnd
+	}
+	if !s.focusEvents && !s.focusSeen && s.round.Started() && at.Sub(idleFrom) >= gapIsSleep {
+		s.startPause(pauseAuto, idleFrom)
 		return
 	}
 	if at.Sub(s.lastTick) > gapIsSleep {
@@ -197,9 +217,24 @@ func (s *Session) syncMeter(at time.Time) {
 		return
 	}
 	e := s.round.Elapsed(at)
-	if d := e - s.meterElapsed; d != 0 { // negative after a retroactive pause
+	if s.inGrace {
+		switch grow := e - s.graceLastE; {
+		case grow > 0:
+			take := min(grow, s.graceLeft)
+			s.graceLeft -= take
+			s.graceTaken += take
+			s.held += take
+		case grow < 0: // a retroactive pause took back time that was held
+			undo := min(-grow, s.graceTaken)
+			s.graceLeft += undo
+			s.graceTaken -= undo
+			s.held -= undo
+		}
+		s.graceLastE = e
+	}
+	if d := e - s.held - s.meterElapsed; d != 0 { // negative after a retroactive pause
 		s.meter.Advance(d)
-		s.meterElapsed = e
+		s.meterElapsed += d
 	}
 	if s.meter.Breached() {
 		s.lost = true
@@ -249,6 +284,7 @@ func (s *Session) Key(in Input, at time.Time) {
 	s.altWarning = false
 	s.endPause(at)
 	s.syncMeter(at)
+	s.inGrace = false // any key ends the reading window
 	if s.lost {
 		return
 	}
@@ -266,6 +302,10 @@ func (s *Session) Key(in Input, at time.Time) {
 				s.meter.Error()
 			}
 		}
+	}
+	if g := s.spec.Graces[s.round.Pos()]; correct && g > 0 && s.meter != nil && !s.round.Done() {
+		s.inGrace, s.graceLeft, s.graceTaken = true, g, 0
+		s.graceLastE, s.graceEnd = s.round.Elapsed(at), at.Add(g)
 	}
 	s.syncMeter(at)
 	s.see(at)

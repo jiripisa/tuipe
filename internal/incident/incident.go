@@ -41,7 +41,8 @@ const (
 	startSLA       = 100.0
 	sloSLA         = 99.0
 	paceBudgetUse  = 0.6  // share of the budget burnt by finishing exactly at pace
-	errorBudgetUse = 0.05 // share of the budget burnt by one error
+	errorBudgetUse = 0.05 // share of the budget burnt by one error in a short incident
+	errorsPerText  = 7.5  // one error burns at most 7.5 / chars of the budget, so a long text allows more errors
 	minBaseWPM     = 15.0
 	charsPerWord   = 5.0
 	epsilon        = 1e-9
@@ -63,7 +64,7 @@ func NewParams(sev Severity, baseWPM float64, chars int) Params {
 		Start:      startSLA,
 		SLO:        sloSLA,
 		BurnPerSec: paceBudgetUse * budget / expectedSecs,
-		ErrorBurn:  errorBudgetUse * budget,
+		ErrorBurn:  min(errorBudgetUse, errorsPerText/float64(chars)) * budget,
 	}
 }
 

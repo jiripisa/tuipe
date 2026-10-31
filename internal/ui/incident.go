@@ -42,6 +42,20 @@ func newStory(inc content.Incident, sev incident.Severity) *story {
 	return s
 }
 
+// readingCPS is how fast a prompt is read, in characters a second.
+const readingCPS = 20
+
+// graces are the reading times the meter is held back for: at the cell where
+// each step but the first begins, the length of its prompt over readingCPS.
+func (s *story) graces() map[int]time.Duration {
+	out := map[int]time.Duration{}
+	for i := 1; i < len(s.starts); i++ {
+		n := len([]rune(s.inc.Steps[i].Prompt))
+		out[s.starts[i]] = time.Duration(n) * time.Second / readingCPS
+	}
+	return out
+}
+
 func joinSteps(inc content.Incident) string {
 	parts := make([]string, len(inc.Steps))
 	for i, st := range inc.Steps {
@@ -78,9 +92,10 @@ func (a *App) incidentByID(id string) (content.Incident, bool) {
 	return a.Lib.Incidents[i], true
 }
 
-// incidentTargets are the targets of the last lesson of the incident's chapter,
-// or of the nearest earlier chapter that has lessons.
-func (a *App) incidentTargets(chapterID string) (targets play.Spec) {
+// incidentSpecBase is a Spec holding only the Targets and HintsOff of an
+// incident: the targets of the last lesson of its chapter, or of the nearest
+// earlier chapter that has lessons.
+func (a *App) incidentSpecBase(chapterID string) (targets play.Spec) {
 	chs := a.Curr.Chapters()
 	i := slices.IndexFunc(chs, func(c content.ChapterDef) bool { return c.ID == chapterID })
 	if i < 0 {
@@ -112,9 +127,11 @@ func (a *App) incidentSpec(inc content.Incident, sev incident.Severity) (play.Sp
 	}
 	runs, _ := a.Store.Runs() // a damaged history only affects the calibration
 	params := incident.NewParams(sev, recommend.BaseWPM(runs), keys)
-	spec := a.incidentTargets(inc.Chapter)
+	spec := a.incidentSpecBase(inc.Chapter)
 	spec.Kind, spec.Title, spec.Lang, spec.Text = play.KindIncident, inc.Title, inc.Steps[0].Lang, txt
 	spec.Incident = &params
+	spec.Severity = sev.String()
+	spec.Graces = newStory(inc, sev).graces()
 	return a.withReplay(spec)
 }
 
@@ -285,13 +302,21 @@ type incidentResultsScreen struct {
 	next     func(*App) Screen
 	promoted []string // dry promotion lines, when the chapter just completed
 	focus    []rune   // damaged characters a drill can train
+	shownAt  time.Time
 }
+
+// endingLock is how long keys are ignored after the ending appears, so that
+// typing that runs on does not skip the postmortem.
+const endingLock = 700 * time.Millisecond
 
 // NewIncidentResultsScreen records the finished incident and shows it. A win
 // records the best severity and completes the chapter whose boss it is; a loss
 // records only the run and the keystrokes.
 func NewIncidentResultsScreen(a *App, r play.Result, spec play.Spec, st *story, next func(*App) Screen) Screen {
-	s := &incidentResultsScreen{res: r, spec: spec, story: st, next: next}
+	if r.Incident == nil { // not an incident result: treat it as lost without damage
+		r.Incident = &play.IncidentOutcome{}
+	}
+	s := &incidentResultsScreen{res: r, spec: spec, story: st, next: next, shownAt: a.Now()}
 	s.prev = a.previousBest(r.Text.Hash) // before Finish adds this run
 	if r.Incident != nil && r.Incident.Won {
 		s.promoted = a.recordIncidentWin(st)
@@ -316,8 +341,8 @@ func (a *App) recordIncidentWin(st *story) []string {
 	firstWin := isBoss && !p.Completed[st.inc.Chapter] && p.IncidentBest[st.inc.ID] == ""
 	before := a.Curr.RankOf(p)
 	p.IncidentBest[st.inc.ID] = harderOf(p.IncidentBest[st.inc.ID], st.sev)
-	if !isBoss {
-		return nil
+	if !isBoss || !a.lessonsDone(st.inc.Chapter) {
+		return nil // a free-play win is recorded but closes nothing
 	}
 	a.Curr.CompleteChapter(p, st.inc.Chapter)
 	if !firstWin {
@@ -328,6 +353,22 @@ func (a *App) recordIncidentWin(st *story) []string {
 		lines = append(lines, fmt.Sprintf(text.IncidentRank, before, after))
 	}
 	return lines
+}
+
+// lessonsDone reports whether every lesson of a chapter has a star.
+func (a *App) lessonsDone(chapterID string) bool {
+	p := a.Store.Profile()
+	for _, ch := range a.Curr.Chapters() {
+		if ch.ID != chapterID {
+			continue
+		}
+		for _, l := range ch.Lessons {
+			if p.Stars[l.ID] == 0 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (a *App) chapterTitle(id string) string {
@@ -343,7 +384,7 @@ func (s *incidentResultsScreen) won() bool { return s.res.Incident.Won }
 
 func (s *incidentResultsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	k, ok := msg.(tea.KeyPressMsg)
-	if !ok {
+	if !ok || a.Now().Sub(s.shownAt) < endingLock {
 		return s, nil
 	}
 	switch k.String() {
@@ -376,9 +417,9 @@ func (s *incidentResultsScreen) View(a *App, w, h int) string {
 	var body []string
 	hintLine := text.HintIncidentWon
 	if s.won() {
-		body = s.winLines(a)
+		body = s.winLines(a, w-4)
 	} else {
-		body = s.postmortemLines(a, w-4)
+		body = s.postmortemLines(a, w-4, h-3)
 		hintLine = text.HintPostmortemBare
 		if len(s.focus) > 0 {
 			hintLine = text.HintPostmortem
@@ -390,79 +431,105 @@ func (s *incidentResultsScreen) View(a *App, w, h int) string {
 	return style.Frame(a.Style, w, h, text.AppName+" · "+s.story.inc.ID, strings.Join(body, "\n"), hintLine)
 }
 
-func (s *incidentResultsScreen) winLines(a *App) []string {
-	st := a.Style
-	paint := func(col color.Color, line string) string { return st.Base().Foreground(col).Render(line) }
-	o := s.res.Incident
-	lines := []string{
-		st.Base().Foreground(st.OK).Bold(true).Render(text.IncidentWon),
-		paint(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title),
-		"",
-		paint(st.Fg, fmt.Sprintf(text.IncidentMTTR, o.MTTR.Seconds())),
-		paint(st.Fg, fmt.Sprintf(text.IncidentSLALeft, o.SLA)),
-		paint(st.Fg, fmt.Sprintf(text.IncidentSevShown, s.story.sev)),
-		"",
+// painted wraps a line to width and paints every row.
+func painted(st style.Style, col color.Color, bold bool, line string, width int) []string {
+	rows := strings.Split(ansi.Wordwrap(line, max(width, 10), ""), "\n")
+	for i, r := range rows {
+		rows[i] = st.Base().Foreground(col).Bold(bold).Render(r)
 	}
+	return rows
+}
+
+func (s *incidentResultsScreen) winLines(a *App, width int) []string {
+	st := a.Style
+	var lines []string
+	add := func(col color.Color, line string) { lines = append(lines, painted(st, col, false, line, width)...) }
+	o := s.res.Incident
+	lines = painted(st, st.OK, true, text.IncidentWon, width)
+	add(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title)
+	add(st.Fg, "")
+	add(st.Fg, fmt.Sprintf(text.IncidentMTTR, o.MTTR.Seconds()))
+	add(st.Fg, fmt.Sprintf(text.IncidentSLALeft, o.SLA))
+	add(st.Fg, fmt.Sprintf(text.IncidentSevShown, s.story.sev))
+	add(st.Fg, "")
 	if s.prev != nil && s.prev.Incident != nil {
-		lines = append(lines, paint(st.Dim, fmt.Sprintf(text.IncidentPrev, float64(s.prev.Incident.MTTRMs)/1000, s.prev.Incident.SLA)))
+		add(st.Dim, fmt.Sprintf(text.IncidentPrev, s.prev.Incident.Severity, float64(s.prev.Incident.MTTRMs)/1000, s.prev.Incident.SLA))
 	} else {
-		lines = append(lines, paint(st.Dim, text.IncidentFirst))
+		add(st.Dim, text.IncidentFirst)
 	}
 	if d := s.res.GhostDelta; d != nil {
 		if *d >= 0 {
-			lines = append(lines, paint(st.OK, fmt.Sprintf(text.IncidentAhead, d.Seconds())))
+			add(st.OK, fmt.Sprintf(text.IncidentAhead, d.Seconds()))
 		} else {
-			lines = append(lines, paint(st.Bad, fmt.Sprintf(text.IncidentBehind, -d.Seconds())))
+			add(st.Bad, fmt.Sprintf(text.IncidentBehind, -d.Seconds()))
 		}
 	}
 	n := max(0, min(s.res.Stars, maxStars))
-	lines = append(lines, "", paint(st.Accent, text.ResultsStars+"  "+starBar(n)))
+	add(st.Fg, "")
+	add(st.Accent, text.ResultsStars+"  "+starBar(n))
 	if s.res.Paused {
-		lines = append(lines, paint(st.Dim, text.ResultsPaused))
+		add(st.Dim, text.ResultsPaused)
 	}
 	if s.res.HintUsed {
-		lines = append(lines, paint(st.Dim, text.ResultsHintUsed))
+		add(st.Dim, text.ResultsHintUsed)
 	}
 	if len(s.promoted) > 0 {
-		lines = append(lines, "")
+		add(st.Fg, "")
 		for _, l := range s.promoted {
-			lines = append(lines, paint(st.Accent, l))
+			add(st.Accent, l)
 		}
 	}
 	return lines
 }
 
 // postmortemLines is the blameless postmortem: what happened, which characters
-// were damaged and how to type them, the cause and the follow-up.
-func (s *incidentResultsScreen) postmortemLines(a *App, width int) []string {
+// were damaged and how to type them, the cause and the follow-up. In a short
+// window it gives up context first (blank rows, the incident, the summary,
+// the cause, the heading, the follow-up), never the damaged characters.
+func (s *incidentResultsScreen) postmortemLines(a *App, width, rows int) []string {
 	st := a.Style
-	paint := func(col color.Color, line string) []string {
-		return strings.Split(st.Base().Foreground(col).Render(ansi.Wordwrap(line, max(width, 10), "")), "\n")
-	}
-	lines := paint(st.Bad, text.PostmortemTitle)
-	lines[0] = st.Base().Foreground(st.Bad).Bold(true).Render(text.PostmortemTitle)
-	lines = append(lines, paint(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title)...)
-	lines = append(lines, "")
-	lines = append(lines, paint(st.Fg, text.PostmortemSummary)...)
-	damaged := s.res.Incident.DamageChars
-	if len(damaged) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, paint(st.Fg, text.PostmortemImpact)...)
+	para := func(col color.Color, line string) []string { return painted(st, col, false, line, width) }
+	title := painted(st, st.Bad, true, text.PostmortemTitle, width)
+	id := para(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title)
+	summary := para(st.Fg, text.PostmortemSummary)
+	var header, chars, cause, action []string
+	if damaged := s.res.Incident.DamageChars; len(damaged) > 0 {
+		header = para(st.Fg, text.PostmortemImpact)
 		for _, r := range damaged {
 			t := hint.Text(a.Layout, r)
 			if t == "" {
 				t = string(r)
 			}
-			lines = append(lines, paint(st.Accent, "  "+t)...)
+			chars = append(chars, para(st.Accent, "  "+t)...)
 		}
-		lines = append(lines, "")
-		lines = append(lines, paint(st.Fg, text.PostmortemCause)...)
+		cause = para(st.Fg, text.PostmortemCause)
 	} else {
-		lines = append(lines, "")
-		lines = append(lines, paint(st.Fg, text.PostmortemSlow)...)
+		cause = para(st.Fg, text.PostmortemSlow)
 	}
 	if len(s.focus) > 0 {
-		lines = append(lines, paint(st.Fg, text.PostmortemAction)...)
+		action = para(st.Fg, text.PostmortemAction)
 	}
-	return lines
+	blank := []string{""}
+	join := func(parts ...[]string) []string {
+		var out []string
+		for _, p := range parts {
+			out = append(out, p...)
+		}
+		return out
+	}
+	options := [][]string{
+		join(title, id, blank, summary, blank, header, chars, blank, cause, action),
+		join(title, id, summary, header, chars, cause, action),
+		join(title, summary, header, chars, cause, action),
+		join(title, header, chars, cause, action),
+		join(title, header, chars, action),
+		join(title, chars, action),
+		join(title, chars),
+	}
+	for _, o := range options {
+		if len(o) <= rows {
+			return o
+		}
+	}
+	return options[len(options)-1]
 }

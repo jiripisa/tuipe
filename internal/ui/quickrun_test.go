@@ -806,7 +806,7 @@ func TestSpecFor(t *testing.T) {
 	}
 	_, boss := bossChapter(t, a)
 	inc, err := a.SpecFor(recommend.Pick{Kind: recommend.Incident, IncidentID: boss.ID})
-	if err != nil || inc.Kind != play.KindIncident || inc.Incident == nil || inc.Title != boss.Title {
+	if err != nil || inc.Kind != play.KindIncident || inc.Incident == nil || inc.Title != boss.Title || inc.Severity != "SEV3" || len(inc.Graces) == 0 {
 		t.Errorf("incident: err %v kind %v params %v", err, inc.Kind, inc.Incident)
 	}
 	playLesson(t, a, clk, 200*time.Millisecond, false)

@@ -76,6 +76,7 @@ func Next(s State) Pick {
 		if p, ok := s.incident(); ok {
 			return p
 		}
+		return s.drill(cur.ID)
 	}
 	wLesson, wDrill, wCode := weightLesson, weightDrill, weightCode
 	if !hasLesson {
@@ -203,16 +204,20 @@ func (s State) code(chapterID string) Pick {
 	return Pick{Kind: Code, SnippetID: list[s.Rand.IntN(len(list))].ID, Seed: s.seed()}
 }
 
-// incident picks one of the incidents of the unlocked chapters.
+// incident picks a replay: the boss of a chapter that is already done, or a
+// free-play extra of an unlocked chapter. A boss that is still owed is not
+// offered here, because its chapter's lessons may be unplayed (see owedIncident).
 func (s State) incident() (Pick, bool) {
 	var ids []string
-	for _, ch := range s.Curr.Chapters() {
-		if !s.Curr.IsUnlocked(s.Profile, ch.ID) {
+	for _, inc := range s.Lib.Incidents {
+		if !s.Curr.IsUnlocked(s.Profile, inc.Chapter) || !s.typable(inc) {
 			continue
 		}
-		if inc, ok := s.Curr.IncidentDef(ch.ID); ok {
-			ids = append(ids, inc.ID)
+		boss, isBoss := s.Curr.IncidentDef(inc.Chapter)
+		if isBoss && boss.ID == inc.ID && !s.Curr.IsDone(s.Profile, inc.Chapter) {
+			continue
 		}
+		ids = append(ids, inc.ID)
 	}
 	if len(ids) == 0 {
 		return Pick{}, false
@@ -220,11 +225,23 @@ func (s State) incident() (Pick, bool) {
 	return Pick{Kind: Incident, IncidentID: ids[s.Rand.IntN(len(ids))], Seed: s.seed()}, true
 }
 
-// owedIncident is the incident of the current chapter while it is not won.
+// typable reports whether the layout can type every step of inc.
+func (s State) typable(inc content.Incident) bool {
+	for _, st := range inc.Steps {
+		if slices.ContainsFunc([]rune(st.Text), func(r rune) bool { return r != '\n' && !s.Curr.CanType(r) }) {
+			return false
+		}
+	}
+	return true
+}
+
+// owedIncident is the incident of the current chapter once its lessons are
+// done and while it is not won.
 func (s State) owedIncident() (Pick, bool) {
 	cur := s.Curr.CurrentChapter(s.Profile)
 	inc, ok := s.Curr.IncidentDef(cur.ID)
-	if !ok || s.Profile.Completed[cur.ID] || s.Profile.IncidentBest[inc.ID] != "" {
+	if _, lessonsLeft := s.Curr.NextLesson(s.Profile); lessonsLeft ||
+		!ok || s.Profile.Completed[cur.ID] || s.Profile.IncidentBest[inc.ID] != "" {
 		return Pick{}, false
 	}
 	return Pick{Kind: Incident, IncidentID: inc.ID, Seed: s.seed()}, true

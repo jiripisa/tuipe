@@ -32,6 +32,8 @@ const (
 	keyboardRows  = 5
 	hintRows      = keyboardRows + 1 // the hint line above the map
 	promptMaxRows = 2
+	promptBigRows = 4 // a long story line may grow to this many rows when the window has room
+	promptMinText = 2 // rows of text that the prompt never takes: the line being typed and one more
 	maxStars      = 3
 
 	overviewLabelW = 11
@@ -242,6 +244,13 @@ func spread(left, right string, w int, fill look) string {
 	}
 	gap := max(0, w-ansi.StringWidth(left)-ansi.StringWidth(right))
 	return left + fill.render(strings.Repeat(" ", gap)) + right
+}
+
+// promptLines wraps the prompt. It takes the rows it needs, up to promptBigRows,
+// as long as textRoom (the rows free for the prompt and the text together)
+// keeps promptMinText rows for the text; it never takes fewer than promptMaxRows.
+func promptLines(prompt string, width, textRoom int) []string {
+	return wrapProse(prompt, width, max(promptMaxRows, min(promptBigRows, textRoom-promptMinText)))
 }
 
 // wrapProse breaks a sentence into at most maxRows rows of width cells. What

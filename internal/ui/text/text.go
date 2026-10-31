@@ -171,7 +171,7 @@ const (
 	IncidentSLALeft  = "SLA       %.2f %%"
 	IncidentSevShown = "závažnost %s"
 	IncidentFirst    = "první řešení tohoto incidentu, není s čím srovnávat"
-	IncidentPrev     = "minule: MTTR %.1f s, SLA %.2f %%"
+	IncidentPrev     = "minule: %s, MTTR %.1f s, SLA %.2f %%"
 	IncidentAhead    = "duch: o %.1f s před minulým řešením"
 	IncidentBehind   = "duch: o %.1f s za minulým řešením"
 	IncidentPromoted = "Kapitola „%s“ uzavřena. Nikdo nepanikaří."

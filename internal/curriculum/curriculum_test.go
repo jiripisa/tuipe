@@ -510,6 +510,22 @@ func TestChapterWithIncidentNeedsTheIncident(t *testing.T) {
 	}
 }
 
+func TestIncidentWonBeforeTheLessonsDoesNotCloseTheChapter(t *testing.T) {
+	c := curriculum.New(incidentLib(t), czech(t))
+	p := newProfile()
+	p.IncidentBest["INC-1001"] = "SEV3" // a free-play win with lessons unplayed
+	if c.IsDone(p, "c1") || c.IsUnlocked(p, "c2") {
+		t.Error("the chapter closed with its lessons unplayed")
+	}
+	if l, ok := c.NextLesson(p); !ok || l.ID != "c1-1" {
+		t.Errorf("next = %q %v, want the first lesson of c1", l.ID, ok)
+	}
+	p.Stars["c1-1"], p.Stars["c1-2"] = 1, 1
+	if !c.IsDone(p, "c1") || !c.IsUnlocked(p, "c2") {
+		t.Error("lessons and incident are done, so the chapter is done")
+	}
+}
+
 func TestChaptersDropsUnresolvableLessons(t *testing.T) {
 	lib := incidentLib(t)
 	lib.Chapters[0].Lessons = append(lib.Chapters[0].Lessons,
@@ -543,6 +559,7 @@ func TestEmptyChapterNeverBlocksProgress(t *testing.T) {
 		content.ChapterDef{ID: "c3", Number: 3, Rank: "Principal", Lessons: lib.Chapters[1].Lessons})
 	c := curriculum.New(lib, czech(t))
 	p := newProfile()
+	p.Stars["c1-1"], p.Stars["c1-2"] = 1, 1
 	p.IncidentBest["INC-1001"] = "SEV3"
 	if l, ok := c.NextLesson(p); !ok || l.ID != "c2-1" {
 		t.Fatalf("next = %q %v, want to skip the empty chapter", l.ID, ok)
@@ -615,6 +632,9 @@ func TestWalkWithIncidents(t *testing.T) {
 	walk(t, c)
 	p := newProfile()
 	for _, ch := range c.Chapters() {
+		for _, l := range ch.Lessons {
+			p.Stars[l.ID] = 1
+		}
 		if ch.IncidentID != "" {
 			p.IncidentBest[ch.IncidentID] = "SEV3"
 		}

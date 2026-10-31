@@ -33,12 +33,12 @@ func fosfor(s style.Style, v View, w, h int) []string {
 	col := min(w-3, fosforColumn) // room for a 56-cell line and its mark at width 60
 	margin := strings.Repeat(" ", (w-col)/2)
 
-	prompt := wrapProse(v.Prompt, col, promptMaxRows)
 	below := fosforBelow(s, f, col)
 	gap := 1
 	if h < 20 {
 		gap = 0
 	}
+	prompt := promptLines(v.Prompt, col, h-1-gap-len(below)-hintRows)
 	rows := wrap(f.Cells, col)
 	room := max(1, h-1-gap-len(prompt)-len(below)-hintRows)
 	textH := min(room, fosforMaxText)
