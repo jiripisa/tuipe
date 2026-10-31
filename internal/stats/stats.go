@@ -106,15 +106,33 @@ func (e *Entry) target() Mastery {
 	return NewChar
 }
 
-// updateMastery rises one level toward the target, or falls one level when the
-// error rate is high or the entry went stale.
+// updateMastery falls one level when the error rate is high or the entry went
+// stale; a stale fall caps Samples at the fallen level's minimum so the higher
+// level has to be earned again. Otherwise it rises one level toward the target,
+// but only while the error rate is at most fallError, so a poorly typed
+// character holds one stable level instead of oscillating.
 func (e *Entry) updateMastery(stale bool) {
 	switch {
 	case (stale || e.ErrorRate > fallError) && e.Mastery > NewChar:
 		e.Mastery--
-	case e.Mastery < e.target():
+		if stale {
+			e.Samples = min(e.Samples, minSamples(e.Mastery))
+		}
+	case e.ErrorRate <= fallError && e.Mastery < e.target():
 		e.Mastery++
 	}
+}
+
+func minSamples(m Mastery) int {
+	switch m {
+	case Automatic:
+		return autoSamples
+	case Solid:
+		return solidSamples
+	case Learning:
+		return learningSamples
+	}
+	return 0
 }
 
 // Record folds one finished round into the stats. Auto cells never appear in the log.
@@ -186,6 +204,9 @@ func weakest(m map[string]*Entry, n int, allowed func(string) bool) []string {
 
 // WeakestChars returns up to n allowed characters, weakest first. A nil allowed permits all.
 func (s *Stats) WeakestChars(n int, allowed func(rune) bool) []rune {
+	if n <= 0 {
+		return nil
+	}
 	keys := weakest(s.Chars, n, func(k string) bool {
 		r, _ := utf8.DecodeRuneInString(k)
 		return allowed == nil || allowed(r)
@@ -199,6 +220,9 @@ func (s *Stats) WeakestChars(n int, allowed func(rune) bool) []rune {
 
 // WeakestBigrams returns up to n bigrams whose both characters are allowed, weakest first.
 func (s *Stats) WeakestBigrams(n int, allowed func(rune) bool) []string {
+	if n <= 0 {
+		return nil
+	}
 	return weakest(s.Bigrams, n, func(k string) bool {
 		for _, r := range k {
 			if allowed != nil && !allowed(r) {

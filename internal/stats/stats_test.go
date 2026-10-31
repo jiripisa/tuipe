@@ -99,7 +99,7 @@ func TestMasteryFallsWithErrors(t *testing.T) {
 	text, log = typeText(strings.Repeat("a", 10),
 		func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
 	s.Record(text, log, now)
-	eq(t, s.MasteryOf('a') <= stats.Solid, true)
+	eq(t, s.MasteryOf('a'), stats.NewChar)
 }
 
 func TestStaleCharacterDecays(t *testing.T) {
@@ -162,4 +162,33 @@ func TestAverageLatency(t *testing.T) {
 	text, log := fastClean("aaaa")
 	s.Record(text, log, now)
 	eq(t, s.AverageLatencyMs(), 100.0)
+}
+
+func TestStaleDecaySticks(t *testing.T) {
+	text, log := fastClean(strings.Repeat("a", 100))
+	s := stats.New()
+	s.Record(text, log, now)
+	text, log = fastClean("aaaaa")
+	s.Record(text, log, now.Add(15*24*time.Hour))
+	eq(t, s.MasteryOf('a'), stats.Solid)
+}
+
+func TestErrorProneCharacterHoldsStableLevel(t *testing.T) {
+	s := stats.New()
+	for i := 0; i < 6; i++ {
+		text, log := typeText(strings.Repeat("a", 10),
+			func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
+		s.Record(text, log, now)
+		eq(t, s.MasteryOf('a'), stats.NewChar)
+	}
+}
+
+func TestWeakestNonPositiveN(t *testing.T) {
+	text, log := typeText(strings.Repeat("ab", 10),
+		func(rune) time.Duration { return time.Second }, func(rune) int { return 1 })
+	s := stats.New()
+	s.Record(text, log, now)
+	eq(t, len(s.WeakestChars(0, nil)), 0)
+	eq(t, len(s.WeakestChars(-1, nil)), 0)
+	eq(t, len(s.WeakestBigrams(0, nil)), 0)
 }
