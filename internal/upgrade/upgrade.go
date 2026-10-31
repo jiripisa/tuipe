@@ -9,18 +9,23 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"debug/elf"
+	"debug/macho"
+	"debug/pe"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jiripisa/tuipe/internal/buildinfo"
@@ -52,18 +57,42 @@ func NewClient() *Client {
 	return &Client{APIBase: "https://api.github.com", HTTP: &http.Client{}, Repo: "jiripisa/tuipe"}
 }
 
-func (c *Client) get(ctx context.Context, url, accept string, timeout time.Duration, limit int64) ([]byte, int, error) {
+// secure reports whether u may be fetched: HTTPS, or the scheme and host of
+// APIBase itself (which is HTTPS in production and a local server in tests).
+func (c *Client) secure(u *url.URL) bool {
+	if u.Scheme == "https" {
+		return true
+	}
+	base, err := url.Parse(c.APIBase)
+	return err == nil && u.Scheme == base.Scheme && u.Host == base.Host
+}
+
+func (c *Client) get(ctx context.Context, rawURL, accept string, timeout time.Duration, limit int64) ([]byte, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	u, err := url.Parse(rawURL)
+	if err != nil || !c.secure(u) {
+		return nil, 0, fmt.Errorf(text.UpgradeInsecureURL, rawURL)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, 0, err
+	}
+	client := *c.HTTP
+	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("too many redirects")
+		}
+		if !c.secure(r.URL) {
+			return fmt.Errorf(text.UpgradeInsecureURL, r.URL)
+		}
+		return nil
 	}
 	req.Header.Set("User-Agent", "tuipe/"+buildinfo.Version)
 	if accept != "" {
 		req.Header.Set("Accept", accept)
 	}
-	resp, err := c.HTTP.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -76,15 +105,14 @@ func (c *Client) get(ctx context.Context, url, accept string, timeout time.Durat
 		return nil, 0, err
 	}
 	if int64(len(body)) > limit {
-		return nil, 0, fmt.Errorf("download exceeds %d bytes", limit)
+		return nil, 0, fmt.Errorf(text.UpgradeTooBig, limit)
 	}
 	return body, resp.StatusCode, nil
 }
 
 // Latest returns the latest published release.
 func (c *Client) Latest(ctx context.Context) (Release, error) {
-	url := c.APIBase + "/repos/" + c.Repo + "/releases/latest"
-	body, status, err := c.get(ctx, url, "application/vnd.github+json", apiTimeout, 4<<20)
+	body, status, err := c.get(ctx, c.APIBase+"/repos/"+c.Repo+"/releases/latest", "application/vnd.github+json", apiTimeout, 4<<20)
 	if err != nil {
 		if ctx.Err() != nil {
 			return Release{}, ctx.Err()
@@ -163,7 +191,7 @@ func Newer(current, latest string) bool {
 	if !ok || pre {
 		return false
 	}
-	c, _, ok := parseVersion(current)
+	c, curPre, ok := parseVersion(current)
 	if !ok {
 		return true
 	}
@@ -172,7 +200,7 @@ func Newer(current, latest string) bool {
 			return l[i] > c[i]
 		}
 	}
-	return false
+	return curPre // 1.0.0-rc1 is older than 1.0.0
 }
 
 // Apply downloads the release archive for goos/goarch, verifies it and
@@ -207,7 +235,7 @@ func (c *Client) Apply(ctx context.Context, r Release, exePath string, goos, goa
 	if err != nil {
 		return fmt.Errorf(text.UpgradeBadArchive, err)
 	}
-	if err := checkHeader(bin, goos); err != nil {
+	if err := checkHeader(bin, goos, goarch); err != nil {
 		return fmt.Errorf(text.UpgradeBadArchive, err)
 	}
 	return install(bin, exePath)
@@ -249,11 +277,22 @@ func safeName(name string) bool {
 }
 
 // extract returns the single top-level binary of the archive. It rejects
-// unsafe paths and links anywhere in the archive.
+// unsafe paths and links anywhere in the archive, and duplicate binaries.
 func extract(archive []byte, goos string) ([]byte, error) {
 	want := binaryName(goos)
 	var bin []byte
 	found := false
+	take := func(name string, r io.Reader) error {
+		if found {
+			return fmt.Errorf(text.UpgradeDuplicate, want)
+		}
+		b, err := readLimited(r)
+		if err != nil {
+			return err
+		}
+		bin, found = b, true
+		return nil
+	}
 	if goos == "windows" {
 		zr, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
 		if err != nil {
@@ -261,7 +300,7 @@ func extract(archive []byte, goos string) ([]byte, error) {
 		}
 		for _, f := range zr.File {
 			if !safeName(f.Name) || f.Mode()&os.ModeSymlink != 0 {
-				return nil, fmt.Errorf("unsafe entry %q", f.Name)
+				return nil, fmt.Errorf(text.UpgradeUnsafeEntry, f.Name)
 			}
 			if f.FileInfo().IsDir() || path.Clean(f.Name) != want {
 				continue
@@ -270,12 +309,11 @@ func extract(archive []byte, goos string) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			bin, err = readLimited(rc)
+			err = take(f.Name, rc)
 			rc.Close()
 			if err != nil {
 				return nil, err
 			}
-			found = true
 		}
 	} else {
 		gz, err := gzip.NewReader(bytes.NewReader(archive))
@@ -292,29 +330,25 @@ func extract(archive []byte, goos string) ([]byte, error) {
 				return nil, err
 			}
 			if !safeName(h.Name) {
-				return nil, fmt.Errorf("unsafe entry %q", h.Name)
+				return nil, fmt.Errorf(text.UpgradeUnsafeEntry, h.Name)
 			}
 			switch h.Typeflag {
 			case tar.TypeReg:
-			case tar.TypeDir:
-				continue
-			case tar.TypeXGlobalHeader:
+			case tar.TypeDir, tar.TypeXGlobalHeader:
 				continue
 			default:
-				return nil, fmt.Errorf("unsupported entry %q (type %c)", h.Name, h.Typeflag)
+				return nil, fmt.Errorf(text.UpgradeUnsupported, h.Name)
 			}
 			if path.Clean(h.Name) != want {
 				continue
 			}
-			bin, err = readLimited(tr)
-			if err != nil {
+			if err := take(h.Name, tr); err != nil {
 				return nil, err
 			}
-			found = true
 		}
 	}
 	if !found {
-		return nil, fmt.Errorf("no %s in the archive", want)
+		return nil, fmt.Errorf(text.UpgradeMissingBin, want)
 	}
 	return bin, nil
 }
@@ -325,32 +359,46 @@ func readLimited(r io.Reader) ([]byte, error) {
 		return nil, err
 	}
 	if len(b) > maxDownload {
-		return nil, errors.New("binary too large")
+		return nil, fmt.Errorf(text.UpgradeTooBig, maxDownload)
 	}
 	return b, nil
 }
 
-// checkHeader verifies the binary is non-empty and looks like an executable
-// of the platform.
-func checkHeader(bin []byte, goos string) error {
+// checkHeader verifies the binary is non-empty and is a real executable for
+// goos/goarch, by parsing its headers.
+func checkHeader(bin []byte, goos, goarch string) error {
 	if len(bin) == 0 {
-		return errors.New("the binary is empty")
+		return errors.New(text.UpgradeEmptyBin)
 	}
-	var magics []string
+	r := bytes.NewReader(bin)
+	ok := false
 	switch goos {
 	case "windows":
-		magics = []string{"MZ"}
+		want := map[string]uint16{"amd64": pe.IMAGE_FILE_MACHINE_AMD64, "arm64": pe.IMAGE_FILE_MACHINE_ARM64}[goarch]
+		if f, err := pe.NewFile(r); err == nil {
+			ok = want != 0 && f.Machine == want
+		}
 	case "darwin":
-		magics = []string{"\xfe\xed\xfa\xce", "\xfe\xed\xfa\xcf", "\xce\xfa\xed\xfe", "\xcf\xfa\xed\xfe", "\xca\xfe\xba\xbe"}
+		want := map[string]macho.Cpu{"amd64": macho.CpuAmd64, "arm64": macho.CpuArm64}[goarch]
+		if bytes.HasPrefix(bin, []byte{0xca, 0xfe, 0xba, 0xbe}) {
+			if ff, err := macho.NewFatFile(r); err == nil {
+				for _, a := range ff.Arches {
+					ok = ok || (want != 0 && a.Cpu == want)
+				}
+			}
+		} else if f, err := macho.NewFile(r); err == nil {
+			ok = want != 0 && f.Cpu == want
+		}
 	default:
-		magics = []string{"\x7fELF"}
-	}
-	for _, m := range magics {
-		if bytes.HasPrefix(bin, []byte(m)) {
-			return nil
+		want := map[string]elf.Machine{"amd64": elf.EM_X86_64, "arm64": elf.EM_AARCH64}[goarch]
+		if f, err := elf.NewFile(r); err == nil {
+			ok = want != 0 && f.Machine == want
 		}
 	}
-	return fmt.Errorf("the binary does not look like a %s executable", goos)
+	if !ok {
+		return fmt.Errorf(text.UpgradeWrongPlatform, goos, goarch)
+	}
+	return nil
 }
 
 // install writes bin beside exePath (following symlinks) and swaps it in.
@@ -366,7 +414,12 @@ func install(bin []byte, exePath string) error {
 	dir := filepath.Dir(real)
 	tmp, err := os.CreateTemp(dir, ".tuipe-new-*")
 	if err != nil {
-		if errors.Is(err, os.ErrPermission) {
+		switch {
+		case errors.Is(err, syscall.EROFS):
+			return fmt.Errorf(text.UpgradeReadOnly, dir)
+		case errors.Is(err, os.ErrPermission) && runtime.GOOS == "windows":
+			return fmt.Errorf(text.UpgradeNotWritableWin, dir)
+		case errors.Is(err, os.ErrPermission):
 			return fmt.Errorf(text.UpgradeNotWritable, dir)
 		}
 		return fmt.Errorf(text.UpgradeReplaceFail, err)
@@ -383,18 +436,28 @@ func install(bin []byte, exePath string) error {
 	if err := tmp.Chmod(st.Mode().Perm()); err != nil {
 		return fail(err)
 	}
+	if err := tmp.Sync(); err != nil { // the file being replaced is the only copy of the program
+		return fail(err)
+	}
 	if err := tmp.Close(); err != nil {
 		return fail(err)
 	}
 	if err := swap(tmpName, real); err != nil {
 		os.Remove(tmpName)
-		if errors.Is(err, os.ErrPermission) {
-			return fmt.Errorf(text.UpgradeNotWritable, dir)
+		var rf *restoreError
+		if errors.As(err, &rf) {
+			return err
 		}
 		return fmt.Errorf(text.UpgradeReplaceFail, err)
 	}
 	return nil
 }
+
+// restoreError reports that the old binary was moved aside and could not be
+// moved back, so the install is left without its program at exe.
+type restoreError struct{ old, exe string }
+
+func (e *restoreError) Error() string { return fmt.Sprintf(text.UpgradeRestoreFail, e.old, e.exe) }
 
 // CleanupOld removes the leftover of a previous Windows upgrade. It is
 // harmless on other systems and ignores errors.
@@ -407,32 +470,34 @@ func CleanupOld(exePath string) {
 	}
 }
 
-// Run executes `tuipe upgrade` (or `--check`), reporting to stdout.
+// Run executes `tuipe upgrade` (or `--check`), reporting to stdout. exePath
+// is only used by the real upgrade.
 func Run(ctx context.Context, c *Client, exePath string, check bool, stdout io.Writer) error {
+	current := buildinfo.Effective()
+	release := buildinfo.IsRelease()
+	if !check && !release {
+		return fmt.Errorf(text.UpgradeNotRelease, current)
+	}
 	r, err := c.Latest(ctx)
 	if err != nil {
 		return err
 	}
-	current := buildinfo.Version
+	if _, _, ok := parseVersion(r.Tag); !ok {
+		return fmt.Errorf(text.UpgradeBadTag, r.Tag)
+	}
 	newer := Newer(current, r.Tag)
-	if check {
-		if newer {
-			fmt.Fprintf(stdout, text.UpgradeAvailable+"\n", r.Tag, current)
-		} else {
-			fmt.Fprintf(stdout, text.UpgradeAlreadyLast+"\n", current)
-		}
-		return nil
-	}
-	if !buildinfo.IsRelease() {
-		return errors.New(text.UpgradeNotRelease)
-	}
-	if !newer {
+	switch {
+	case !newer:
 		fmt.Fprintf(stdout, text.UpgradeAlreadyLast+"\n", current)
-		return nil
+	case check && !release:
+		fmt.Fprintf(stdout, text.UpgradeAvailableGoInstall+"\n", r.Tag, current)
+	case check:
+		fmt.Fprintf(stdout, text.UpgradeAvailable+"\n", r.Tag, current)
+	default:
+		if err := c.Apply(ctx, r, exePath, runtime.GOOS, runtime.GOARCH); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, text.UpgradeDone+"\n", current, r.Tag)
 	}
-	if err := c.Apply(ctx, r, exePath, runtime.GOOS, runtime.GOARCH); err != nil {
-		return err
-	}
-	fmt.Fprintf(stdout, text.UpgradeDone+"\n", current, r.Tag)
 	return nil
 }

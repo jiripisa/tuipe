@@ -18,14 +18,18 @@ func IsRelease() bool {
 	return Version != "dev"
 }
 
-// String returns a one-line description of the build. For plain `dev` builds
+// Effective returns the version to show and compare. For plain `dev` builds
 // it falls back to the module version, so `go install` builds report theirs.
-func String() string {
-	version := Version
-	if version == "dev" {
+func Effective() string {
+	if Version == "dev" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
-			version = info.Main.Version
+			return info.Main.Version
 		}
 	}
-	return fmt.Sprintf("tuipe %s (commit %s, built %s)", version, Commit, Date)
+	return Version
+}
+
+// String returns a one-line description of the build.
+func String() string {
+	return fmt.Sprintf("tuipe %s (commit %s, built %s)", Effective(), Commit, Date)
 }
