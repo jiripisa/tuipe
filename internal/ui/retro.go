@@ -189,8 +189,5 @@ func (s *retroScreen) View(a *App, w, h int) string {
 }
 
 func (s *retroScreen) frame(a *App, w, h int, lines []string) string {
-	if rows := h - 3; len(lines) > rows {
-		lines = lines[:max(rows, 0)]
-	}
 	return style.Frame(a.Style, w, h, text.AppName+" · "+text.RetroTitle, strings.Join(lines, "\n"), text.HintRetro)
 }

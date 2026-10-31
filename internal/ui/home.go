@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/streak"
@@ -131,16 +132,15 @@ func (h *homeScreen) pickLabel(a *App) string {
 func (h *homeScreen) View(a *App, w, hgt int) string {
 	st := a.Style
 	dim := func(s string) string { return st.Base().Foreground(st.Dim).Render(s) }
-	uptime := uptimeText(h.up.Days)
-	if h.up.ForgivenThisWeek {
-		uptime += " (" + text.HomeBudgetSpent + ")"
-	}
 	lines := []string{
 		dim(text.HomeRank+"  ") + st.Base().Foreground(st.Accent).Render(a.Curr.RankOf(a.Store.Profile()).String()),
-		dim(text.HomeUptime+"  ") + st.Base().Foreground(st.Fg).Render(uptime),
-		"",
+		dim(text.HomeUptime+"  ") + st.Base().Foreground(st.Fg).Render(uptimeText(h.up.Days)),
 	}
-	labels := []string{h.pickLabel(a)}
+	if h.up.ForgivenThisWeek { // on a line of its own: beside the uptime it does not fit 60 columns
+		lines = append(lines, dim("  ("+text.HomeBudgetSpent+")"))
+	}
+	lines = append(lines, "")
+	labels := []string{ansi.Truncate(h.pickLabel(a), max(w-6, 1), "…")} // "│> " in front
 	for _, e := range a.Entries {
 		labels = append(labels, e.label+a.entryNote(e.id))
 	}
@@ -157,8 +157,17 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 		}
 	}
 	// Keep the selection on screen: scroll the body when the window is short.
-	if rows := hgt - 3; rows > 0 && selLine >= rows {
+	rows := hgt - 3
+	notice := ""
+	if a.UpdateNotice != "" { // the quiet one-line notice keeps its row under the menu
+		notice = dim(ansi.Truncate(a.UpdateNotice, max(w-3, 1), "…"))
+		rows--
+	}
+	if rows > 0 && selLine >= rows {
 		lines = lines[selLine-rows+1:]
+	}
+	if notice != "" {
+		lines = append(lines[:min(len(lines), max(rows, 0))], notice)
 	}
 	return style.Frame(st, w, hgt, text.AppName, strings.Join(lines, "\n"), text.HintHome)
 }

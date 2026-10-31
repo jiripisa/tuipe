@@ -51,6 +51,10 @@ type App struct {
 	focusSeen bool        // a focus message has arrived in this process
 	tickGen   int         // identifies the running round tick; older ticks are dropped
 	chain     *chain      // the Standup or Sprint being played; nil outside one
+
+	// UpdateNotice is the quiet line about a newer version, shown on the home
+	// screen when it is not empty.
+	UpdateNotice string
 }
 
 // initer is implemented by a screen that needs a command when it appears,
@@ -221,7 +225,7 @@ func (a *App) View() tea.View {
 	}
 	if a.saveWarn != "" && a.H > 0 {
 		lines := strings.Split(a.Style.Fill(body, a.W, a.H), "\n")
-		warn := a.Style.Base().Foreground(a.Style.Bad).Render(a.saveWarn)
+		warn := a.Style.Base().Foreground(a.Style.Bad).Render(ansi.Truncate(a.saveWarn, a.W, "…"))
 		lines[len(lines)-1] = a.Style.Paint(warn, a.W)
 		body = strings.Join(lines, "\n")
 	}

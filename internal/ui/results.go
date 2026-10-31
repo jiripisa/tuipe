@@ -281,23 +281,42 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	}
 	stars := st.Base().Foreground(st.Accent).Render(s.starsLine())
 
-	// The window may be short: drop the header, then the old values, then the
-	// notes, but keep the commit, the new values and the stars.
+	// The window may be short: drop the blank rows, then the header, the old
+	// values and the notes, but keep the commit, the new values and the stars.
 	rows := h - 3
-	full := []string{commit, dim("--- " + base), dim("+++ " + text.ResultsNew), ""}
-	for i := range cur {
-		if removed != nil {
-			full = append(full, removed[i])
+	label := ""
+	if l := a.chain.label(0); l != "" {
+		label = dim(l)
+	}
+	build := func(blank bool) []string {
+		sep := func() []string {
+			if blank {
+				return []string{""}
+			}
+			return nil
 		}
-		full = append(full, added[i])
+		full := append([]string{commit, dim("--- " + base), dim("+++ " + text.ResultsNew)}, sep()...)
+		for i := range cur {
+			if removed != nil {
+				full = append(full, removed[i])
+			}
+			full = append(full, added[i])
+		}
+		full = append(full, sep()...)
+		full = append(full, stars)
+		full = append(full, verdict...)
+		if label != "" {
+			full = append(full, sep()...)
+			full = append(full, label)
+		}
+		return full
 	}
-	full = append(full, "", stars)
-	full = append(full, verdict...)
-	if label := a.chain.label(0); label != "" {
-		full = append(full, "", dim(label))
-	}
-	body := full
+	body := build(true)
 	if len(body) > rows {
+		body = build(false)
+	}
+	if len(body) > rows {
+		style.Clipped("results: dropped the old values and notes")
 		body = append([]string{commit}, added...)
 		body = append(body, stars)
 		if len(body) > rows {

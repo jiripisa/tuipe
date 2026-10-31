@@ -421,16 +421,13 @@ func (s *incidentResultsScreen) View(a *App, w, h int) string {
 	var body []string
 	hintLine := text.HintIncidentWon
 	if s.won() {
-		body = s.winLines(a, w-4)
+		body = s.winLines(a, w-4, h-3)
 	} else {
 		body = s.postmortemLines(a, w-4, h-3)
 		hintLine = text.HintPostmortemBare
 		if len(s.focus) > 0 {
 			hintLine = text.HintPostmortem
 		}
-	}
-	if rows := h - 3; len(body) > rows {
-		body = body[:max(rows, 0)]
 	}
 	return style.Frame(a.Style, w, h, text.AppName+" · "+s.story.inc.ID, strings.Join(body, "\n"), hintLine)
 }
@@ -444,10 +441,22 @@ func painted(st style.Style, col color.Color, bold bool, line string, width int)
 	return rows
 }
 
-func (s *incidentResultsScreen) winLines(a *App, width int) []string {
+func (s *incidentResultsScreen) winLines(a *App, width, rows int) []string {
+	if lines := s.buildWin(a, width, true); len(lines) <= rows {
+		return lines
+	}
+	return s.buildWin(a, width, false) // the blank rows go first
+}
+
+func (s *incidentResultsScreen) buildWin(a *App, width int, blank bool) []string {
 	st := a.Style
 	var lines []string
-	add := func(col color.Color, line string) { lines = append(lines, painted(st, col, false, line, width)...) }
+	add := func(col color.Color, line string) {
+		if line == "" && !blank {
+			return
+		}
+		lines = append(lines, painted(st, col, false, line, width)...)
+	}
 	o := s.res.Incident
 	lines = painted(st, st.OK, true, text.IncidentWon, width)
 	add(st.Dim, s.story.inc.ID+"  "+s.story.inc.Title)

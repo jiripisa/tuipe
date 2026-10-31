@@ -116,7 +116,10 @@ func (s Style) Fill(content string, w, h int) string {
 // tests set it to make clipping visible.
 var ClipHook func(what string)
 
-func clipped(what string) {
+// Clipped reports content a screen had to drop for lack of room. Frame uses it
+// for what it cuts; a screen that drops content before it reaches Frame uses it
+// too, so that the loss shows in tests.
+func Clipped(what string) {
 	if ClipHook != nil {
 		ClipHook(what)
 	}
@@ -150,13 +153,13 @@ func Frame(s Style, w, h int, title, body, footer string) string {
 	for i, l := range bl {
 		switch {
 		case i >= bodyRows && strings.TrimSpace(ansi.Strip(l)) != "":
-			clipped("body row " + ansi.Strip(l))
+			Clipped("body row " + ansi.Strip(l))
 		case i < bodyRows && ansi.StringWidth(l) > iw:
-			clipped("body line " + ansi.Strip(l))
+			Clipped("body line " + ansi.Strip(l))
 		}
 	}
 	if ansi.StringWidth(footer) > iw {
-		clipped("footer " + footer)
+		Clipped("footer " + footer)
 	}
 	for i := 0; i < ih; i++ {
 		var inner string
