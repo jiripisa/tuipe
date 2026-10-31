@@ -19,6 +19,7 @@ import (
 	"github.com/gofrs/flock"
 
 	"github.com/jiripisa/tuipe/internal/stats"
+	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 // SchemaVersion is the version written into every JSON file.
@@ -41,6 +42,7 @@ type IncidentResult struct {
 
 // Run is one finished round in the history.
 type Run struct {
+	Schema                             int
 	ID                                 string
 	At                                 time.Time
 	Mode, LessonID, TextHash, LayoutID string
@@ -101,6 +103,11 @@ func newProfile() *Profile {
 func (p *Profile) fillMaps() {
 	if p.Stats == nil {
 		p.Stats = map[string]*stats.Stats{}
+	}
+	for k, v := range p.Stats {
+		if v == nil {
+			delete(p.Stats, k)
+		}
 	}
 	if p.Stars == nil {
 		p.Stars = map[string]int{}
@@ -210,6 +217,7 @@ func (s *Store) runsPath() string { return filepath.Join(s.dataDir, "runs.jsonl"
 
 // AppendRun adds one line to the run history.
 func (s *Store) AppendRun(r Run) error {
+	r.Schema = SchemaVersion
 	b, err := json.Marshal(r)
 	if err != nil {
 		return err
@@ -218,12 +226,35 @@ func (s *Store) AppendRun(r Run) error {
 	if err != nil {
 		return err
 	}
+	// A torn last line has no newline; start a fresh line so this run survives.
+	line := append(b, '\n')
+	if tornTail(s.runsPath()) {
+		line = append([]byte{'\n'}, line...)
+	}
 	// One Write call keeps the line whole even if another process appends.
-	if _, err := f.Write(append(b, '\n')); err != nil {
+	if _, err := f.Write(line); err != nil {
 		_ = f.Close()
 		return err
 	}
 	return f.Close()
+}
+
+// tornTail reports whether the file is non-empty and does not end in a newline.
+func tornTail(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil || fi.Size() == 0 {
+		return false
+	}
+	var last [1]byte
+	if _, err := f.ReadAt(last[:], fi.Size()-1); err != nil {
+		return false
+	}
+	return last[0] != '\n'
 }
 
 // Runs returns the run history in file order. Lines that do not parse are skipped.
@@ -242,7 +273,7 @@ func (s *Store) Runs() ([]Run, error) {
 		line, err := br.ReadBytes('\n')
 		if len(line) > 0 {
 			var r Run
-			if json.Unmarshal(line, &r) == nil {
+			if json.Unmarshal(line, &r) == nil && r.ID != "" {
 				runs = append(runs, r)
 			}
 		}
@@ -282,6 +313,12 @@ func (s *Store) SaveGhost(g Ghost) error {
 	path, err := s.ghostPath(g.TextHash)
 	if err != nil {
 		return err
+	}
+	if b, err := os.ReadFile(path); err == nil {
+		var head struct{ Schema int }
+		if json.Unmarshal(b, &head) == nil && head.Schema > SchemaVersion {
+			return fmt.Errorf("ghosts/%s.json: %w", g.TextHash, ErrNewerData)
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -327,7 +364,7 @@ func (s *Store) setAside(path, name string) error {
 		if err := os.Rename(path, target); err != nil {
 			return err
 		}
-		s.notices = append(s.notices, fmt.Sprintf("%s was corrupted and set aside as %s", name, filepath.Base(target)))
+		s.notices = append(s.notices, fmt.Sprintf(text.StoreCorruptSetAside, name, filepath.Base(target)))
 		return nil
 	}
 }

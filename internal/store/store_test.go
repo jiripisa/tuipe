@@ -85,6 +85,7 @@ func TestRunsAppendAndSkipBrokenLine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	r1.Schema, r2.Schema = SchemaVersion, SchemaVersion
 	if !reflect.DeepEqual(got, []Run{r1, r2}) {
 		t.Fatalf("runs = %+v", got)
 	}
@@ -366,5 +367,62 @@ func TestGhostRejectsPathLikeHash(t *testing.T) {
 	}
 	if _, err := s.Ghost("../evil"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestAppendAfterTornTailKeepsNewRun(t *testing.T) {
+	cfg, data := dirs(t)
+	s := open(t, cfg, data)
+	defer s.Close()
+	if err := s.AppendRun(Run{ID: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := os.OpenFile(filepath.Join(data, "runs.jsonl"), os.O_APPEND|os.O_WRONLY, 0o644)
+	f.WriteString(`{"ID":"torn","WP`)
+	f.Close()
+	if err := s.AppendRun(Run{ID: "2"}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Runs()
+	if len(got) != 2 || got[0].ID != "1" || got[1].ID != "2" {
+		t.Fatalf("runs = %+v", got)
+	}
+}
+
+func TestRunsSkipEmptyIDLines(t *testing.T) {
+	cfg, data := dirs(t)
+	s := open(t, cfg, data)
+	defer s.Close()
+	os.WriteFile(filepath.Join(data, "runs.jsonl"), []byte("{}\nnull\n{\"ID\":\"ok\"}\n"), 0o644)
+	got, _ := s.Runs()
+	if len(got) != 1 || got[0].ID != "ok" {
+		t.Fatalf("runs = %+v", got)
+	}
+}
+
+func TestSaveGhostRefusesNewerSchema(t *testing.T) {
+	cfg, data := dirs(t)
+	s := open(t, cfg, data)
+	defer s.Close()
+	os.MkdirAll(filepath.Join(data, "ghosts"), 0o755)
+	path := filepath.Join(data, "ghosts", "h.json")
+	orig := []byte(`{"Schema": 999}`)
+	os.WriteFile(path, orig, 0o644)
+	if err := s.SaveGhost(Ghost{TextHash: "h"}); !errors.Is(err, ErrNewerData) {
+		t.Fatalf("err = %v", err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != string(orig) {
+		t.Fatalf("file changed: %q", b)
+	}
+}
+
+func TestNilStatsEntriesAreDropped(t *testing.T) {
+	cfg, data := dirs(t)
+	os.MkdirAll(data, 0o755)
+	os.WriteFile(filepath.Join(data, "profile.json"), []byte(`{"Schema":1,"Stats":{"x":null}}`), 0o644)
+	s := open(t, cfg, data)
+	defer s.Close()
+	if len(s.Profile().Stats) != 0 {
+		t.Fatalf("stats = %v", s.Profile().Stats)
 	}
 }

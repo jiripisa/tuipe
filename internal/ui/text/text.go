@@ -14,3 +14,6 @@ Použití:
 
 // UnknownCommand is the format of the error for an unknown subcommand (%q is the command).
 const UnknownCommand = "tuipe: neznámý příkaz %q\nNápovědu zobrazíte příkazem: tuipe help\n"
+
+// StoreCorruptSetAside is the notice for a damaged data file (%s is the file, then the new name).
+const StoreCorruptSetAside = "Soubor %s byl poškozený a byl odložen jako %s."
