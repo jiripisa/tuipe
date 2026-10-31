@@ -1,12 +1,9 @@
-func fetch(urls []string) []int {
-    codes := make([]int, len(urls))
-    var wg sync.WaitGroup
-    for i, u := range urls {
-        wg.Go(func() {
-            resp, _ := http.Get(u)
-            codes[i] = resp.StatusCode
-        })
+// status returns 0 when the request fails.
+func status(u string) int {
+    resp, err := http.Get(u)
+    if err != nil {
+        return 0
     }
-    wg.Wait()
-    return codes
+    defer resp.Body.Close()
+    return resp.StatusCode
 }

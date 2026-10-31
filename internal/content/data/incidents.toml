@@ -36,20 +36,20 @@ chapter = "ch02"
   text = "top"
   lang = "shell"
   [[incident.step]]
-  prompt = "Najdi proces podle jména. Jmenuje se jako městečko, ne jako služba."
+  prompt = "Na špici je cosi, co se jmenuje jako městečko, ne jako služba. Najdi jeho proces."
   text = "pgrep jetty"
   lang = "shell"
   [[incident.step]]
-  prompt = "Rozhodnutí padlo. Ukonči všechno, co se tak jmenuje."
-  text = "pkill jetty"
+  prompt = "Rozhodnutí padlo. Ukonči všechno, co se tak jmenuje. Dohled službu sám zase nahodí, takže to je restart, jen drsnější."
+  text = "sudo pkill jetty"
   lang = "shell"
   [[incident.step]]
-  prompt = "Spusť službu znovu. Prý to pomáhá i u lidí."
-  text = "sudo restart jetty"
+  prompt = "Ověř, že dohled proces opravdu vzkřísil a má nové číslo."
+  text = "pgrep jetty"
   lang = "shell"
   [[incident.step]]
-  prompt = "Ověř, že se po restartu nic nedělo."
-  text = "tail jetty"
+  prompt = "Naposledy se podívej, jestli procesor konečně vydechl."
+  text = "top"
   lang = "shell"
 
 [[incident]]
@@ -61,16 +61,20 @@ chapter = "ch03"
   text = "tail nginx.log"
   lang = "shell"
   [[incident.step]]
-  prompt = "Najdi řádky, které autor logu považoval za chybu."
+  prompt = "Najdi řádky, které autor logu považoval za chybu. Zbytek je jen šum."
   text = "grep error nginx.log"
   lang = "shell"
   [[incident.step]]
-  prompt = "Konfigurace bydlí v jiném adresáři. Přejdi tam."
-  text = "cd conf.d"
+  prompt = "Chyba je v konfiguraci. Zálohuj ji dřív, než ji rozbiješ. Nikdo to nedělá, ale všichni toho litují."
+  text = "cp nginx.conf nginx.bak"
   lang = "shell"
   [[incident.step]]
-  prompt = "Zálohuj konfiguraci dřív, než ji rozbiješ. Nikdo to nedělá, ale všichni toho litují."
-  text = "cp nginx.conf nginx.bak"
+  prompt = "Oprav konfiguraci. Chybí v ní středník, jako vždycky."
+  text = "vim nginx.conf"
+  lang = "shell"
+  [[incident.step]]
+  prompt = "Nasazení: restartuj nginx a doufej, že už mluví."
+  text = "sudo service nginx restart"
   lang = "shell"
 
 [[incident]]
@@ -93,8 +97,8 @@ chapter = "ch04"
   prompt = "Zapiš do chatu, co se děje. Správná odpověď je vždycky stejná."
   text = "Who broke prod? Not me!"
   [[incident.step]]
-  prompt = "Pošli opravu s omluvou v popisu."
-  text = "git commit -m Fix: retry_limit"
+  prompt = "Pošli opravu s popisem, který nikoho nepopudí."
+  text = "git commit -m Fix"
   lang = "shell"
 
 [[incident]]
@@ -171,24 +175,24 @@ id = "INC-1008"
 title = "Tajemství v proměnné PATH"
 chapter = "ch08"
   [[incident.step]]
-  prompt = "Na produkci něco chybí v proměnné PATH. Vypiš ji a přijmi pravdu."
-  text = "echo $PATH"
-  lang = "shell"
-  [[incident.step]]
-  prompt = "Přihlas se na produkci jako uživatel deploy. Heslo je prý na nástěnce."
+  prompt = "Aplikace na produkci nenajde vlastní program. Přihlas se tam jako uživatel deploy, heslo je prý na nástěnce."
   text = "ssh deploy@prod"
   lang = "shell"
   [[incident.step]]
-  prompt = "V konfiguraci zůstal starý port. Vyměň ho za ten správný."
-  text = "sed 's/8000/8080/' app.conf"
+  prompt = "Diagnóza: vypiš PATH a přijmi pravdu. Adresář /opt/bin v něm chybí."
+  text = "echo $PATH"
   lang = "shell"
   [[incident.step]]
-  prompt = "Napiš novou konfiguraci jako JSON. Jedna chybějící uvozovka a je po všem."
-  text = "echo '{\"port\": 8080}'"
+  prompt = "Oprava první: přidej chybějící adresář na konec cesty."
+  text = "export PATH=$PATH:/opt/bin"
   lang = "shell"
   [[incident.step]]
-  prompt = "Nech vzkaz tomu dalšímu nešťastníkovi."
-  text = "# TODO: ask ops; they know [maybe]"
+  prompt = "Oprava druhá: v konfiguraci zůstal starý port 8000. Vyměň ho za správný."
+  text = "sed -i 's/8000/8080/' app.conf"
+  lang = "shell"
+  [[incident.step]]
+  prompt = "Nasazení: spusť startovací skript a hned se zeptej, jak dopadl. Nula znamená úspěch."
+  text = "./run.sh; echo $?"
   lang = "shell"
 
 [[incident]]
@@ -196,24 +200,25 @@ id = "INC-1009"
 title = "Roura se ucpala"
 chapter = "ch09"
   [[incident.step]]
-  prompt = "Spočítej, kolik logů se za dnešek nasbíralo. Roura, wc a trocha naděje."
-  text = "ls *.log | wc -l"
+  prompt = "Disk se plní logy. Zjisti, která služba je zapisuje: vyber druhý sloupec, seřaď, spočítej a ulož do souboru."
+  text = "cut -d' ' -f2 app.log | sort | uniq -c > top.txt"
   lang = "shell"
   [[incident.step]]
-  prompt = "Vytáhni jen řádky, které začínají ERROR, a ulož je stranou."
-  text = "grep '^ERROR' app.log > err.txt"
+  prompt = "Seřaď počty od největšího a vezmi první řádek. Pachatel by měl být vidět."
+  text = "sort -rn top.txt | head -n 1"
   lang = "shell"
   [[incident.step]]
-  prompt = "Domovský adresář vypadá divně. Přejdi tam a podívej se."
-  text = "cd ~ && ls"
+  prompt = "Pachatel je billing. Zapiš si číslo jeho procesu a rovnou ho vypiš."
+  text = "pgrep -f billing > pid.txt && cat pid.txt"
   lang = "shell"
   [[incident.step]]
-  prompt = "Pusť dlouhou úlohu na pozadí a tvař se, že tam není."
-  text = "sleep 60 &"
+  prompt = "Zastav ho natvrdo podle zapsaného čísla. Slušně to už zkoušel někdo před tebou."
+  text = "kill -9 $(cat pid.txt) && echo stopped"
   lang = "shell"
   [[incident.step]]
-  prompt = "Kolega z Windows poslal cestu k logu. Opiš ji i se zpětnými lomítky."
-  text = "C:\\Users\\ops\\logs"
+  prompt = "Ověř, že billing už do logu nepíše. Nula je dobrá zpráva."
+  text = "tail -n 5 app.log | grep -c billing"
+  lang = "shell"
 
 [[incident]]
 id = "INC-1010"
@@ -257,8 +262,8 @@ chapter = "ch11"
   text = "git commit -am \"fix(auth): nil user returns 401\""
   lang = "shell"
   [[incident.step]]
-  prompt = "Nasazení: restartuj rollout a sleduj, jestli se nic nestane."
-  text = "kubectl rollout restart deploy/auth"
+  prompt = "Nasazení: otaguj verzi a pošli tag. Pipeline z něj postaví image a nasadí ho."
+  text = "git tag v1.4.2 && git push --tags"
   lang = "shell"
 
 [[incident]]
@@ -278,12 +283,12 @@ chapter = "ch12"
   text = "ctx, cancel := context.WithTimeout(ctx, 5*time.Second)\ndefer cancel()"
   lang = "go"
   [[incident.step]]
-  prompt = "Commitni to. Zpráva commitu nemusí lhát, jen mlčet."
-  text = "git commit -am \"fix: add timeout\""
+  prompt = "Commitni a pošli to do repozitáře. Zpráva nemusí lhát, jen mlčet."
+  text = "git commit -am \"fix: add timeout\" && git push"
   lang = "shell"
   [[incident.step]]
-  prompt = "Nasaď a počkej, až rollout doběhne."
-  text = "kubectl rollout status deploy/api && echo 'ship it'"
+  prompt = "Nasazení: pipeline postavila image 2.8.1. Nasaď ho do clusteru."
+  text = "kubectl set image deploy/api api=reg/api:2.8.1"
   lang = "shell"
 
 [[incident]]
@@ -309,18 +314,22 @@ chapter = "ch11"
 
 [[incident]]
 id = "INC-2002"
-title = "Dotaz, který běží do zítřka"
+title = "Dotaz, který trvá minutu"
 chapter = "ch11"
   [[incident.step]]
   prompt = "Dotaz na objednávky trvá minutu. Zeptej se databáze, jak ho plánuje."
   text = "EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 42;"
   lang = "sql"
   [[incident.step]]
-  prompt = "Sekvenční průchod miliony řádků. Založ index."
-  text = "CREATE INDEX idx_orders_user ON orders (user_id);"
+  prompt = "Sekvenční průchod miliony řádků. Napiš migraci, která založí index."
+  text = "CREATE INDEX CONCURRENTLY idx_orders_user\n    ON orders (user_id);"
   lang = "sql"
   [[incident.step]]
-  prompt = "Ověř, že dotaz teď vrací výsledek dřív než zákazník odejde."
+  prompt = "Nasazení: pusť migraci na produkční databázi."
+  text = "psql -h prod -f migrations/042_orders_index.sql"
+  lang = "shell"
+  [[incident.step]]
+  prompt = "Ověř, že dotaz teď vrací výsledek dřív, než zákazník odejde."
   text = "SELECT COUNT(*) FROM orders WHERE user_id = 42;"
   lang = "sql"
   [[incident.step]]
@@ -348,13 +357,17 @@ chapter = "ch11"
   prompt = "Commitni to s poctivým popisem."
   text = "git commit -am \"fix: handle missing user\""
   lang = "shell"
+  [[incident.step]]
+  prompt = "Nasazení: otaguj verzi a pošli tag, release pipeline se postará o zbytek."
+  text = "git tag v2.4.1 && git push --tags"
+  lang = "shell"
 
 [[incident]]
 id = "INC-2004"
 title = "Regulární výraz, který zabil WAF"
 chapter = "ch12"
   [[incident.step]]
-  prompt = "Firewall vypršel na časový limit. Spočítej, kolikrát to udělal."
+  prompt = "Firewall překročil časový limit. Spočítej, kolikrát to udělal."
   text = "grep -c 'timeout' /var/log/waf.log"
   lang = "shell"
   [[incident.step]]
