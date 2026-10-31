@@ -21,9 +21,6 @@ const StoreCorruptSetAside = "Soubor %s byl poškozený a byl odložen jako %s."
 // AppName is the name shown in the window.
 const AppName = "tuipe"
 
-// Placeholder is the body of the temporary start screen.
-const Placeholder = "Trenažér psaní všemi deseti pro programátory"
-
 // TooSmall is shown when the window is under 40 × 8.
 const TooSmall = "Potřebuji víc místa.\nZvětšete prosím okno terminálu."
 
@@ -36,8 +33,58 @@ const SecondInstance = "tuipe už běží v jiném okně. Zavřete ho a zkuste t
 // NewerData is the error when the data was written by a newer tuipe.
 const NewerData = "Data uložila novější verze tuipe. Spusťte „tuipe upgrade“ a zkuste to znovu."
 
-// HintQuit is the footer hint of the start screen.
-const HintQuit = "Ctrl+T styl · Ctrl+C konec"
+// Footer hints of the screens.
+const (
+	HintHome    = "↑↓ výběr · Enter spustit · Ctrl+T styl · Ctrl+C konec"
+	HintResults = "Enter další kolo · Esc domů · Ctrl+T styl"
+	HintPause   = "↑↓ · Enter · Esc pokračovat"
+)
+
+// Home screen.
+const (
+	HomeRank         = "hodnost"
+	HomeUptime       = "uptime"
+	HomeUptimeFormat = "up %d d"
+	HomeBudgetSpent  = "rozpočet chyb na tento týden je vyčerpaný"
+	HomeQuickRun     = "Rychlovka"
+	HomeResume       = "pokračuj: %s"
+	HomeNotReady     = "zatím není hotové"
+
+	MenuStandup  = "Denní standup"
+	MenuSprint   = "Sprint"
+	MenuCareer   = "Kariéra"
+	MenuPractice = "Trénink"
+	MenuIncident = "Incident v produkci"
+	MenuStats    = "Statistiky"
+	MenuSettings = "Nastavení"
+
+	PickDrill    = "drill na slabá místa"
+	PickIncident = "incident v produkci"
+	PickCode     = "kód: %s"
+)
+
+// Pause menu.
+const (
+	PauseTitle   = "PAUZA"
+	PauseResume  = "pokračovat"
+	PauseRestart = "začít znovu"
+	PauseLeave   = "odejít"
+)
+
+// Results screen. The diff labels are padded to one width.
+const (
+	ResultsOld      = "HEAD~1"
+	ResultsNew      = "ty"
+	ResultsWPM      = "wpm  "
+	ResultsAccuracy = "přes."
+	ResultsTime     = "čas  "
+	ResultsStars    = "hvězdy"
+	ResultsPaused   = "pauza: kolo se nezapisuje do ducha"
+	ResultsHintUsed = "nápověda použita: třetí hvězda není možná"
+	ResultsLost     = "SLA porušeno, incident prohrán"
+	ResultsWon      = "incident vyřešen, SLA %.2f %%"
+	ResultsNoStars  = "bez hvězdy"
+)
 
 // Labels of the round screen. HEAD~1, SLA and wpm are the app's own terms.
 const (

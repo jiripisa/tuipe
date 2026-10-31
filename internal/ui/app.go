@@ -40,9 +40,18 @@ type App struct {
 	Now    func() time.Time
 	W, H   int
 
-	screen   Screen
-	saveWarn string
+	screen    Screen
+	saveWarn  string
+	focusSeen bool // a focus message has arrived in this process
+	tickGen   int  // identifies the running round tick; older ticks are dropped
 }
+
+// initer is implemented by a screen that needs a command when it appears,
+// such as the round tick. Init must be safe to call on every update.
+type initer interface{ Init(a *App) tea.Cmd }
+
+// leaver is implemented by a screen with work to save when the app quits.
+type leaver interface{ Leave(a *App) }
 
 // New builds the app from an open store and the loaded content. The style and
 // layout come from the config, with defaults when it is empty.
@@ -69,15 +78,16 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 	if styleID == "" {
 		styleID = defaultStyle
 	}
-	return &App{
+	a := &App{
 		Store: st, Layout: lay, Lib: lib,
 		Curr:  curriculum.New(lib, lay),
 		Style: style.ByID(styleID),
 		// Round(0) strips the monotonic reading, so the wall clock is compared
 		// and a gap while the computer slept is visible.
-		Now:    func() time.Time { return time.Now().Round(0) },
-		screen: startScreen{},
-	}, nil
+		Now: func() time.Time { return time.Now().Round(0) },
+	}
+	a.screen = NewHomeScreen(a)
+	return a, nil
 }
 
 // Init implements tea.Model.
@@ -94,6 +104,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch m.String() {
 		case "ctrl+c":
+			if l, ok := a.screen.(leaver); ok {
+				l.Leave(a)
+			}
 			a.SaveErr(a.Store.SaveProfile())
 			return a, tea.Quit
 		case "ctrl+t":
@@ -103,10 +116,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.tooSmall() {
 			return a, nil
 		}
+	case tea.FocusMsg, tea.BlurMsg:
+		a.noteFocusEvents()
 	}
 	next, cmd := a.screen.Update(msg, a)
 	a.screen = next
+	if i, ok := next.(initer); ok {
+		cmd = tea.Batch(cmd, i.Init(a))
+	}
 	return a, cmd
+}
+
+// noteFocusEvents remembers that this terminal reports focus changes, so later
+// rounds do not pause on idle.
+func (a *App) noteFocusEvents() {
+	a.focusSeen = true
+	if p := a.Store.Profile(); !p.FocusEvents {
+		p.FocusEvents = true
+		a.SaveErr(a.Store.SaveProfile())
+	}
+}
+
+// focusEvents reads the flag again for a new session.
+func (a *App) focusEvents() bool {
+	return a.focusSeen || a.Store.Profile().FocusEvents
 }
 
 func (a *App) cycleStyle() {
@@ -157,15 +190,6 @@ func centre(s string, w, h int) string {
 		out = append(out, strings.Repeat(" ", max(0, (w-len([]rune(l)))/2))+l)
 	}
 	return strings.Join(out, "\n")
-}
-
-// startScreen is a placeholder until the real home screen exists.
-type startScreen struct{}
-
-func (s startScreen) Update(tea.Msg, *App) (Screen, tea.Cmd) { return s, nil }
-
-func (startScreen) View(a *App, w, h int) string {
-	return style.Frame(a.Style, w, h, text.AppName, text.Placeholder, text.HintQuit)
 }
 
 // Run opens the store, runs the program and returns when the user quits.
