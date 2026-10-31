@@ -609,16 +609,30 @@ func TestRefusesPlainHTTPAssets(t *testing.T) {
 }
 
 func TestRefusesRedirectDowngradeToHTTP(t *testing.T) {
-	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("x")) }))
+	name := upgrade.AssetName("1.1.0", "linux", "amd64")
+	archive := tarGz(t, map[string]string{"tuipe": header("linux", "amd64") + "NEW"}, nil)
+	hits := 0
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Write(archive) // a perfectly valid archive, behind the downgrade
+	}))
 	t.Cleanup(plain.Close)
 	tls := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/s" {
+			fmt.Fprintf(w, "%s  %s\n", sum(archive), name) // a valid checksum line
+			return
+		}
 		http.Redirect(w, r, plain.URL, http.StatusFound)
 	}))
 	t.Cleanup(tls.Close)
 	c := &upgrade.Client{APIBase: tls.URL, HTTP: tls.Client(), Repo: "jiripisa/tuipe"}
-	rel := upgrade.Release{Tag: "v1.1.0", Assets: map[string]string{
-		upgrade.AssetName("1.1.0", "linux", "amd64"): tls.URL + "/a", "checksums.txt": tls.URL + "/s"}}
-	if err := c.Apply(context.Background(), rel, installOld(t), "linux", "amd64"); err == nil {
+	rel := upgrade.Release{Tag: "v1.1.0", Assets: map[string]string{name: tls.URL + "/a", "checksums.txt": tls.URL + "/s"}}
+	exe := installOld(t)
+	err := c.Apply(context.Background(), rel, exe, "linux", "amd64")
+	if err == nil {
 		t.Fatal("expected error")
 	}
+	contains(t, err.Error(), "HTTPS")
+	eq(t, hits, 0)
+	eq(t, read(t, exe), "OLD")
 }

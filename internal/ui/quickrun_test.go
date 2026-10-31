@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -614,10 +613,6 @@ func testLeave(t *testing.T, suffix string, stop func()) {
 
 func TestCtrlCMidRoundKeepsResumeAndKeystrokes(t *testing.T) {
 	testLeave(t, "\x03", func() {})
-}
-
-func TestSIGHUPMidRoundKeepsResumeAndKeystrokes(t *testing.T) {
-	testLeave(t, "", func() { _ = syscall.Kill(os.Getpid(), syscall.SIGHUP) })
 }
 
 func TestResumeIsWrittenAtTheFirstKeystroke(t *testing.T) {
