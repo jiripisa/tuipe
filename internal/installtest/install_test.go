@@ -606,7 +606,9 @@ func TestInstallPs1ViaIex(t *testing.T) {
 	if got, _ := os.ReadFile(filepath.Join(dir, "tuipe.exe")); string(got) != fakeBinary {
 		t.Fatalf("not installed:\n%s", out)
 	}
-	if !strings.Contains(string(out), "tuipe nainstalováno") {
+	// Windows PowerShell 5.1 writes redirected output in the OEM code page, so
+	// only the ASCII part of the Czech final line is compared.
+	if !strings.Contains(string(out), "tuipe nainstalov") {
 		t.Fatalf("missing final line:\n%s", out)
 	}
 }
@@ -618,8 +620,11 @@ func TestInstallPs1StaticProperties(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.HasPrefix(b, []byte{0xEF, 0xBB, 0xBF}) {
-		t.Fatal("install.ps1 must start with a UTF-8 BOM for Windows PowerShell 5.1")
+	if bytes.HasPrefix(b, []byte{0xEF, 0xBB, 0xBF}) {
+		t.Fatal("install.ps1 must not have a BOM: it can break the first line under irm | iex on PowerShell 5.1")
+	}
+	if !bytes.HasPrefix(b, []byte("# ")) {
+		t.Fatal("install.ps1 must start with a plain comment")
 	}
 	src := string(b)
 	for _, banned := range []string{"Expand-Archive", "Get-FileHash"} {
@@ -629,7 +634,7 @@ func TestInstallPs1StaticProperties(t *testing.T) {
 	}
 	// Preferences must be set inside the function, never at script level.
 	fn := strings.Index(src, "function Install-Tuipe")
-	for _, pref := range []string{"$ErrorActionPreference =", "Set-StrictMode"} {
+	for _, pref := range []string{"$ErrorActionPreference =", "Set-StrictMode", "$ProgressPreference ="} {
 		if i := strings.Index(src, pref); i < fn {
 			t.Fatalf("%s is set outside Install-Tuipe", pref)
 		}

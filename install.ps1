@@ -1,4 +1,4 @@
-﻿# tuipe installer for Windows (PowerShell 5.1 or newer).
+# tuipe installer for Windows (PowerShell 5.1 or newer).
 #
 #   irm https://raw.githubusercontent.com/jiripisa/tuipe/main/install.ps1 | iex
 #
@@ -9,12 +9,15 @@
 # Everything lives in Install-Tuipe, called on the last line, so a truncated
 # download cannot run half a script. Preferences are set inside the function
 # and the function is removed afterwards, so nothing leaks into the user's
-# session under `iex`. This file starts with a UTF-8 BOM so Windows PowerShell
-# 5.1 reads the Czech text correctly when run as a file.
+# session under `iex`. The file has no BOM on purpose: a BOM can survive
+# `irm | iex` on Windows PowerShell 5.1 and break the first line. The cost is
+# that Czech text may look garbled if the file is run directly on 5.1.
 
 function Install-Tuipe {
     $ErrorActionPreference = 'Stop'
     Set-StrictMode -Version Latest
+    # The progress bar makes Windows PowerShell 5.1 downloads very slow.
+    $ProgressPreference = 'SilentlyContinue'
 
     # Runs $Action; any failure becomes the given Czech message, never raw .NET text.
     function Invoke-Step([string]$Message, [scriptblock]$Action) {
