@@ -643,3 +643,41 @@ func TestGitLogNamesTheSessionAndAlignsAccuracy(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordLabelsAreCapitalised(t *testing.T) {
+	a, st, clk := statsApp(t, 80, 24)
+	id, _ := lessonOf(t, a, 1)
+	inc := &store.IncidentResult{Severity: "SEV3", Won: true}
+	for i, r := range []store.Run{
+		{Session: "quick", Mode: "drill"},
+		{Session: "career", Mode: "lesson", LessonID: id},
+		{Session: "career", Mode: "code"},
+		{Session: "career", Mode: "incident", Incident: inc},
+		{Session: "standup", Mode: "drill"},
+		{Session: "sprint", Mode: "drill"},
+	} {
+		r.ID, r.At, r.WPM, r.Accuracy, r.Score = fmt.Sprintf("x%d", i), daysAgo(clk, 0), 40, 0.95, 30
+		addRun(t, st, r)
+	}
+	openStats(t, a)
+	for range 3 {
+		a.Update(tab)
+	}
+	s := screen(a)
+	for _, row := range []string{"Rychlovka", "Lekce", "Kód", "Incident", "Standup", "Sprint"} {
+		if !strings.Contains(s, "│"+row+" ") && !strings.Contains(s, row+"  ") {
+			t.Errorf("no record row %q:\n%s", row, s)
+		}
+	}
+	for _, bad := range []string{"lekce", "kód", "incident ", "drill"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("record rows must be capitalised, found %q:\n%s", bad, s)
+		}
+	}
+	a.Update(left)
+	a.Update(left)
+	a.Update(left)
+	if !strings.Contains(screen(a), "Drill · Rychlovka") {
+		t.Errorf("git log lacks %q:\n%s", "Drill · Rychlovka", screen(a))
+	}
+}

@@ -50,6 +50,15 @@ type statsScreen struct {
 	sel     int         // index into runs
 	up      string
 	groupOf map[string]string // lesson id -> trend group
+	titles  map[string]string // lesson id -> title
+	log     []logRow          // the git log: day headers and runs
+	logLine map[int]int       // run index -> index of its row in log
+}
+
+// logRow is one line of the git log: a day header (run < 0) or a run.
+type logRow struct {
+	day string
+	run int
 }
 
 // NewStatsScreen opens the statistics on the git log.
@@ -58,8 +67,27 @@ func NewStatsScreen(a *App) Screen {
 	runs = slices.Clone(runs)
 	sort.SliceStable(runs, func(i, j int) bool { return runs[i].At.After(runs[j].At) })
 	up := a.uptime()
-	return &statsScreen{runs: runs, up: uptimeText(up.Days), groupOf: a.lessonGroups()}
+	s := &statsScreen{runs: runs, up: uptimeText(up.Days), groupOf: a.lessonGroups(),
+		titles: map[string]string{}, logLine: map[int]int{}}
+	for _, ch := range a.Curr.Chapters() {
+		for _, l := range ch.Lessons {
+			s.titles[l.ID] = l.Title
+		}
+	}
+	day := ""
+	for i, r := range runs {
+		if d := r.At.Local().Format(dateLayout); d != day {
+			day = d
+			s.log = append(s.log, logRow{day: d, run: -1})
+		}
+		s.logLine[i] = len(s.log)
+		s.log = append(s.log, logRow{run: i})
+	}
+	return s
 }
+
+// bodyRows is the number of lines the screen leaves to its content in a window h high.
+func bodyRows(h int) int { return max(0, h-statsChrome) }
 
 func (s *statsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	k, ok := msg.(tea.KeyPressMsg)
@@ -67,7 +95,7 @@ func (s *statsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return s, nil
 	}
 	n := len(text.StatsTabs)
-	page := max(1, a.H-statsChrome)
+	page := max(1, bodyRows(a.H))
 	switch k.String() {
 	case "esc":
 		return NewHomeScreen(a), nil
@@ -108,7 +136,7 @@ func (s *statsScreen) View(a *App, w, h int) string {
 	}
 	head := strings.Join(bar, " ") + "   " + dim(text.HomeUptime+" "+s.up)
 
-	rows := max(0, h-statsChrome)
+	rows := bodyRows(h)
 	var body []string
 	switch {
 	case len(s.runs) == 0:
@@ -154,42 +182,40 @@ func (s *statsScreen) gitLog(a *App, rows int) []string {
 	paint := func(col color.Color, bold bool, t string) string {
 		return st.Base().Foreground(col).Bold(bold).Render(t)
 	}
+	top, end := 0, len(s.log)
+	if rows > 0 && end > rows {
+		top = min(max(s.logLine[s.sel]-rows/2, 0), end-rows)
+		end = top + rows
+	}
 	var lines []string
-	selLine, day := 0, ""
-	for i, r := range s.runs {
-		if d := r.At.Local().Format(dateLayout); d != day {
-			day = d
-			lines = append(lines, paint(st.Dim, false, d))
+	for _, row := range s.log[top:end] { // only the visible window is rendered
+		if row.run < 0 {
+			lines = append(lines, paint(st.Dim, false, row.day))
+			continue
 		}
-		line := s.runLine(a, r)
-		if i == s.sel {
-			selLine = len(lines)
-			lines = append(lines, paint(st.Accent, true, "> "+line))
+		r := s.runs[row.run]
+		line := s.runLine(r)
+		if row.run == s.sel {
+			line = paint(st.Accent, true, "> "+line)
 		} else {
-			lines = append(lines, paint(st.Fg, false, "  "+line))
+			line = paint(st.Fg, false, "  "+line)
 		}
 		if lostIncident(r) {
-			lines[len(lines)-1] += "  " + paint(st.Bad, false, text.StatsLost)
+			line += "  " + paint(st.Bad, false, text.StatsLost)
 		}
-	}
-	if rows > 0 && len(lines) > rows {
-		top := min(max(selLine-rows/2, 0), len(lines)-rows)
-		lines = lines[top : top+rows]
+		lines = append(lines, line)
 	}
 	return lines
 }
 
 // runLine is a run like a git log entry: hash, WPM, accuracy, stars, the lead
 // on the ghost and what was typed.
-func (s *statsScreen) runLine(a *App, r store.Run) string {
+func (s *statsScreen) runLine(r store.Run) string {
 	line := fmt.Sprintf("%s  %2.0f wpm  %-7s %s", r.ID, r.WPM, fmt.Sprintf("%.1f %%", r.Accuracy*100), starBar(r.Stars))
 	if r.GhostDeltaMs != nil {
 		line += fmt.Sprintf("  %+.1f s", float64(*r.GhostDeltaMs)/1000)
 	}
-	title := ""
-	if r.LessonID != "" {
-		title, _ = a.lessonTitle(r.LessonID)
-	}
+	title := s.titles[r.LessonID]
 	name := modeLabel(r.Mode)
 	if l := sessionLabel(sessionOfRun(r)); l != "" {
 		name += " · " + l
@@ -324,7 +350,7 @@ func charGroup(r rune, route layout.Route) string {
 	switch {
 	case unicode.IsDigit(r):
 		return text.StatsGroupDigits
-	case unicode.IsLetter(r) && r > unicode.MaxASCII:
+	case unicode.Is(unicode.Latin, r) && r > unicode.MaxASCII:
 		return text.StatsGroupDiacritics
 	case shifted:
 		return text.StatsGroupShift

@@ -231,10 +231,10 @@ const (
 	StatsGroupDigits     = "čísla"
 	StatsGroupShift      = "Shift"
 	StatsGroupOption     = "Option"
-	StatsModeLesson      = "lekce"
-	StatsModeCode        = "kód"
-	StatsModeIncident    = "incident"
-	StatsModeDrill       = "drill"
+	StatsModeLesson      = "Lekce"
+	StatsModeCode        = "Kód"
+	StatsModeIncident    = "Incident"
+	StatsModeDrill       = "Drill"
 )
 
 // More statistics strings.
