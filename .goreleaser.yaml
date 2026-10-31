@@ -1,0 +1,40 @@
+version: 2
+
+project_name: tuipe
+
+builds:
+  - id: tuipe
+    main: ./cmd/tuipe
+    binary: tuipe
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/jiripisa/tuipe/internal/buildinfo.Version={{.Tag}}
+      - -X github.com/jiripisa/tuipe/internal/buildinfo.Commit={{.ShortCommit}}
+      - -X github.com/jiripisa/tuipe/internal/buildinfo.Date={{.Date}}
+
+archives:
+  - id: tuipe
+    # Must match upgrade.AssetName: tuipe_<version>_<os>_<arch>.tar.gz, no "v".
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    # The binary sits at the archive's top level, next to LICENSE and README.
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
