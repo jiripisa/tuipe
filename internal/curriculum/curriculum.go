@@ -235,11 +235,14 @@ func (c *Curriculum) TestOutText(chapterID string) (string, score.Targets) {
 		Length:  testOutLength,
 		Seed:    ch.TestOutSeed,
 	})
-	var t score.Targets
-	if n := len(ch.Lessons); n > 0 {
-		t.Speed = ch.Lessons[n-1].Speed
+	// Targets come from the last lesson, or from the nearest earlier chapter
+	// that has lessons.
+	for j := i; j >= 0; j-- {
+		if n := len(c.raw[j].Lessons); n > 0 {
+			return text, score.Targets{Speed: c.raw[j].Lessons[n-1].Speed}
+		}
 	}
-	return text, t
+	return text, score.Targets{}
 }
 
 // IncidentDef returns the incident that ends a chapter. It is false for a
@@ -250,19 +253,33 @@ func (c *Curriculum) IncidentDef(chapterID string) (content.Incident, bool) {
 	return inc, ok
 }
 
+// empty reports whether a chapter has nothing to play: no lesson and no
+// incident. Progress must never wait on such a chapter.
+func (c *Curriculum) empty(i int) bool {
+	ch := c.chapters[i]
+	_, hasIncident := c.incident[ch.ID]
+	return len(ch.Lessons) == 0 && !hasIncident
+}
+
 // done reports whether the chapter at position i is completed. A chapter with
 // an incident is done when the incident was won (at SEV3 or harder, which is
-// all the profile records). Otherwise its last lesson needs one star.
+// all the profile records). Otherwise its last lesson needs one star. A
+// chapter with nothing to play counts as done.
 func (c *Curriculum) done(p *store.Profile, i int) bool {
 	ch := c.chapters[i]
-	if p.Completed[ch.ID] {
+	if p.Completed[ch.ID] || c.empty(i) {
 		return true
 	}
 	if inc, ok := c.incident[ch.ID]; ok {
 		return p.IncidentBest[inc.ID] != ""
 	}
 	n := len(ch.Lessons)
-	return n > 0 && p.Stars[ch.Lessons[n-1].ID] >= 1
+	return p.Stars[ch.Lessons[n-1].ID] >= 1
+}
+
+// earned is done without the vacuous case: the chapter was really completed.
+func (c *Curriculum) earned(p *store.Profile, i int) bool {
+	return c.done(p, i) && (p.Completed[c.chapters[i].ID] || !c.empty(i))
 }
 
 // current is the position of the first chapter that is not done. Onboarding
@@ -271,7 +288,7 @@ func (c *Curriculum) done(p *store.Profile, i int) bool {
 func (c *Curriculum) current(p *store.Profile) int {
 	laterDone := false
 	for i, ch := range c.chapters {
-		if ch.Number > 0 && c.done(p, i) {
+		if ch.Number > 0 && c.earned(p, i) {
 			laterDone = true
 		}
 	}
@@ -326,11 +343,12 @@ func (c *Curriculum) IsUnlocked(p *store.Profile, chapterID string) bool {
 }
 
 // RankOf is the rank of the highest completed chapter. It follows completion,
-// never mastery, so it cannot fall.
+// never mastery, so it cannot fall. A chapter that is only vacuously done
+// (nothing to play) earns no rank.
 func (c *Curriculum) RankOf(p *store.Profile) Rank {
 	rank := Intern
 	for i, ch := range c.chapters {
-		if c.done(p, i) {
+		if c.earned(p, i) {
 			rank = max(rank, parseRank(ch.Rank))
 		}
 	}

@@ -244,11 +244,11 @@ introduces = ""
 incident = "INC-1012"
 test_out_seed = 9012
 lesson = [
-  { id = "ch12-01", title = "Slova a symboly", focus = "{}[]()", seed = 1201, length = 168, speed = [20, 28, 36] },
-  { id = "ch12-02", title = "Čísla a operátory", focus = "0123456789+=%/", seed = 1202, length = 168, speed = [20, 28, 36] },
-  { id = "ch12-03", title = "Diakritika a velká písmena", focus = "ěščřžýáíéúůĚŠČŘŽ", seed = 1203, length = 168, speed = [20, 28, 36] },
-  { id = "ch12-04", title = "Identifikátory a cesty", focus = "_-./\\", seed = 1204, length = 168, speed = [20, 28, 36] },
-  { id = "ch12-05", title = "Roury a přesměrování", focus = "|&<>$~", seed = 1205, length = 168, speed = [20, 28, 36] },
-  { id = "ch12-06", title = "Bez nápovědy: rozcvička", focus = "@#^*;:?!'\"`", seed = 1206, length = 174, speed = [21, 29, 37] },
-  { id = "ch12-07", title = "Bez nápovědy: maraton", focus = "{}[]()<>|&", seed = 1207, length = 180, speed = [22, 30, 38] },
+  { id = "ch12-01", title = "Slova a symboly", focus = "{}[]()", seed = 1201, length = 138, speed = [16, 23, 30] },
+  { id = "ch12-02", title = "Čísla a operátory", focus = "0123456789+=%/", seed = 1202, length = 138, speed = [16, 23, 30] },
+  { id = "ch12-03", title = "Diakritika a velká písmena", focus = "ěščřžýáíéúůĚŠČŘŽ", seed = 1203, length = 144, speed = [17, 24, 32] },
+  { id = "ch12-04", title = "Identifikátory a cesty", focus = "_-./\\", seed = 1204, length = 144, speed = [17, 24, 32] },
+  { id = "ch12-05", title = "Roury a přesměrování", focus = "|&<>$~", seed = 1205, length = 144, speed = [17, 24, 32] },
+  { id = "ch12-06", title = "Bez nápovědy: rozcvička", focus = "@#^*;:?!'\"`", seed = 1206, length = 150, speed = [18, 25, 33] },
+  { id = "ch12-07", title = "Bez nápovědy: maraton", focus = "{}[]()<>|&", seed = 1207, length = 156, speed = [18, 26, 34] },
 ]

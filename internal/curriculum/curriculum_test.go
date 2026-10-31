@@ -535,3 +535,119 @@ func TestSnippetLessonJoinsSnippets(t *testing.T) {
 		t.Errorf("text %q err %v", text, err)
 	}
 }
+
+func TestEmptyChapterNeverBlocksProgress(t *testing.T) {
+	lib := incidentLib(t)
+	lib.Chapters = append(lib.Chapters[:1], content.ChapterDef{ID: "c-empty", Number: 2, Rank: "Staff"},
+		content.ChapterDef{ID: "c3", Number: 3, Rank: "Principal", Lessons: lib.Chapters[1].Lessons})
+	c := curriculum.New(lib, czech(t))
+	p := newProfile()
+	p.IncidentBest["INC-1001"] = "SEV3"
+	if l, ok := c.NextLesson(p); !ok || l.ID != "c2-1" {
+		t.Fatalf("next = %q %v, want to skip the empty chapter", l.ID, ok)
+	}
+	if !c.IsUnlocked(p, "c3") {
+		t.Error("c3 must not wait on an empty chapter")
+	}
+	if got := c.RankOf(p); got != curriculum.Intern {
+		t.Errorf("an empty chapter earned rank %v", got)
+	}
+}
+
+// walk plays a fresh user through the whole curriculum and checks that every
+// step moves forward.
+func walk(t *testing.T, c *curriculum.Curriculum) {
+	t.Helper()
+	p := newProfile()
+	last := -1
+	for step := 0; step < 1000; step++ {
+		cur := c.CurrentChapter(p)
+		if cur.Number < last {
+			t.Fatalf("step %d: moved back from chapter %d to %d", step, last, cur.Number)
+		}
+		last = cur.Number
+		if !c.IsUnlocked(p, cur.ID) {
+			t.Fatalf("step %d: current chapter %s is locked", step, cur.ID)
+		}
+		if l, ok := c.NextLesson(p); ok {
+			if p.Stars[l.ID] != 0 {
+				t.Fatalf("step %d: %s offered again", step, l.ID)
+			}
+			p.Stars[l.ID] = 1
+			continue
+		}
+		if inc, ok := c.IncidentDef(cur.ID); ok && p.IncidentBest[inc.ID] == "" {
+			p.IncidentBest[inc.ID] = "SEV3"
+			continue
+		}
+		// Nothing left to do: everything must be finished.
+		if last != 12 && last != len(c.Chapters())-1 {
+			t.Fatalf("stuck in chapter %d", last)
+		}
+		for _, ch := range c.Chapters() {
+			if !c.IsUnlocked(p, ch.ID) {
+				t.Errorf("%s still locked at the end", ch.ID)
+			}
+		}
+		return
+	}
+	t.Fatal("walk did not end")
+}
+
+func TestWalkFromOnboardingToTheEnd(t *testing.T) {
+	walk(t, curr(t))
+}
+
+func TestWalkWithIncidents(t *testing.T) {
+	lib := loadLib(t)
+	for _, ch := range lib.Chapters {
+		if ch.IncidentID != "" {
+			lib.Incidents = append(lib.Incidents, content.Incident{
+				ID: ch.IncidentID, Chapter: ch.ID, Steps: []content.Step{{Prompt: "p", Text: "ab", Lang: "sh"}},
+			})
+		}
+	}
+	c := curriculum.New(lib, czech(t))
+	if _, ok := c.IncidentDef("ch05"); !ok {
+		t.Fatal("test incidents were not picked up")
+	}
+	walk(t, c)
+	p := newProfile()
+	for _, ch := range c.Chapters() {
+		if ch.IncidentID != "" {
+			p.IncidentBest[ch.IncidentID] = "SEV3"
+		}
+	}
+	if got := c.RankOf(p); got != curriculum.Principal {
+		t.Errorf("rank after every incident = %v", got)
+	}
+}
+
+func TestTestOutWorksForEveryChapter(t *testing.T) {
+	c := curr(t)
+	for _, ch := range c.Chapters() {
+		text, tg := c.TestOutText(ch.ID)
+		if text == "" || tg == (score.Targets{}) {
+			t.Errorf("%s: test-out %q targets %v", ch.ID, text, tg)
+		}
+		if bad := czech(t).Unresolved(text); len(bad) > 0 {
+			t.Errorf("%s: untypable %q", ch.ID, string(bad))
+		}
+		allowed := c.AllowedAt(ch.ID)
+		for _, r := range text {
+			if !allowed(r) {
+				t.Errorf("%s: locked character %q", ch.ID, r)
+			}
+		}
+	}
+}
+
+func TestTestOutTargetsFallBackToEarlierChapter(t *testing.T) {
+	lib := incidentLib(t)
+	lib.Chapters = append(lib.Chapters, content.ChapterDef{ID: "c3", Number: 3, Rank: "Junior", Introduces: "x", TestOutSeed: 5})
+	c := curriculum.New(lib, czech(t))
+	_, tg := c.TestOutText("c3")
+	if tg.Speed != [3]float64{10, 15, 20} {
+		t.Errorf("targets = %v", tg.Speed)
+	}
+}
