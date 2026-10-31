@@ -123,7 +123,7 @@ func Frame(s Style, w, h int, title, body, footer string) string {
 	iw, ih := w-2, h-2
 
 	titleText := ""
-	if title != "" {
+	if title != "" && iw >= 5 { // narrower, the title would push the corner out of the box
 		titleText = " " + ansi.Truncate(title, iw-4, "…") + " "
 	}
 	rest := max(0, iw-1-ansi.StringWidth(titleText))

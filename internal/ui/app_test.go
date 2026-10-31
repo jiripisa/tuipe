@@ -159,3 +159,11 @@ func TestNewerDataMessage(t *testing.T) {
 		t.Errorf("Run error = %v, want the upgrade message", err)
 	}
 }
+
+func TestCentreMeasuresCellsNotRunes(t *testing.T) {
+	// Four wide characters take eight cells, so the margin of a 20 cell line is 6.
+	got := ui.Centre("漢字漢字", 20, 1)
+	if lead := len(got) - len(strings.TrimLeft(got, " ")); lead != 6 {
+		t.Errorf("margin = %d, want 6: %q", lead, got)
+	}
+}

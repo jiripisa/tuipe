@@ -47,6 +47,8 @@ func ScreenName(a *App) string {
 		return "first-run"
 	case *placementScreen:
 		return "placement"
+	case *settingsScreen:
+		return "settings"
 	}
 	return "other"
 }
@@ -132,11 +134,6 @@ func RoundFrame(a *App) play.Frame {
 // SprintPlan regenerates the plan of a sprint from its saved state.
 func SprintPlan(a *App, s *store.SprintState) []recommend.Pick { return a.sprintPlan(s) }
 
-// AddEntry appends a home entry that has no screen.
-func AddEntry(a *App, label string) {
-	a.Entries = append(a.Entries, menuEntry{id: "fake", label: label})
-}
-
 // SetGOOS replaces the operating system the first run checks and returns a
 // function that restores it.
 func SetGOOS(s string) func() {
@@ -147,3 +144,13 @@ func SetGOOS(s string) func() {
 
 // RunCadence is the number of runs the recommender counts for its rhythm.
 func RunCadence(a *App) int { return a.runCadence() }
+
+// RawView is the view of the screen as it draws itself, before the app pads
+// or cuts it to the window.
+func RawView(a *App) string { return a.screen.View(a, a.W, a.H) }
+
+// Label is the text of a home entry.
+func (e menuEntry) Label() string { return e.label }
+
+// Centre places a block of text in the middle of a w × h area.
+func Centre(s string, w, h int) string { return centre(s, w, h) }

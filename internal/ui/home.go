@@ -30,7 +30,7 @@ const (
 type menuEntry struct {
 	id    entryID
 	label string
-	open  func(*App) (Screen, tea.Cmd) // nil until the screen exists
+	open  func(*App) (Screen, tea.Cmd) // set by RegisterEntry
 }
 
 func defaultEntries() []menuEntry {
@@ -45,8 +45,7 @@ func defaultEntries() []menuEntry {
 	}
 }
 
-// RegisterEntry wires a home menu entry to its screen. Until an entry is
-// registered it shows that it is not ready.
+// RegisterEntry wires a home menu entry to its screen.
 func (a *App) RegisterEntry(id entryID, open func(*App) (Screen, tea.Cmd)) {
 	if i := slices.IndexFunc(a.Entries, func(e menuEntry) bool { return e.id == id }); i >= 0 {
 		a.Entries[i].open = open
@@ -58,7 +57,6 @@ type homeScreen struct {
 	pick   recommend.Pick
 	resume string // lesson title when a lesson can be continued
 	sel    int
-	note   string // shown under the menu, such as "not ready"
 	up     streak.Status
 }
 
@@ -96,7 +94,6 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	if !ok {
 		return h, nil
 	}
-	h.note = ""
 	count := len(a.Entries) + 1
 	switch k.String() {
 	case "up", "k":
@@ -110,7 +107,6 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		if open := a.Entries[h.sel-1].open; open != nil {
 			return open(a)
 		}
-		h.note = text.HomeNotReady
 	}
 	return h, nil
 }
@@ -163,9 +159,6 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 	// Keep the selection on screen: scroll the body when the window is short.
 	if rows := hgt - 3; rows > 0 && selLine >= rows {
 		lines = lines[selLine-rows+1:]
-	}
-	if h.note != "" {
-		lines = append(lines, "", dim(h.note))
 	}
 	return style.Frame(st, w, hgt, text.AppName, strings.Join(lines, "\n"), text.HintHome)
 }

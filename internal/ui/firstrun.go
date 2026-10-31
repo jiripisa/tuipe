@@ -12,7 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/jiripisa/tuipe/internal/curriculum"
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
@@ -112,12 +111,19 @@ func (f *firstRunScreen) startCheck(a *App) {
 // loadLayouts are the built-in layouts followed by the user's own. A bad user
 // file is skipped.
 func loadLayouts(st *store.Store) ([]*layout.Layout, error) {
+	all, _, err := loadLayoutsReport(st)
+	return all, err
+}
+
+// loadLayoutsReport is loadLayouts that also returns what went wrong with the
+// user's files, one error for each skipped file.
+func loadLayoutsReport(st *store.Store) ([]*layout.Layout, []error, error) {
 	all, err := layout.Builtin()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	user, _ := layout.LoadDir(filepath.Join(st.ConfigDir(), userLayoutDir))
-	return append(all, user...), nil
+	user, errs := layout.LoadDir(filepath.Join(st.ConfigDir(), userLayoutDir))
+	return append(all, user...), errs, nil
 }
 
 // availableLayouts is loadLayouts for the first run, where built-ins cannot fail.
@@ -264,11 +270,7 @@ func (f *firstRunScreen) updatePicker(k tea.KeyPressMsg, a *App) {
 		f.step = stepFork
 	case "enter":
 		l := f.layouts[f.pickAt]
-		a.Layout = l
-		a.Curr = curriculum.New(a.Lib, l)
-		cfg := a.Store.Config()
-		cfg.Layout = l.ID
-		a.SaveErr(a.Store.SaveConfig(cfg))
+		a.setLayout(l)
 		f.startCheck(a)
 	}
 }

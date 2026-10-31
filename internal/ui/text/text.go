@@ -49,7 +49,6 @@ const (
 	HomeBudgetSpent = "rozpočet chyb na tento týden je vyčerpaný"
 	HomeQuickRun    = "Rychlovka"
 	HomeResume      = "pokračuj: %s"
-	HomeNotReady    = "zatím není hotové"
 
 	MenuStandup  = "Denní standup"
 	MenuSprint   = "Sprint"
@@ -347,4 +346,22 @@ const (
 	OfferStart    = "Začínáte v kapitole %d: %s."
 	OfferSkipped  = "Odemčeno: %d kapitol před nástupem, bez hvězd. Jejich lekce zůstávají otevřené."
 	OfferHint     = "Enter pokračovat · Ctrl+C konec"
+)
+
+// Settings (Nastavení).
+const (
+	SettingsTitle       = "Nastavení"
+	SettingsStyle       = "Vzhled"
+	SettingsLayout      = "Rozložení"
+	SettingsUpdateCheck = "Kontrola aktualizací"
+	SettingsRetake      = "Znovu vstupní pohovor"
+	SettingsOn          = "zapnutá"
+	SettingsOff         = "vypnutá"
+	SettingsLayoutList  = "Dostupná rozložení:"
+	SettingsLayoutWarn  = "Statistiky se vedou zvlášť pro každé rozložení."
+	// SettingsBrokenLayout reports a user layout file that could not be read
+	// (%s is the file name).
+	SettingsBrokenLayout = "Rozložení ze souboru %s jsem nenačetl."
+	SettingsRetakeNote   = "Pohovor nikdy nesníží hodnost."
+	HintSettings         = "↑↓ výběr · Enter ←→ změnit · Esc domů · Ctrl+T styl"
 )

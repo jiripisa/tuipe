@@ -12,6 +12,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/curriculum"
@@ -107,6 +108,7 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 	a.RegisterEntry(EntryIncident, func(a *App) (Screen, tea.Cmd) { return NewIncidentListScreen(a), nil })
 	a.RegisterEntry(EntryPractice, func(a *App) (Screen, tea.Cmd) { return NewPracticeScreen(a), nil })
 	a.RegisterEntry(EntryStats, func(a *App) (Screen, tea.Cmd) { return NewStatsScreen(a), nil })
+	a.RegisterEntry(EntrySettings, func(a *App) (Screen, tea.Cmd) { return NewSettingsScreen(a), nil })
 	a.screen = NewHomeScreen(a)
 	if !st.Profile().FirstRunDone {
 		a.screen = NewFirstRunScreen(a)
@@ -177,10 +179,26 @@ func (a *App) Shutdown() {
 	a.SaveErr(a.Store.SaveProfile())
 }
 
-func (a *App) cycleStyle() {
-	a.Style = style.ByID(style.Next(a.Style.ID))
+func (a *App) cycleStyle() { a.setStyle(style.Next(a.Style.ID)) }
+
+// setStyle switches the look at once and saves the choice.
+func (a *App) setStyle(id style.ID) {
+	a.Style = style.ByID(id)
 	cfg := a.Store.Config()
 	cfg.Style = string(a.Style.ID)
+	a.SaveErr(a.Store.SaveConfig(cfg))
+}
+
+// setLayout switches the keyboard layout for the rest of the session and saves
+// the choice. The curriculum is resolved against the layout, so it is rebuilt,
+// and a Standup or Sprint in flight holds the old one, so it is dropped.
+// Statistics are kept per layout id and need no change.
+func (a *App) setLayout(l *layout.Layout) {
+	a.Layout = l
+	a.Curr = curriculum.New(a.Lib, l)
+	a.chain = nil
+	cfg := a.Store.Config()
+	cfg.Layout = l.ID
 	a.SaveErr(a.Store.SaveConfig(cfg))
 }
 
@@ -222,7 +240,7 @@ func centre(s string, w, h int) string {
 		out = append(out, "")
 	}
 	for _, l := range lines {
-		out = append(out, strings.Repeat(" ", max(0, (w-len([]rune(l)))/2))+l)
+		out = append(out, strings.Repeat(" ", max(0, (w-ansi.StringWidth(l))/2))+l)
 	}
 	return strings.Join(out, "\n")
 }

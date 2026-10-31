@@ -581,14 +581,13 @@ func TestRetroIgnoresRunsOutsideTheSprintAndSurvivesQuickRuns(t *testing.T) {
 	}
 }
 
-func TestUnregisteredHomeEntryIsNotReady(t *testing.T) {
+func TestEveryHomeEntryOpensAScreen(t *testing.T) {
 	a, _, _ := playApp(t)
-	ui.AddEntry(a, "Nehotovo")
-	for range len(a.Entries) { // the fake entry is the last one
-		a.Update(down)
-	}
-	a.Update(enter)
-	if ui.ScreenName(a) != "home" || !strings.Contains(screen(a), text.HomeNotReady) {
-		t.Errorf("expected the not-ready note:\n%s", screen(a))
+	for i := range a.Entries {
+		ui.SetScreen(a, ui.NewHomeScreen(a))
+		openEntry(a, i+1)
+		if got := ui.ScreenName(a); got == "home" || got == "other" {
+			t.Errorf("entry %d (%s) opens %q, want a screen of its own", i+1, a.Entries[i].Label(), got)
+		}
 	}
 }
