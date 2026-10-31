@@ -195,7 +195,7 @@ func TestWeakestNonPositiveN(t *testing.T) {
 
 func TestAfterPauseKeystrokeGivesNoLatencySample(t *testing.T) {
 	text, log := fastClean("aaaa") // 100 ms between presses
-	log[2].T = log[1].T             // retroactive pause: zero gap, not a real speed
+	log[2].T = log[1].T            // retroactive pause: zero gap, not a real speed
 	log[2].AfterPause = true
 	log[3].T = log[2].T + 100*time.Millisecond
 	s := stats.New()
