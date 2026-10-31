@@ -13,6 +13,7 @@ set -eu
 
 REPO="jiripisa/tuipe"
 TMP=""
+STAGED=""
 OS=""
 ARCH=""
 
@@ -22,6 +23,9 @@ die() {
 }
 
 cleanup() {
+  if [ -n "$STAGED" ]; then
+    rm -f "$STAGED"
+  fi
   if [ -n "$TMP" ] && [ -d "$TMP" ]; then
     rm -rf "$TMP"
   fi
@@ -58,7 +62,35 @@ sha256_of() {
   fi
 }
 
-# Prints the line to add to the user's shell startup file, or nothing.
+# Prints args as one shell word, quoted only when needed (for pasting).
+shell_quote() {
+  case "$1" in
+    *[!A-Za-z0-9_./:@%+=-]*)
+      printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+      ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# True if $1 is a PATH entry, with or without trailing slashes.
+on_path() {
+  want="${1%/}"
+  old_ifs="$IFS"
+  IFS=:
+  for entry in $PATH; do
+    while [ "${entry%/}" != "$entry" ] && [ -n "${entry%/}" ]; do
+      entry="${entry%/}"
+    done
+    if [ "$entry" = "$want" ]; then
+      IFS="$old_ifs"
+      return 0
+    fi
+  done
+  IFS="$old_ifs"
+  return 1
+}
+
+# Prints the line to add to the user's shell startup file.
 path_help() {
   dir="$1"
   line="export PATH=\"$dir:\$PATH\""
@@ -67,12 +99,15 @@ path_help() {
   esac
   # shellcheck disable=SC2088
   case "${SHELL:-}" in
+    */zsh) rc="~/.zshrc" ;;
+    */bash)
+      if [ "$OS" = darwin ]; then rc="~/.bash_profile"; else rc="~/.bashrc"; fi
+      ;;
     */fish)
       rc="~/.config/fish/config.fish"
       line="fish_add_path \"$dir\""
       ;;
-    */bash) rc="~/.bashrc" ;;
-    *) rc="~/.zshrc" ;;
+    *) rc="~/.profile" ;;
   esac
   printf '\nSložka %s není na PATH.\nPřidejte do %s tento řádek:\n\n  %s\n\nPak otevřete nový terminál.\n\n' "$dir" "$rc" "$line"
 }
@@ -87,11 +122,20 @@ main() {
   arch="$ARCH"
 
   TMP="$(mktemp -d "${TMPDIR:-/tmp}/tuipe-install.XXXXXX")" || die "Nepodařilo se vytvořit dočasnou složku."
-  trap cleanup EXIT INT TERM HUP
+  trap cleanup EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM HUP
 
   printf 'Zjišťuji nejnovější verzi tuipe...\n'
-  curl -fsSL -H 'Accept: application/vnd.github+json' "$api/repos/$REPO/releases/latest" -o "$TMP/release.json" ||
-    die "Nepodařilo se načíst informace o vydání. Zkontrolujte připojení k internetu."
+  status="$(curl -sSL --connect-timeout 10 --max-time 30 -H 'Accept: application/vnd.github+json' \
+    -o "$TMP/release.json" -w '%{http_code}' "$api/repos/$REPO/releases/latest")" ||
+    die "Nelze se spojit s GitHubem. Zkontrolujte připojení k internetu a zkuste to znovu."
+  case "$status" in
+    200) ;;
+    404) die "Zatím neexistuje žádné vydání ke stažení." ;;
+    403 | 429) die "GitHub dočasně odmítl dotaz (příliš mnoho požadavků). Zkuste to za chvíli." ;;
+    *) die "GitHub odpověděl nečekaně (HTTP $status)." ;;
+  esac
   # One JSON field per line, then plain text tools; no jq needed.
   # shellcheck disable=SC2020
   tr ',{}[]' '\n\n\n\n\n' <"$TMP/release.json" >"$TMP/release.lines"
@@ -107,8 +151,8 @@ main() {
   [ -n "$sums_url" ] || die "Verze $tag nemá soubor checksums.txt."
 
   printf 'Stahuji tuipe %s (%s/%s)...\n' "$tag" "$os" "$arch"
-  curl -fsSL "$archive_url" -o "$TMP/$archive" || die "Stažení $archive se nezdařilo."
-  curl -fsSL "$sums_url" -o "$TMP/checksums.txt" || die "Stažení checksums.txt se nezdařilo."
+  curl -fsSL --connect-timeout 10 --max-time 300 "$archive_url" -o "$TMP/$archive" || die "Stažení $archive se nezdařilo."
+  curl -fsSL --connect-timeout 10 --max-time 60 "$sums_url" -o "$TMP/checksums.txt" || die "Stažení checksums.txt se nezdařilo."
 
   want="$(awk -v n="$archive" '{ f = $2; sub(/^\*/, "", f); if (f == n) { print tolower($1); exit } }' "$TMP/checksums.txt")"
   [ -n "$want" ] || die "V checksums.txt chybí kontrolní součet pro $archive."
@@ -120,13 +164,15 @@ main() {
   [ -f "$TMP/x/tuipe" ] || die "Archiv $archive neobsahuje program tuipe."
   chmod 755 "$TMP/x/tuipe"
 
+  if [ -d "$dir/tuipe" ]; then
+    die "$dir/tuipe je složka, ne program. Přesuňte ji a spusťte instalaci znovu."
+  fi
   mkdir -p "$dir" || die "Nepodařilo se vytvořit složku $dir."
   # Copy next to the target first, then rename: the install is all or nothing.
-  cp "$TMP/x/tuipe" "$dir/.tuipe.new.$$" || die "Nepodařilo se zapsat do $dir."
-  mv -f "$dir/.tuipe.new.$$" "$dir/tuipe" || {
-    rm -f "$dir/.tuipe.new.$$"
-    die "Nepodařilo se nainstalovat do $dir."
-  }
+  STAGED="$dir/.tuipe.new.$$"
+  cp "$TMP/x/tuipe" "$STAGED" || die "Nepodařilo se zapsat do $dir."
+  mv -f "$STAGED" "$dir/tuipe" || die "Nepodařilo se nainstalovat do $dir."
+  STAGED=""
 
   # Only macOS, and only if the flag is there (curl adds none).
   if [ "$os" = darwin ] && xattr -p com.apple.quarantine "$dir/tuipe" >/dev/null 2>&1; then
@@ -134,13 +180,10 @@ main() {
   fi
 
   run="tuipe"
-  case ":$PATH:" in
-    *":$dir:"*) ;;
-    *)
-      path_help "$dir"
-      run="$dir/tuipe"
-      ;;
-  esac
+  if ! on_path "$dir"; then
+    path_help "$dir"
+    run="$(shell_quote "$dir/tuipe")"
+  fi
   printf 'tuipe nainstalováno. Spusťte: %s\n' "$run"
 }
 
