@@ -92,6 +92,8 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 		Now: func() time.Time { return time.Now().Round(0) },
 	}
 	a.Entries = defaultEntries()
+	a.RegisterEntry(EntryCareer, func(a *App) (Screen, tea.Cmd) { return NewCareerScreen(a), nil })
+	a.RegisterEntry(EntryPractice, func(a *App) (Screen, tea.Cmd) { return NewPracticeScreen(a), nil })
 	a.screen = NewHomeScreen(a)
 	return a, nil
 }

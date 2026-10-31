@@ -171,6 +171,11 @@ func NewRoundScreen(a *App, pick recommend.Pick, next func(*App) Screen) Screen 
 		a.SaveErr(err)
 		return NewHomeScreen(a)
 	}
+	return newRound(a, spec, next)
+}
+
+// newRound builds the screen for a round whose spec is already made.
+func newRound(a *App, spec play.Spec, next func(*App) Screen) Screen {
 	r := &roundScreen{spec: spec, next: next}
 	r.begin(a)
 	return r

@@ -652,3 +652,29 @@ func TestTestOutTargetsFallBackToEarlierChapter(t *testing.T) {
 		t.Errorf("targets = %v", tg.Speed)
 	}
 }
+
+func TestIsDoneFollowsCompletion(t *testing.T) {
+	c := curr(t)
+	p := newProfile()
+	chs := c.Chapters()
+	ch := chs[2] // Horní řada: lessons, no cheap shortcut
+	if c.IsDone(p, ch.ID) {
+		t.Fatal("a fresh profile has no chapter done, apart from one with nothing to play")
+	}
+	c.CompleteChapter(p, ch.ID)
+	if !c.IsDone(p, ch.ID) {
+		t.Error("a completed chapter is done")
+	}
+	if c.IsDone(p, "nope") {
+		t.Error("an unknown chapter is not done")
+	}
+	other := chs[3]
+	if _, hasInc := c.IncidentDef(other.ID); !hasInc {
+		t.Skip("chapter 3 has no incident")
+	}
+	n := len(other.Lessons)
+	p.Stars[other.Lessons[n-1].ID] = 3
+	if c.IsDone(p, other.ID) {
+		t.Error("a star on the last lesson does not finish a chapter whose incident is owed")
+	}
+}

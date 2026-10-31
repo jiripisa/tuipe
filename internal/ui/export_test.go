@@ -4,6 +4,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jiripisa/tuipe/internal/play"
 )
 
 // TickMsg returns the tick of the round that is on screen, or nil.
@@ -23,6 +25,10 @@ func ScreenName(a *App) string {
 		return "results"
 	case *homeScreen:
 		return "home"
+	case *careerScreen:
+		return "career"
+	case *practiceScreen:
+		return "practice"
 	}
 	return "other"
 }
@@ -80,3 +86,11 @@ func RoundActive(a *App) time.Duration {
 
 // RunApp runs the program like Run does, with options for input and output.
 func RunApp(a *App, opts ...tea.ProgramOption) error { return runApp(a, opts...) }
+
+// RoundHint returns the typing hint shown now in the current round, or nil.
+func RoundHint(a *App) *play.HintInfo {
+	if r, ok := a.screen.(*roundScreen); ok {
+		return r.sess.Frame(r.now).Hint
+	}
+	return nil
+}

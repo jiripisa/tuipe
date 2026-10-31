@@ -394,3 +394,10 @@ func (c *Curriculum) ApplySkip(p *store.Profile, s *stats.Stats, chapterIDs []st
 		}
 	}
 }
+
+// IsDone reports whether a chapter is completed, by the same rule that opens
+// the next one. An unknown chapter is not done.
+func (c *Curriculum) IsDone(p *store.Profile, chapterID string) bool {
+	i, ok := c.index[chapterID]
+	return ok && c.done(p, i)
+}

@@ -31,6 +31,8 @@ const (
 type Spec struct {
 	Kind                  Kind
 	Title, Lang, LessonID string
+	ChapterID             string // the chapter a test-out would complete
+	Practice              bool   // chosen by hand in Practice, for the run's mode
 	Text                  string
 	Targets               score.Targets
 	HintsOff              bool

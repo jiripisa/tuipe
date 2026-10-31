@@ -18,7 +18,10 @@ import (
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
-const maxStars = 3
+const (
+	maxStars     = 3
+	testOutStars = 2 // stars that pass a test-out
+)
 
 // outcomeLost reports an incident that was not won: it never earns a ghost or a star.
 func outcomeLost(r play.Result) bool { return r.Incident != nil && !r.Incident.Won }
@@ -35,11 +38,17 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 		p.Stars[spec.LessonID] = r.Stars
 	}
 	a.completeChapter(spec, r)
-	p.Resume = nil
+	testOut := spec.Kind == play.KindTestOut
+	if testOut && r.Stars >= testOutStars {
+		a.Curr.ApplySkip(p, a.stats(), []string{spec.ChapterID})
+	}
+	if !testOut {
+		p.Resume = nil // a test-out is no part of the lesson to continue
+	}
 
 	var errs []error
 	hash := r.Text.Hash
-	if !outcomeLost(r) {
+	if !outcomeLost(r) && !testOut { // a test-out is not a text to beat
 		old, err := a.Store.Ghost(hash)
 		errs = append(errs, err)
 		if ghost.ShouldReplace(old, r.Metrics, r.Paused, spec.GhostIsPace) {
@@ -50,7 +59,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	}
 
 	run := store.Run{
-		ID: runID(now, hash), At: now, Mode: modeName(spec.Kind),
+		ID: runID(now, hash), At: now, Mode: modeName(spec),
 		LessonID: spec.LessonID, TextHash: hash, LayoutID: a.Layout.ID,
 		WPM: r.Metrics.WPM, Accuracy: r.Metrics.Accuracy, Score: r.Metrics.Score,
 		Stars: r.Stars, DurationMs: r.Metrics.Duration.Milliseconds(),
@@ -89,8 +98,11 @@ func (a *App) completeChapter(spec play.Spec, r play.Result) {
 	}
 }
 
-func modeName(k play.Kind) string {
-	switch k {
+func modeName(spec play.Spec) string {
+	if spec.Practice {
+		return "practice"
+	}
+	switch spec.Kind {
 	case play.KindLesson:
 		return "lesson"
 	case play.KindCode:
@@ -202,6 +214,10 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 		verdict = append(verdict, fmt.Sprintf(text.ResultsWon, s.res.Incident.SLA))
 	case outcomeLost(s.res):
 		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.ResultsLost))
+	case s.spec.Kind == play.KindTestOut && s.res.Stars >= testOutStars:
+		verdict = append(verdict, st.Base().Foreground(st.OK).Render(text.TestOutPassed))
+	case s.spec.Kind == play.KindTestOut:
+		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.TestOutFailed))
 	}
 	if s.res.Paused {
 		verdict = append(verdict, dim(text.ResultsPaused))

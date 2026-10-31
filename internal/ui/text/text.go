@@ -123,3 +123,31 @@ const (
 	RoundNextChar      = "DALŠÍ ZNAK"
 	RoundWeakest       = "NEJSLABŠÍ"
 )
+
+// Career map and test-outs.
+const (
+	CareerTitle     = "Kariéra"
+	CareerTestOut   = "test-out: přeskočit kapitolu"
+	CareerDone      = "hotovo"
+	CareerLocked    = "zamčeno"
+	HintCareer      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
+	TestOutTitle    = "test-out: %s"
+	TestOutPassed   = "test-out splněn: kapitola je hotová, bez hvězd"
+	TestOutFailed   = "test-out nesplněn: nic se nezměnilo"
+	TestOutNotReady = "test-out této kapitoly nejde sestavit"
+)
+
+// Practice.
+const (
+	PracticeTitle      = "Trénink"
+	PracticeChapter    = "Kapitola"
+	PracticeLesson     = "Lekce"
+	PracticeLanguage   = "Jazyk"
+	PracticeChars      = "Vybrané znaky"
+	PracticeCharsAsk   = "znaky k procvičení (nejvýše %d):"
+	PracticeCharsEmpty = "napište alespoň jeden znak, který klávesnice umí"
+	PracticeNoSnippet  = "pro tento jazyk není na této klávesnici žádná ukázka"
+	PracticeDrill      = "trénink: %s"
+	HintPractice       = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
+	HintPracticeChars  = "Enter spustit · Backspace smazat · Esc zpět · Ctrl+T styl"
+)

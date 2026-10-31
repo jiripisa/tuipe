@@ -1,0 +1,635 @@
+package ui_test
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/jiripisa/tuipe/internal/content"
+	"github.com/jiripisa/tuipe/internal/engine"
+	"github.com/jiripisa/tuipe/internal/stats"
+	"github.com/jiripisa/tuipe/internal/store"
+	"github.com/jiripisa/tuipe/internal/ui"
+	"github.com/jiripisa/tuipe/internal/ui/text"
+)
+
+const (
+	homeCareer   = 3 // downs from the first home entry to Kariéra
+	homePractice = 4
+)
+
+// openFromHome presses Down n times on the home screen and Enter.
+func openFromHome(t *testing.T, a *ui.App, n int, want string) {
+	t.Helper()
+	for range n {
+		a.Update(down)
+	}
+	a.Update(enter)
+	if got := ui.ScreenName(a); got != want {
+		t.Fatalf("after opening the entry: screen %s, want %s", got, want)
+	}
+}
+
+// tall gives the app a window that shows the whole career list.
+func tall(a *ui.App) { a.Update(tea.WindowSizeMsg{Width: 100, Height: 90}) }
+
+// rowsBefore counts the selectable rows of the career list above a chapter's
+// own rows on a fresh profile: lessons of unlocked chapters, one test-out for
+// each locked one.
+func rowsBefore(a *ui.App, chapterID string) int {
+	n := 0
+	for _, ch := range a.Curr.Chapters() {
+		if ch.ID == chapterID {
+			return n
+		}
+		if a.Curr.IsUnlocked(a.Store.Profile(), ch.ID) {
+			n += len(ch.Lessons)
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+// openTestOut opens the career list and starts the test-out of a locked chapter.
+func openTestOut(t *testing.T, a *ui.App, chapterID string) {
+	t.Helper()
+	openFromHome(t, a, homeCareer, "career")
+	for range rowsBefore(a, chapterID) {
+		a.Update(down)
+	}
+	a.Update(enter)
+	if ui.ScreenName(a) != "round" {
+		t.Fatalf("test-out of %s did not start a round:\n%s", chapterID, view(a))
+	}
+}
+
+// typeWrongThenRight types every key twice over: a wrong one, then the right one.
+func typeWrongThenRight(a *ui.App, clk *clock) {
+	for _, r := range ui.RoundKeys(a) {
+		wrong := '~'
+		if r == wrong {
+			wrong = '^'
+		}
+		clk.advance(100 * time.Millisecond)
+		a.Update(key(wrong))
+		clk.advance(100 * time.Millisecond)
+		a.Update(key(r))
+	}
+}
+
+func TestCareerShowsChaptersStarsAndRank(t *testing.T) {
+	a, st, _ := playApp(t)
+	tall(a)
+	p := st.Profile()
+	chs := a.Curr.Chapters()
+	for _, ch := range chs[1:5] { // chapters 1 to 4, up to Junior
+		a.Curr.CompleteChapter(p, ch.ID)
+	}
+	p.Stars[chs[1].Lessons[0].ID] = 2
+	p.Stars[chs[1].Lessons[1].ID] = 3
+	openFromHome(t, a, homeCareer, "career")
+	v := view(a)
+
+	rankLine := ""
+	for _, l := range strings.Split(v, "\n") {
+		if strings.Contains(l, text.HomeRank) {
+			rankLine = l
+		}
+	}
+	if !strings.Contains(rankLine, "Junior") {
+		t.Errorf("rank line %q lacks the held rank Junior", rankLine)
+	}
+	for _, ch := range chs[:6] {
+		if !strings.Contains(v, ch.Title) {
+			t.Errorf("chapter %q not listed:\n%s", ch.Title, v)
+		}
+	}
+	// A completed chapter still lists its lessons with their best stars.
+	wantLine := func(title, stars string) {
+		t.Helper()
+		for _, l := range strings.Split(v, "\n") {
+			if strings.Contains(l, title) {
+				if !strings.Contains(l, stars) {
+					t.Errorf("lesson %q shows %q, want %q", title, l, stars)
+				}
+				return
+			}
+		}
+		t.Errorf("lesson %q not listed:\n%s", title, v)
+	}
+	wantLine(chs[1].Lessons[0].Title, "★★☆")
+	wantLine(chs[1].Lessons[1].Title, "★★★")
+	wantLine(chs[1].Lessons[2].Title, "☆☆☆")
+	// The current chapter 5 is open: its lessons are listed. Chapter 6 is locked.
+	if !strings.Contains(v, chs[5].Lessons[0].Title) {
+		t.Errorf("lessons of the unlocked chapter 5 not listed:\n%s", v)
+	}
+	if strings.Contains(v, chs[6].Lessons[0].Title) {
+		t.Errorf("lessons of the locked chapter 6 are listed:\n%s", v)
+	}
+}
+
+func TestLockedChapterOffersTestOutOnly(t *testing.T) {
+	a, _, _ := playApp(t)
+	tall(a)
+	openFromHome(t, a, homeCareer, "career")
+	chs := a.Curr.Chapters()
+	v := view(a)
+	if !strings.Contains(v, chs[2].Title) {
+		t.Fatalf("locked chapter missing:\n%s", v)
+	}
+	if strings.Contains(v, chs[2].Lessons[0].Title) {
+		t.Errorf("a locked chapter lists its lessons:\n%s", v)
+	}
+	if got := strings.Count(v, text.CareerTestOut); got != len(chs)-2 {
+		t.Errorf("test-out offered %d times, want once per locked chapter (%d)", got, len(chs)-2)
+	}
+
+	// Enter on the test-out of chapter 2 starts it on the test-out text.
+	for range rowsBefore(a, chs[2].ID) {
+		a.Update(down)
+	}
+	a.Update(enter)
+	if ui.ScreenName(a) != "round" {
+		t.Fatalf("screen = %s, want round", ui.ScreenName(a))
+	}
+	want, _ := a.Curr.TestOutText(chs[2].ID)
+	if got := string(ui.RoundKeys(a)); got != want {
+		t.Errorf("round text = %q, want the test-out text %q", got, want)
+	}
+	if ui.RoundLessonID(a) != "" {
+		t.Errorf("a test-out belongs to no lesson, got %q", ui.RoundLessonID(a))
+	}
+}
+
+// playAppAt is playApp with a known data directory.
+func playAppAt(t *testing.T) (*ui.App, *store.Store, *clock, string) {
+	t.Helper()
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "cfg"), filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := ui.New(st, lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clk := &clock{t: time.Date(2026, 10, 31, 12, 0, 0, 0, time.Local)}
+	a.Now = clk.now
+	return a, st, clk, filepath.Join(dir, "data")
+}
+
+func TestPassingTestOutCompletesChapterWithoutStars(t *testing.T) {
+	a, st, clk, dataDir := playAppAt(t)
+	tall(a)
+	chs := a.Curr.Chapters()
+	ch := chs[4] // Junior
+	p := st.Profile()
+	p.Resume = &store.Resume{Kind: "lesson", LessonID: chs[1].Lessons[0].ID, Day: "2026-10-30"}
+	var introduced []rune
+	for _, r := range ch.Introduces {
+		if a.Layout.Unresolved(string(r)) == nil && r != ' ' {
+			introduced = append(introduced, r)
+		}
+	}
+	if a.Curr.RankOf(p).String() != "Intern" || p.Completed[ch.ID] {
+		t.Fatal("precondition: nothing is completed")
+	}
+	for _, r := range introduced {
+		if a.Layout.Unresolved(string(r)) == nil && stats.New().MasteryOf(r) != stats.NewChar {
+			t.Fatal("precondition: characters start new")
+		}
+	}
+
+	openTestOut(t, a, ch.ID)
+	typeKeys(a, clk, -1)
+	if ui.ScreenName(a) != "results" {
+		t.Fatalf("screen = %s, want results", ui.ScreenName(a))
+	}
+	if !strings.Contains(view(a), text.TestOutPassed) {
+		t.Errorf("results do not say the test-out passed:\n%s", view(a))
+	}
+	if !p.Completed[ch.ID] {
+		t.Error("the chapter is not completed")
+	}
+	if got := a.Curr.RankOf(p).String(); got != "Junior" {
+		t.Errorf("rank = %s, want Junior", got)
+	}
+	if len(p.Stars) != 0 {
+		t.Errorf("a test-out wrote stars: %v", p.Stars)
+	}
+	if p.Resume == nil || p.Resume.LessonID != chs[1].Lessons[0].ID {
+		t.Errorf("a test-out touched Resume: %+v", p.Resume)
+	}
+	s := p.Stats[a.Layout.ID]
+	for _, r := range introduced {
+		if s.MasteryOf(r) == stats.NewChar {
+			t.Errorf("%q is still new after the skip", r)
+		}
+	}
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != "testout" || runs[0].LessonID != "" || runs[0].Stars < 2 {
+		t.Fatalf("runs = %+v, want one testout run with at least 2 stars", runs)
+	}
+	if g, _ := st.Ghost(runs[0].TextHash); g != nil {
+		t.Error("a test-out result must not become a ghost")
+	}
+	raw, err := os.ReadFile(filepath.Join(dataDir, "profile.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved store.Profile
+	if err := json.Unmarshal(raw, &saved); err != nil || !saved.Completed[ch.ID] || len(saved.Stars) != 0 {
+		t.Errorf("saved profile: completed %v stars %v err %v", saved.Completed, saved.Stars, err)
+	}
+
+	a.Update(enter)
+	if ui.ScreenName(a) != "career" {
+		t.Errorf("Enter on the results: %s, want the career list", ui.ScreenName(a))
+	}
+}
+
+func TestFailingTestOutChangesNothing(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	ch := a.Curr.Chapters()[4]
+	p := st.Profile()
+	openTestOut(t, a, ch.ID)
+	typeWrongThenRight(a, clk)
+	if ui.ScreenName(a) != "results" {
+		t.Fatalf("screen = %s, want results", ui.ScreenName(a))
+	}
+	if !strings.Contains(view(a), text.TestOutFailed) {
+		t.Errorf("results do not say the test-out failed:\n%s", view(a))
+	}
+	if len(p.Completed) != 0 || len(p.Stars) != 0 || a.Curr.RankOf(p).String() != "Intern" {
+		t.Errorf("a failed test-out changed progress: completed %v stars %v", p.Completed, p.Stars)
+	}
+	for _, r := range ch.Introduces {
+		if r != ' ' && p.Stats[a.Layout.ID].MasteryOf(r) == stats.Solid {
+			t.Errorf("%q became solid without a pass", r)
+		}
+	}
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != "testout" || runs[0].Stars >= 2 {
+		t.Errorf("runs = %+v, want one testout run under 2 stars", runs)
+	}
+	if g, _ := st.Ghost(runs[0].TextHash); g != nil {
+		t.Error("a failed test-out must not become a ghost")
+	}
+}
+
+func TestTestOutWithOneStarDoesNotPass(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	ch := a.Curr.Chapters()[4]
+	_, targets := a.Curr.TestOutText(ch.ID)
+	if targets.Speed[0] <= 0 || targets.Speed[1] <= targets.Speed[0] {
+		t.Fatalf("unusable targets %v", targets.Speed)
+	}
+	// Between the speeds of the first and the second star, without a mistake:
+	// a characters-per-word of 5 makes the pace 12 / gap words per minute.
+	wpm := (targets.Speed[0] + targets.Speed[1]) / 2
+	gap := time.Duration(12 / wpm * float64(time.Second))
+	openTestOut(t, a, ch.ID)
+	for _, r := range ui.RoundKeys(a) {
+		clk.advance(gap)
+		a.Update(key(r))
+	}
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Stars != 1 {
+		t.Fatalf("runs = %+v, want one run with exactly 1 star", runs)
+	}
+	if st.Profile().Completed[ch.ID] || !strings.Contains(view(a), text.TestOutFailed) {
+		t.Errorf("one star must not pass a test-out:\n%s", view(a))
+	}
+}
+
+func TestTestOutShowsNoHints(t *testing.T) {
+	a, _, _ := playApp(t)
+	tall(a)
+	// Control: the same fresh profile shows a hint at the start of a lesson.
+	startLesson(t, a)
+	if ui.RoundHint(a) == nil {
+		t.Fatal("control: a lesson on a fresh profile should show a hint")
+	}
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	openTestOut(t, a, a.Curr.Chapters()[2].ID)
+	a.Update(ui.TickMsg(a))
+	if h := ui.RoundHint(a); h != nil {
+		t.Errorf("the test-out shows a hint: %+v", h)
+	}
+}
+
+func TestCareerScrollsKeepingSelectionVisible(t *testing.T) {
+	a, _, _ := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	openFromHome(t, a, homeCareer, "career")
+	total := rowsBefore(a, "") // every selectable row on a fresh profile
+	for i := 1; i < total; i++ {
+		a.Update(down)
+		v := view(a)
+		if n := len(strings.Split(screen(a), "\n")); n > 18 {
+			t.Fatalf("row %d: %d lines, want at most 18", i, n)
+		}
+		if strings.Count(v, "> ") != 1 {
+			t.Fatalf("row %d: the selection is not on screen exactly once:\n%s", i, v)
+		}
+	}
+	if !strings.Contains(view(a), text.CareerTestOut) {
+		t.Errorf("the last row should be a test-out:\n%s", view(a))
+	}
+	// Up again to the very first row.
+	for i := 1; i < total; i++ {
+		a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	}
+	first := a.Curr.Chapters()[0].Lessons[0].Title
+	if !strings.Contains(view(a), "> ") || !strings.Contains(view(a), first) {
+		t.Errorf("did not scroll back to %q:\n%s", first, view(a))
+	}
+}
+
+func TestEscLeavesCareerForHome(t *testing.T) {
+	a, _, _ := playApp(t)
+	openFromHome(t, a, homeCareer, "career")
+	a.Update(esc)
+	if ui.ScreenName(a) != "home" {
+		t.Errorf("screen = %s, want home", ui.ScreenName(a))
+	}
+}
+
+func TestCareerLessonRoundKeepsStars(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	openFromHome(t, a, homeCareer, "career")
+	a.Update(enter) // the first lesson
+	id, _ := firstLesson(t, a)
+	if ui.RoundLessonID(a) != id {
+		t.Fatalf("round lesson = %q, want %q", ui.RoundLessonID(a), id)
+	}
+	typeKeys(a, clk, -1)
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != "lesson" {
+		t.Fatalf("runs = %+v, want one lesson run", runs)
+	}
+	if st.Profile().Stars[id] == 0 {
+		t.Error("a career lesson must record its stars")
+	}
+	a.Update(enter)
+	if ui.ScreenName(a) != "career" {
+		t.Errorf("Enter on the results: %s, want the career list", ui.ScreenName(a))
+	}
+	if !strings.Contains(view(a), "★") {
+		t.Errorf("the list does not show the new stars:\n%s", view(a))
+	}
+}
+
+// ---- Practice ----
+
+// typeText types a string into the focused field, one key press per rune.
+func typeText(a *ui.App, s string) {
+	for _, r := range s {
+		a.Update(tea.KeyPressMsg{Text: string(r)})
+	}
+}
+
+const (
+	practiceChapter = 0
+	practiceLesson  = 1
+	practiceLang    = 2
+	practiceChars   = 3
+)
+
+func openPractice(t *testing.T, a *ui.App, item int) {
+	t.Helper()
+	openFromHome(t, a, homePractice, "practice")
+	for range item {
+		a.Update(down)
+	}
+	a.Update(enter)
+}
+
+func TestPracticeBySelectedCharacters(t *testing.T) {
+	a, st, clk := playApp(t)
+	openPractice(t, a, practiceChars)
+	typeText(a, "{}")
+	if !strings.Contains(view(a), "{}") {
+		t.Fatalf("the typed characters are not shown:\n%s", view(a))
+	}
+	a.Update(enter)
+	if ui.ScreenName(a) != "round" {
+		t.Fatalf("screen = %s, want round", ui.ScreenName(a))
+	}
+	keys := ui.RoundKeys(a)
+	braces := 0
+	for _, r := range keys {
+		if r == '{' || r == '}' {
+			braces++
+		}
+		if _, ok := a.Layout.Route(r); !ok && r != '\n' {
+			t.Errorf("the drill contains %q, which the layout cannot type", r)
+		}
+	}
+	// On a fresh profile braces are not yet unlocked by the career, yet the
+	// drill is built from them: they are a real share of the text.
+	if braces*5 < len(keys) {
+		t.Errorf("only %d of %d characters are { or }: %q", braces, len(keys), string(keys))
+	}
+	typeKeys(a, clk, -1)
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != "practice" {
+		t.Fatalf("runs = %+v, want one practice run", runs)
+	}
+	a.Update(enter)
+	if ui.ScreenName(a) != "round" {
+		t.Errorf("Enter on results: %s, want another drill", ui.ScreenName(a))
+	}
+}
+
+func TestPracticeFieldTakesComposedAndOptionCharacters(t *testing.T) {
+	a, _, _ := playApp(t)
+	openPractice(t, a, practiceChars)
+	a.Update(tea.KeyPressMsg{Text: "ď"})                             // a dead key result, no Code
+	a.Update(tea.KeyPressMsg{Code: '8', Mod: tea.ModAlt, Text: "{"}) // Option symbol
+	a.Update(tea.KeyPressMsg{Text: "€"})                             // no route on the layout
+	a.Update(tea.KeyPressMsg{Text: "ď"})                             // duplicate
+	if v := view(a); !strings.Contains(v, "ď{") || strings.Contains(v, "€") || strings.Contains(v, "ďď") {
+		t.Errorf("field should hold exactly ď{ :\n%s", v)
+	}
+	a.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if v := view(a); !strings.Contains(v, "ď") || strings.Contains(v, "{") {
+		t.Errorf("backspace should remove the last character:\n%s", v)
+	}
+	a.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	a.Update(enter)
+	if ui.ScreenName(a) != "practice" {
+		t.Errorf("Enter on an empty field started %s", ui.ScreenName(a))
+	}
+}
+
+func TestPracticeFieldHoldsTwelveUniqueCharacters(t *testing.T) {
+	a, _, _ := playApp(t)
+	openPractice(t, a, practiceChars)
+	typeText(a, "aabcdefghijklmnop")
+	v := view(a)
+	if !strings.Contains(v, "abcdefghijkl") || strings.Contains(v, "abcdefghijklm") {
+		t.Errorf("want exactly the first 12 unique characters:\n%s", v)
+	}
+	a.Update(enter)
+	keys := ui.RoundKeys(a)
+	if len(keys) == 0 {
+		t.Fatal("no drill")
+	}
+	seen := map[rune]bool{}
+	for _, r := range keys {
+		seen[r] = true
+	}
+	hit := 0
+	for _, r := range "abcdefghijkl" {
+		if seen[r] {
+			hit++
+		}
+	}
+	if hit < 6 {
+		t.Errorf("the drill contains only %d of the 12 chosen characters: %q", hit, string(keys))
+	}
+}
+
+func TestPracticeByLanguage(t *testing.T) {
+	langs := []string{"go", "python", "js", "ts", "shell", "sql", "regex"}
+	for i, lang := range langs {
+		t.Run(lang, func(t *testing.T) {
+			a, st, clk := playApp(t)
+			openPractice(t, a, practiceLang)
+			for range i {
+				a.Update(down)
+			}
+			if !strings.Contains(view(a), lang) {
+				t.Fatalf("language %s not listed:\n%s", lang, view(a))
+			}
+			a.Update(enter)
+			if ui.ScreenName(a) != "round" {
+				t.Fatalf("screen = %s, want round", ui.ScreenName(a))
+			}
+			got := string(ui.RoundKeys(a))
+			found := false
+			for _, sn := range a.Lib.Snippets {
+				var keys []rune
+				for _, c := range engine.Prepare(sn.Text).Cells {
+					if !c.Auto {
+						keys = append(keys, c.R)
+					}
+				}
+				if sn.Lang == lang && string(keys) == got {
+					found = true
+					if u := a.Layout.Unresolved(sn.Text); len(u) != 0 {
+						t.Errorf("snippet %s is not typable: %q", sn.ID, string(u))
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("the round text is no %s snippet:\n%s", lang, got)
+			}
+			typeKeys(a, clk, -1)
+			runs, _ := st.Runs()
+			if len(runs) != 1 || runs[0].Mode != "practice" {
+				t.Errorf("runs = %+v, want one practice run", runs)
+			}
+		})
+	}
+}
+
+func TestPracticeLessonPlaysThatLessonAsPractice(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	openPractice(t, a, practiceLesson)
+	if ui.ScreenName(a) != "career" {
+		t.Fatalf("the lesson picker should be the career list, got %s", ui.ScreenName(a))
+	}
+	ch := a.Curr.Chapters()[1]
+	for range len(a.Curr.Chapters()[0].Lessons) + 1 { // second lesson of chapter 1
+		a.Update(down)
+	}
+	a.Update(enter)
+	want := ch.Lessons[1]
+	if ui.RoundLessonID(a) != want.ID {
+		t.Fatalf("round lesson = %q, want %q", ui.RoundLessonID(a), want.ID)
+	}
+	typeKeys(a, clk, -1)
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != "practice" || runs[0].LessonID != want.ID {
+		t.Errorf("runs = %+v, want one practice run on %s", runs, want.ID)
+	}
+	if st.Profile().Stars[want.ID] == 0 {
+		t.Error("practising a lesson still improves its stars")
+	}
+	a.Update(esc)
+	a.Update(esc)
+	if ui.ScreenName(a) != "practice" && ui.ScreenName(a) != "home" {
+		t.Errorf("screen = %s", ui.ScreenName(a))
+	}
+}
+
+func TestPracticeChapterDrillsItsCharacters(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	openPractice(t, a, practiceChapter)
+	if ui.ScreenName(a) != "career" {
+		t.Fatalf("the chapter picker should be the career list, got %s", ui.ScreenName(a))
+	}
+	a.Update(down) // chapter 1, "Domovská řada"
+	a.Update(enter)
+	if ui.ScreenName(a) != "round" {
+		t.Fatalf("screen = %s, want round", ui.ScreenName(a))
+	}
+	ch := a.Curr.Chapters()[1]
+	allowed := a.Curr.AllowedAt(ch.ID)
+	for _, r := range ui.RoundKeys(a) {
+		if !allowed(r) {
+			t.Errorf("drill uses %q, which chapter %s has not unlocked", r, ch.ID)
+		}
+	}
+	typeKeys(a, clk, -1)
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != "practice" || runs[0].LessonID != "" {
+		t.Errorf("runs = %+v, want one practice run", runs)
+	}
+	if len(st.Profile().Stars) != 0 {
+		t.Errorf("a chapter drill must not write lesson stars: %v", st.Profile().Stars)
+	}
+}
+
+func TestEscClimbsBackFromPractice(t *testing.T) {
+	a, _, _ := playApp(t)
+	openPractice(t, a, practiceLang)
+	a.Update(esc)
+	if ui.ScreenName(a) != "practice" || !strings.Contains(view(a), text.PracticeChars) {
+		t.Errorf("Esc in the language list should show the practice menu:\n%s", view(a))
+	}
+	a.Update(esc)
+	if ui.ScreenName(a) != "home" {
+		t.Errorf("Esc in the practice menu: %s, want home", ui.ScreenName(a))
+	}
+}
+
+// view is the screen without its blank lines, so failures stay readable.
+func view(a *ui.App) string {
+	var out []string
+	for _, l := range strings.Split(screen(a), "\n") {
+		if strings.TrimSpace(l) != "" {
+			out = append(out, strings.TrimRight(l, " "))
+		}
+	}
+	return strings.Join(out, "\n")
+}
