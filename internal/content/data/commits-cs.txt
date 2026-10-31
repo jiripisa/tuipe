@@ -1,0 +1,175 @@
+oprav přihlášení při vypršení tokenu
+přidej ověření e-mailové adresy při registraci
+odstraň nepoužívané závislosti z projektu
+zrychli načítání seznamu objednávek
+oprav řazení položek podle data vytvoření
+přidej stránkování do výpisu uživatelů
+sjednoť pojmenování proměnných v modulu plateb
+oprav pád aplikace při prázdném vstupu
+přidej testy pro výpočet slevy
+zruš zastaralé koncové body rozhraní
+oprav chybné zaokrouhlení ceny s daní
+přesuň nastavení do samostatného souboru
+přidej podporu pro tmavý režim
+oprav zobrazení diakritiky v exportu do CSV
+zjednoduš zpracování chybových odpovědí
+přidej limit na počet pokusů o přihlášení
+oprav únik paměti při zavření spojení
+aktualizuj závislosti na nejnovější verze
+přidej logování neúspěšných požadavků
+oprav špatnou časovou zónu v reportech
+zlepši hlášení chyb ve formuláři
+přidej index na sloupec s e-mailem
+oprav přesměrování po odhlášení
+odstraň duplicitní kód v kontroleru
+přidej popis rozhraní do dokumentace
+oprav chybu při ukládání prázdného jména
+zvyš časový limit pro dlouhé dotazy
+přidej zálohování databáze každou noc
+oprav kolizi názvů při nahrávání souborů
+vylepši zprávu při neplatném hesle
+přidej kontrolu oprávnění před smazáním
+oprav načítání obrázků na pomalém připojení
+rozděl velkou funkci na menší části
+přidej výchozí hodnoty do konfigurace
+oprav chybějící překlad v nabídce
+zapni kompresi odpovědí na serveru
+oprav výpočet stránek při nulovém počtu
+přidej kontrolu velikosti nahrávaného souboru
+oprav pořadí migrací databáze
+zaveď jednotný formát data a času
+oprav pád při souběžném zápisu do mezipaměti
+přidej tlačítko pro obnovení hesla
+odstraň ladicí výpisy z produkčního kódu
+oprav zobrazení tabulky na malé obrazovce
+přidej automatické opakování neúspěšných požadavků
+oprav ztrátu dat při přerušeném spojení
+přidej validaci telefonního čísla
+změň barvu upozornění na lépe čitelnou
+oprav chybu v řazení abecedy s diakritikou
+zlepši výkon vyhledávání pomocí indexu
+přidej měření doby odezvy
+oprav deploy na testovací prostředí
+nastav kontrolu stylu kódu v pipeline
+přidej chybějící testy pro okrajové případy
+oprav nefunkční odkaz v patičce
+sluč dvě podobné tabulky do jedné
+přidej endpoint pro kontrolu stavu služby
+oprav nesprávné zpracování uvozovek ve vstupu
+vyřeš zablokování při současné aktualizaci
+přidej export reportu do PDF
+oprav špatné řazení řádků v souhrnu
+zlepši čitelnost chybových hlášek
+odstraň zbytečné přetypování
+přidej podporu pro češtinu a slovenštinu
+oprav pád při načtení poškozeného souboru
+zaveď cache pro často čtená data
+oprav nedostupnost služby po restartu
+přidej kontrolu nulové hodnoty před dělením
+uprav šířku sloupců ve výpisu
+oprav duplicitní odeslání formuláře
+přidej upozornění před odchodem ze stránky
+oprav kopírování textu s řídicími znaky
+přepiš zpracování fronty úloh
+přidej konfiguraci pro lokální vývoj
+oprav chybný název proměnné prostředí
+sjednoť styl odsazení v celém projektu
+přidej statistiku nejčastějších chyb
+oprav nesprávný stav po zrušení objednávky
+zrychli sestavení projektu pomocí cache
+přidej ošetření chyby při zápisu na disk
+oprav zacyklení při opakovaném přesměrování
+vylepši vyhledávání o toleranci překlepů
+přidej nápovědu k příkazům v terminálu
+oprav šířku znaků v textovém editoru
+odstraň zastaralou konfiguraci serveru
+přidej kontrolu duplicit při importu
+oprav nesprávné formátování měny
+přidej ochranu proti opakovanému odeslání
+oprav zobrazení dlouhých názvů v seznamu
+přidej přehled změn do vydání
+oprav uzamčení účtu po třech pokusech
+zlepši paměťovou náročnost zpracování
+přidej testy pro chování při výpadku sítě
+oprav výchozí řazení v přehledu úkolů
+vrať zpět neúspěšnou změnu schématu
+oprav zacházení s prázdným seznamem
+přidej zástupné hodnoty pro chybějící údaje
+oprav chybu v tvorbě odkazů s diakritikou
+změň rozložení hlavní stránky
+přidej automatické uložení rozepsaného textu
+oprav posun kurzoru při vkládání textu
+zjednoduš příkazy pro spuštění projektu
+oprav správné načtení nastavení při startu
+přidej kontrolu verze při aktualizaci
+odstraň zbytečné čekání ve smyčce
+oprav souběh při zpracování plateb
+přidej rozlišení rolí uživatelů
+oprav špatné pořadí parametrů funkce
+přidej ukázky použití do dokumentace
+oprav pád při otevření prázdného dokumentu
+zrychli odpověď rozhraní při velkém počtu dat
+přidej označení nových zpráv
+oprav chybné zobrazení procent v grafu
+zaveď strukturované logování
+oprav zbytečné překreslení komponenty
+přidej omezení počtu požadavků za minutu
+oprav jednotkový test závislý na čase
+přidej podporu pro více jazyků
+oprav zobrazení znaků řž v nadpisech
+oprav chybu v hlášení o uplynulém čase
+uprav chování tlačítka zpět
+přidej kontrolu platnosti certifikátu
+oprav zpoždění při načtení úvodní stránky
+odstraň nadbytečné závislosti z balíčku
+zkrať příliš dlouhé texty třemi tečkami
+oprav selhání sestavení na starším systému
+vylepši práci s časovými značkami
+přidej skript pro vyčištění dočasných souborů
+oprav duplikaci událostí při opakovaném kliknutí
+oprav ukládání nastavení po změně motivu
+přidej ověření dvou faktorů
+oprav bezpečnostní chybu v ověření tokenu
+zpřísni kontrolu vstupních údajů
+oprav nesprávné odstranění závorek při formátování
+přidej výchozí řazení podle abecedy
+oprav drobné překlepy v dokumentaci
+přidej zkratky pro nejčastější akce
+oprav barvy v zobrazení rozdílů
+změň velikost výchozí stránky na dvacet položek
+oprav nefunkční tlačítko pro odeslání
+přidej podporu pro nahrávání více souborů najednou
+oprav příliš dlouhé čekání při ukončení
+přidej tichý režim bez výpisů
+oprav zbytečné volání rozhraní při každém stisku
+přidej kontrolu zbývajícího místa na disku
+oprav načtení starých záznamů ze zálohy
+zlepši přístupnost formulářů
+oprav nesprávné pořadí kroků při instalaci
+přidej testy pro nově vzniklé chyby
+odstraň zastaralé komentáře v kódu
+oprav ztrátu zaměření po zavření okna
+přidej čtení konfigurace z proměnných prostředí
+oprav příliš široké zobrazení na telefonu
+přidej souhrnný přehled za poslední týden
+oprav zdvojení položek po obnovení
+zaveď kontrolu formátu zpráv při commitu
+oprav pád při změně velikosti okna
+přidej animaci při načítání dat
+oprav špatné odsazení ve výpisu chyb
+přidej označení verze v zápatí
+oprav chybu při zpracování prázdného řádku
+vylepši barvy pro lepší kontrast
+přidej oddělení prostředí pro testování
+oprav ukončení procesu po chybě
+přidej měřič rychlosti psaní
+oprav zaokrouhlení rychlosti na celé číslo
+přidej souhrn chyb po každém kole
+oprav načtení rozložení klávesnice
+přidej nápovědu pro nesprávně stisknuté klávesy
+oprav chybné počítání přesnosti
+oprav zpoždění odezvy při rychlém psaní
+přidej podporu pro dvojici kláves s modifikátorem
+zlepši výběr slov podle slabých míst
+oprav posun textu při opravě překlepu
+přidej ukládání výsledků do lokální složky
