@@ -59,3 +59,36 @@ func TestStreakEmptyAndBadInput(t *testing.T) {
 		t.Fatalf("got %d, want 1", got)
 	}
 }
+
+func TestStreakAcrossSundayToMonday(t *testing.T) {
+	// Sat, Sun, Mon are plain consecutive days over the ISO week boundary.
+	if got := streak.Compute([]string{"2026-10-24", "2026-10-25", "2026-10-26"}, "2026-10-26").Days; got != 3 {
+		t.Fatalf("got %d, want 3", got)
+	}
+	// Sunday gap between Sat and Mon: forgiven in last week's budget.
+	s := streak.Compute([]string{"2026-10-24", "2026-10-26"}, "2026-10-26")
+	if s.Days != 2 || s.ForgivenThisWeek {
+		t.Fatalf("got %+v, want 2 days, not forgiven this week", s)
+	}
+	// Fri, Sun, Mon: Saturday is forgiven, and last week's budget is then spent.
+	// Thu 22, Sat 24, Mon 26: Friday and Sunday are both in the same week.
+	if got := streak.Compute([]string{"2026-10-22", "2026-10-24", "2026-10-26"}, "2026-10-26").Days; got != 2 {
+		t.Fatalf("got %d, want 2", got)
+	}
+}
+
+func TestStreakAcrossYearEnd(t *testing.T) {
+	if got := streak.Compute([]string{"2026-12-30", "2026-12-31", "2027-01-01"}, "2027-01-01").Days; got != 3 {
+		t.Fatalf("got %d, want 3", got)
+	}
+	// 2027-01-01 is a Friday in ISO week 53 of 2026, like 2026-12-31.
+	s := streak.Compute([]string{"2026-12-30", "2027-01-01"}, "2027-01-01")
+	if s.Days != 2 || !s.ForgivenThisWeek {
+		t.Fatalf("got %+v, want 2 days, forgiven", s)
+	}
+	// Monday 2027-01-04 starts week 1; Sunday 3rd is last week's gap.
+	s = streak.Compute([]string{"2027-01-02", "2027-01-04"}, "2027-01-04")
+	if s.Days != 2 || s.ForgivenThisWeek {
+		t.Fatalf("got %+v, want 2 days, not forgiven this week", s)
+	}
+}

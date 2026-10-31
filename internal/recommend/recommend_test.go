@@ -85,21 +85,23 @@ func (f *fixture) weak(chars string) {
 func TestRecommenderMix(t *testing.T) {
 	f := newFixture(t)
 	f.completeBefore(11) // mid-curriculum: chapter 11 is current, code is open
+	const calls = 20000
 	counts := map[recommend.Kind]int{}
 	s := f.state(0, 7)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < calls; i++ {
 		s.RunCount = i
 		p := recommend.Next(s)
 		counts[p.Kind]++
-		if i%8 == 7 {
-			eq(t, p.Kind, recommend.Incident)
-		} else {
-			eq(t, p.Kind == recommend.Incident, false)
-		}
+		eq(t, p.Kind == recommend.Incident, i%8 == 7)
 	}
-	lesson, drill, code := counts[recommend.Lesson], counts[recommend.Drill], counts[recommend.Code]
-	if lesson < 500 || lesson > 700 || drill < 200 || drill > 400 || code > 150 || code == 0 {
-		t.Fatalf("mix out of range: %v", counts)
+	// Every 8th run is an incident (12.5 %); the rest splits 60/30/10.
+	want := map[recommend.Kind]float64{
+		recommend.Lesson: 0.525, recommend.Drill: 0.2625, recommend.Code: 0.0875, recommend.Incident: 0.125,
+	}
+	for k, w := range want {
+		if got := float64(counts[k]) / calls; math.Abs(got-w) > 0.02 {
+			t.Errorf("kind %v: share %.3f, want %.3f +- 0.02", k, got, w)
+		}
 	}
 }
 
@@ -290,4 +292,49 @@ func TestBaseWPMMedianOfLast20(t *testing.T) {
 	eq(t, recommend.BaseWPM(runs), 46.0)
 	// Incident runs count like any other.
 	eq(t, recommend.BaseWPM([]store.Run{{WPM: 30, Incident: &store.IncidentResult{}}, {WPM: 50}}), 40.0)
+}
+
+func TestSprintLessonsAreInUnlockedChapters(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(4)
+	chapterOf := map[string]string{}
+	for _, ch := range f.curr.Chapters() {
+		for _, l := range ch.Lessons {
+			chapterOf[l.ID] = ch.ID
+		}
+	}
+	for _, minutes := range []int{10, 20, 30} {
+		picks := recommend.Sprint(f.state(0, 8), minutes)
+		eq(t, len(picks), minutes*60/75)
+		for _, p := range picks {
+			if p.Kind == recommend.Lesson {
+				ch, ok := chapterOf[p.LessonID]
+				eq(t, ok && f.curr.IsUnlocked(f.prof, ch), true)
+			}
+		}
+	}
+}
+
+func TestEmptyProfileDoesNotPanic(t *testing.T) {
+	f := newFixture(t)
+	s := recommend.State{
+		Curr: f.curr, Lib: f.lib, Profile: &store.Profile{},
+		Rand: rand.New(rand.NewPCG(1, 2)),
+	}
+	for i := 0; i < 50; i++ {
+		s.RunCount = i
+		if p := recommend.Next(s); i%8 != 7 && p.Kind != recommend.Lesson && p.Kind != recommend.Drill {
+			t.Fatalf("run %d: kind %v", i, p.Kind)
+		}
+	}
+	standup := recommend.Standup(s)
+	eq(t, len(standup), 5)
+	for _, p := range standup {
+		eq(t, p.Kind, recommend.Drill)
+	}
+	for _, minutes := range []int{10, 20, 30} {
+		picks := recommend.Sprint(s, minutes)
+		eq(t, picks[0].Kind, recommend.Drill)
+		eq(t, picks[len(picks)-1].Kind, recommend.Incident)
+	}
 }

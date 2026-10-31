@@ -68,8 +68,8 @@ func Next(s State) Pick {
 	cur := s.Curr.CurrentChapter(s.Profile)
 	lesson, hasLesson := s.Curr.NextLesson(s.Profile)
 	if !hasLesson {
-		if inc, ok := s.Curr.IncidentDef(cur.ID); ok && !s.Profile.Completed[cur.ID] && s.Profile.IncidentBest[inc.ID] == "" {
-			return Pick{Kind: Incident, IncidentID: inc.ID, Seed: s.seed()}
+		if p, ok := s.owedIncident(); ok {
+			return p
 		}
 	}
 	if s.RunCount%incidentEvery == incidentEvery-1 {
@@ -230,7 +230,8 @@ func (s State) owedIncident() (Pick, bool) {
 	return Pick{Kind: Incident, IncidentID: inc.ID, Seed: s.seed()}, true
 }
 
-// unfinishedLessons are the lessons without a star, from the current chapter on.
+// unfinishedLessons are the lessons without a star in unlocked chapters, from
+// the current chapter on.
 func (s State) unfinishedLessons() []string {
 	if _, ok := s.Curr.NextLesson(s.Profile); !ok {
 		return nil // all done, or the incident is owed first
@@ -240,7 +241,7 @@ func (s State) unfinishedLessons() []string {
 	started := false
 	for _, ch := range s.Curr.Chapters() {
 		started = started || ch.ID == cur.ID
-		if !started {
+		if !started || !s.Curr.IsUnlocked(s.Profile, ch.ID) {
 			continue
 		}
 		for _, l := range ch.Lessons {
