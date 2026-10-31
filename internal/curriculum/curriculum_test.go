@@ -219,7 +219,6 @@ func TestLessonDurationIs60To90SecondsAtTarget(t *testing.T) {
 }
 
 func TestSnippetLessonsResolve(t *testing.T) {
-	t.Skip("task 11")
 	c := curr(t)
 	var found int
 	for _, ch := range c.Chapters() {
@@ -423,9 +422,11 @@ func TestTestOutText(t *testing.T) {
 }
 
 func TestIncidentDefIsFalseWhenIncidentDoesNotExist(t *testing.T) {
-	c := curr(t)
+	lib := loadLib(t)
+	lib.Chapters[1].IncidentID = "INC-9999" // no such incident
+	c := curriculum.New(lib, czech(t))
 	if _, ok := c.IncidentDef("ch01"); ok {
-		t.Error("no incidents exist before task 11")
+		t.Error("an incident that does not exist was resolved")
 	}
 	if _, ok := c.IncidentDef("ch00"); ok {
 		t.Error("chapter 0 has no incident")

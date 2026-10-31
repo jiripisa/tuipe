@@ -1,0 +1,11 @@
+type Level int
+
+const (
+    Debug Level = iota
+    Info
+    Warn
+)
+
+func (l Level) String() string {
+    return [...]string{"debug", "info", "warn"}[l]
+}

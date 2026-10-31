@@ -1,0 +1,5 @@
+tail -f /var/log/app.log \
+    | grep --line-buffered -E 'WARN|ERROR' \
+    | while read -r l; do
+        echo "[$(date +%T)] $l"
+    done

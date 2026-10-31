@@ -1,0 +1,8 @@
+@dataclass(frozen=True)
+class Job:
+    name: str
+    retries: int = 3
+    tags: list[str] = field(default_factory=list)
+
+    def label(self) -> str:
+        return f"{self.name} [{', '.join(self.tags)}]"

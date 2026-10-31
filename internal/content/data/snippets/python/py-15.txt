@@ -1,0 +1,8 @@
+def read_csv(path):
+    with open(path, newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            row["amount"] = float(row["amount"] or 0)
+            yield row
+
+total = sum(r["amount"] for r in read_csv("sales.csv"))

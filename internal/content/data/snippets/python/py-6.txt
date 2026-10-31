@@ -1,0 +1,8 @@
+def load_config(path):
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        return {"debug": False, "port": 8080}
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{path}: {exc}")

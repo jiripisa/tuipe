@@ -1,0 +1,10 @@
+func worker(ctx context.Context, jobs <-chan Job) {
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case j := <-jobs:
+            j.Run()
+        }
+    }
+}

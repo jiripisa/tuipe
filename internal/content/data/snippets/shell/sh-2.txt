@@ -1,0 +1,5 @@
+pids=$(ps aux | grep '[n]ginx' | awk '{ print $2 }')
+if [ -n "$pids" ]; then
+    kill -HUP $pids
+fi
+echo "reloaded: ${pids:-none}"

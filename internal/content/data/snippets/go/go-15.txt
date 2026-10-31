@@ -1,0 +1,9 @@
+// counts reports how often each word occurs,
+// ignoring case.
+func counts(words []string) map[string]int {
+    m := make(map[string]int)
+    for _, w := range words {
+        m[strings.ToLower(w)]++
+    }
+    return m
+}

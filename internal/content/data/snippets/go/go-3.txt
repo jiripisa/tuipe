@@ -1,0 +1,6 @@
+func (m *memStore) Get(key string) ([]byte, bool) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+    v, ok := m.data[key]
+    return v, ok
+}

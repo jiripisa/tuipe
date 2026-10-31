@@ -1,0 +1,9 @@
+async def fetch(session, url):
+    async with session.get(url) as resp:
+        resp.raise_for_status()
+        return await resp.json()
+
+async def main(urls):
+    async with aiohttp.ClientSession() as s:
+        jobs = (fetch(s, u) for u in urls)
+        return await asyncio.gather(*jobs)

@@ -1,0 +1,4 @@
+git log --since='2 weeks ago' --pretty='%an' \
+    | sort | uniq -c | sort -rn | head
+git diff --stat HEAD~1 | tail -n 1
+git branch --merged | grep -v '\*' | xargs git branch -d

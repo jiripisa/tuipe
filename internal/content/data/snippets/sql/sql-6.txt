@@ -1,0 +1,5 @@
+SELECT dept, AVG(salary) AS avg_salary
+FROM employees
+WHERE title NOT LIKE '%intern%'
+GROUP BY dept
+ORDER BY avg_salary DESC;

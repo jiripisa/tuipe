@@ -1,0 +1,5 @@
+# hex colour: #fff or #ff00aa
+^#(?:[0-9a-fA-F]{3}){1,2}$
+
+# semantic version
+^v?(\d+)\.(\d+)\.(\d+)(?:-([\w.]+))?$

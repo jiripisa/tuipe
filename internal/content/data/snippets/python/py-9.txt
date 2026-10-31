@@ -1,0 +1,8 @@
+parser = argparse.ArgumentParser(description="Tail")
+parser.add_argument("path", type=Path)
+parser.add_argument("-n", type=int, default=10)
+parser.add_argument("--follow", action="store_true")
+args = parser.parse_args()
+
+if not args.path.exists():
+    sys.exit(f"{args.path}: no such file")

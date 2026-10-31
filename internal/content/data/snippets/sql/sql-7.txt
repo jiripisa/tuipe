@@ -1,0 +1,5 @@
+CREATE INDEX CONCURRENTLY idx_orders_user
+    ON orders (user_id, created_at DESC)
+    WHERE status <> 'cancelled';
+ALTER TABLE orders
+    ADD COLUMN note TEXT DEFAULT '';

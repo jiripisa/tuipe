@@ -1,0 +1,5 @@
+def slugify(title: str) -> str:
+    text = unicodedata.normalize("NFKD", title)
+    text = text.encode("ascii", "ignore").decode()
+    text = re.sub(r"[^a-z0-9]+", "-", text.lower())
+    return text.strip("-")

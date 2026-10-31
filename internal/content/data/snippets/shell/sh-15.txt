@@ -1,0 +1,5 @@
+alias gs='git status -sb'
+alias ll='ls -lAh --color=auto'
+export EDITOR=vim
+export PATH="$HOME/.local/bin:$PATH"
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

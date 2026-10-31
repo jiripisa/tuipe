@@ -1,0 +1,7 @@
+DELETE FROM logs
+WHERE id IN (
+    SELECT id FROM logs
+    WHERE level = 'debug'
+    ORDER BY ts
+    LIMIT 1000
+);

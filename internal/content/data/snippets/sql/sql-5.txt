@@ -1,0 +1,4 @@
+INSERT INTO tags (name, color)
+VALUES ('bug', '#d73a4a'), ('docs', '#0075ca')
+ON CONFLICT (name) DO UPDATE
+    SET color = EXCLUDED.color;

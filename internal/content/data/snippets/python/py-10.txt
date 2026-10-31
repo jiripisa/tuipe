@@ -1,0 +1,8 @@
+def merge(a: dict, b: dict) -> dict:
+    out = dict(a)
+    for key, val in b.items():
+        if isinstance(val, dict) and key in out:
+            out[key] = merge(out[key], val)
+        else:
+            out[key] = val
+    return out

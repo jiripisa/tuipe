@@ -1,0 +1,8 @@
+# camelCase to split into words
+([a-z0-9])([A-Z])
+
+# quoted string with escapes
+"(?:[^"\\]|\\.)*"
+
+# snake_case identifier
+^[a-z_][a-z0-9_]*$

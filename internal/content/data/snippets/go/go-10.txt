@@ -1,0 +1,10 @@
+var ErrNotFound = errors.New("not found")
+
+func get(m map[string]*User, id string) (*User, error) {
+    u, ok := m[id]
+    if !ok {
+        err := fmt.Errorf("%s: %w", id, ErrNotFound)
+        return nil, err
+    }
+    return u, nil
+}

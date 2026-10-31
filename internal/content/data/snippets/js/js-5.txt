@@ -1,0 +1,12 @@
+class Bus {
+    #on = new Map();
+
+    on(name, fn) {
+        const list = this.#on.get(name) ?? [];
+        this.#on.set(name, [...list, fn]);
+    }
+
+    emit(name, ...args) {
+        this.#on.get(name)?.forEach((f) => f(...args));
+    }
+}

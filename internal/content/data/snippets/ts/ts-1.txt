@@ -1,0 +1,10 @@
+interface User {
+    id: number;
+    name: string;
+    email?: string;
+}
+
+type UserMap = Record<number, User>;
+
+const byId = (list: User[]): UserMap =>
+    Object.fromEntries(list.map((u) => [u.id, u]));

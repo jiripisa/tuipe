@@ -1,0 +1,12 @@
+func (s *Server) Shutdown(ctx context.Context) error {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    if s.closed {
+        return nil
+    }
+    s.closed = true
+    if err := s.ln.Close(); err != nil {
+        return fmt.Errorf("close listener: %w", err)
+    }
+    return nil
+}

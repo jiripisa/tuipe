@@ -1,0 +1,10 @@
+class Cache:
+    def __init__(self, ttl=60):
+        self._data = {}
+        self._ttl = ttl
+
+    def get(self, key, default=None):
+        value, stamp = self._data.get(key, (default, 0))
+        if time.time() - stamp > self._ttl:
+            return default
+        return value

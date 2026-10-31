@@ -1,0 +1,4 @@
+docker ps -a --format '{{.Names}}\t{{.Status}}' \
+    | grep -v '^k8s_' \
+    | column -t -s $'\t'
+docker image prune -f --filter 'until=24h'

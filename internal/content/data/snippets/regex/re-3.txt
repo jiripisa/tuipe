@@ -1,0 +1,8 @@
+# IPv4 octet, 0-255
+\b(25[0-5]|2[0-4]\d|1?\d?\d)\b
+
+# whitespace at end of line
+[ \t]+$
+
+# a decimal number with optional sign
+[+-]?\d+(?:\.\d+)?

@@ -1,0 +1,10 @@
+func TestSum(t *testing.T) {
+    for _, tc := range []struct {
+        in   []int
+        want int
+    }{{nil, 0}, {[]int{1, 2}, 3}} {
+        if got := Sum(tc.in); got != tc.want {
+            t.Errorf("Sum(%v) = %d", tc.in, got)
+        }
+    }
+}

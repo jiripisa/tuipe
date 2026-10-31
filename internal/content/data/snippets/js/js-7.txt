@@ -1,0 +1,12 @@
+const sleep = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+async function retry(fn, tries = 3) {
+    for (let i = 0; i < tries; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (i === tries - 1) throw err;
+            await sleep(2 ** i * 100);
+        }
+    }
+}

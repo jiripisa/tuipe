@@ -1,0 +1,4 @@
+trap 'rm -rf "$tmp"' EXIT
+tmp=$(mktemp -d)
+git clone --depth 1 "$repo" "$tmp/src" 2>/dev/null
+(cd "$tmp/src" && git log -1 --format='%h %s')

@@ -1,0 +1,10 @@
+const users = [
+    { id: 1, name: "Ada", active: true },
+    { id: 2, name: "Bob", active: false },
+];
+
+const names = users
+    .filter((u) => u.active)
+    .map(({ name }) => name.toUpperCase());
+
+console.log(`active: ${names.join(", ")}`);

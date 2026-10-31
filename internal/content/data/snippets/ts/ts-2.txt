@@ -1,0 +1,10 @@
+type Result<T> =
+    | { ok: true; value: T }
+    | { ok: false; error: string };
+
+function parse(raw: string): Result<number> {
+    const n = Number(raw);
+    return Number.isNaN(n)
+        ? { ok: false, error: `bad number: ${raw}` }
+        : { ok: true, value: n };
+}

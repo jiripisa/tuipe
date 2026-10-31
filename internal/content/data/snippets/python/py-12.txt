@@ -1,0 +1,8 @@
+@contextmanager
+def timer(label):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        took = time.perf_counter() - start
+        print(f"{label}: {took * 1000:.1f} ms")

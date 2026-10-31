@@ -1,0 +1,8 @@
+if [[ -z "${API_KEY:-}" ]]; then
+    echo "API_KEY is not set" >&2
+    exit 1
+fi
+
+curl -fsS -H "Authorization: Bearer $API_KEY" \
+    "https://api.example.com/v1/status" \
+    | jq '.items[].name'

@@ -1,0 +1,8 @@
+func logging(next http.Handler) http.Handler {
+    fn := func(w http.ResponseWriter, r *http.Request) {
+        t0 := time.Now()
+        next.ServeHTTP(w, r)
+        log.Println(r.Method, r.URL, time.Since(t0))
+    }
+    return http.HandlerFunc(fn)
+}

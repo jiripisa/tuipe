@@ -1,0 +1,7 @@
+SELECT name, salary,
+       RANK() OVER (
+           PARTITION BY dept ORDER BY salary DESC
+       ) AS r
+FROM employees
+WHERE salary IS NOT NULL
+  AND (dept = 'dev' OR dept = 'ops');

@@ -1,0 +1,8 @@
+const params = new URLSearchParams(location.search);
+const page = Number(params.get("page") ?? 1);
+const next = document.querySelector("#next");
+
+next?.addEventListener("click", () => {
+    params.set("page", String(page + 1));
+    location.search = params.toString();
+});

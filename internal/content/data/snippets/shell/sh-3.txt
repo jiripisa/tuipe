@@ -1,0 +1,6 @@
+backup() {
+    local src="$1" dst="${2:-/tmp/backup}"
+    mkdir -p "$dst"
+    tar -czf "$dst/$(date +%F).tgz" -C "$src" . \
+        && echo "saved to $dst"
+}

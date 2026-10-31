@@ -1,0 +1,7 @@
+rows = [
+    {"name": "ada", "score": 91},
+    {"name": "bob", "score": 78},
+]
+best = max(rows, key=lambda r: r["score"])
+names = [r["name"] for r in rows if r["score"] >= 80]
+print(f"best={best['name']!r} passed={names}")

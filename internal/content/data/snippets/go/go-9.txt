@@ -1,0 +1,12 @@
+func readLines(path string) (out []string, err error) {
+    f, err := os.Open(path)
+    if err != nil {
+        return nil, err
+    }
+    defer f.Close()
+    sc := bufio.NewScanner(f)
+    for sc.Scan() {
+        out = append(out, sc.Text())
+    }
+    return out, sc.Err()
+}

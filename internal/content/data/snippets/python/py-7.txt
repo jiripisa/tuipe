@@ -1,0 +1,10 @@
+def test_parse_port(monkeypatch):
+    monkeypatch.setenv("PORT", "8080")
+    assert parse_port() == 8080
+    monkeypatch.delenv("PORT")
+    assert parse_port() == 80
+
+@pytest.mark.parametrize("raw", ["", "x", "-1"])
+def test_bad_port(raw):
+    with pytest.raises(ValueError):
+        parse_port(raw)

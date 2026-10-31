@@ -1,0 +1,5 @@
+# TODO or FIXME with an owner
+(TODO|FIXME)\((\w+)\):\s*(.+)$
+
+# URL path segment
+/([^/?#]+)(?=[/?#]|$)

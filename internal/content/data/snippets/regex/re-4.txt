@@ -1,0 +1,8 @@
+# key=value pairs
+(\w+)=("[^"]*"|\S+)
+
+# log level at start of line
+^\[(DEBUG|INFO|WARN|ERROR)\]\s
+
+# time of day, 24 hour clock
+^([01]\d|2[0-3]):[0-5]\d$

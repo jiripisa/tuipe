@@ -1,0 +1,7 @@
+const total = items.reduce((sum, { price, qty }) => {
+    return sum + price * qty;
+}, 0);
+
+const byId = Object.fromEntries(
+    items.map((item) => [item.id, item]),
+);

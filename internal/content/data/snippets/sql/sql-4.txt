@@ -1,0 +1,7 @@
+WITH recent AS (
+    SELECT * FROM events
+    WHERE ts > now() - INTERVAL '1 day'
+)
+SELECT kind, COUNT(*) AS n
+FROM recent
+GROUP BY kind;

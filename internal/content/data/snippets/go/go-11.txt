@@ -1,0 +1,12 @@
+func fetch(urls []string) []int {
+    codes := make([]int, len(urls))
+    var wg sync.WaitGroup
+    for i, u := range urls {
+        wg.Go(func() {
+            resp, _ := http.Get(u)
+            codes[i] = resp.StatusCode
+        })
+    }
+    wg.Wait()
+    return codes
+}

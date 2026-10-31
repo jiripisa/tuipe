@@ -1,0 +1,9 @@
+enum Status {
+    Open = "open",
+    Closed = "closed",
+}
+
+const labels: Readonly<Record<Status, string>> = {
+    [Status.Open]: "Open",
+    [Status.Closed]: "Closed",
+};

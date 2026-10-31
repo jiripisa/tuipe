@@ -1,0 +1,8 @@
+def word_counts(path):
+    counts = {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            for word in line.split():
+                key = word.strip(".,;:!?").lower()
+                counts[key] = counts.get(key, 0) + 1
+    return counts

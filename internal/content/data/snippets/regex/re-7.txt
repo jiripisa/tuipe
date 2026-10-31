@@ -1,0 +1,8 @@
+# duplicated word
+\b(\w+)\s+\1\b
+
+# lines that are not comments
+^(?!\s*(#|//)).+$
+
+# file extension
+\.([A-Za-z0-9]+)$

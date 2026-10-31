@@ -1,0 +1,5 @@
+UPDATE accounts
+SET balance = balance - 100.00
+WHERE id = 42
+  AND balance >= 100.00
+RETURNING id, balance;

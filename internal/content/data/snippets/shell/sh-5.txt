@@ -1,0 +1,4 @@
+find . -name '*.go' -not -path './vendor/*' -print0 \
+    | xargs -0 grep -ln 'TODO' \
+    | sort > todo.txt
+wc -l < todo.txt

@@ -1,0 +1,4 @@
+ssh -o ConnectTimeout=5 deploy@"$host" \
+    'cd /srv/app && git pull && ./restart.sh' \
+    || { echo "deploy failed on $host" >&2; exit 1; }
+echo "deployed $(git rev-parse --short HEAD)"

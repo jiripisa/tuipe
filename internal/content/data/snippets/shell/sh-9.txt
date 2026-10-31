@@ -1,0 +1,4 @@
+sed -i.bak 's/foo_bar/fooBar/g' src/*.ts
+diff <(ls old) <(ls new) || true
+echo "$PATH" | tr ':' '\n' | sort -u
+test -d build || mkdir build
