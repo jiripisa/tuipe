@@ -368,3 +368,22 @@ const (
 	SettingsRetakeNote    = "Pohovor nikdy nesníží hodnost."
 	HintSettings          = "↑↓ výběr · Enter ←→ změnit · Esc domů · Ctrl+T styl"
 )
+
+// Messages of `tuipe upgrade`.
+const (
+	UpgradeOffline      = "Nelze se spojit s GitHubem. Zkontrolujte připojení k internetu a zkuste to znovu."
+	UpgradeRateLimited  = "GitHub dočasně odmítl dotaz (příliš mnoho požadavků). Zkuste to za chvíli."
+	UpgradeNoRelease    = "Zatím neexistuje žádné vydání ke stažení."
+	UpgradeBadResponse  = "GitHub odpověděl nečekaně (HTTP %d)."
+	UpgradeDownloadFail = "Stažení se nepovedlo: %v. Nainstalovaná verze zůstala beze změny."
+	UpgradeNoAsset      = "Vydání %s neobsahuje soubor %s pro tento systém."
+	UpgradeNoChecksum   = "Vydání %s neobsahuje kontrolní součty (checksums.txt) pro %s."
+	UpgradeChecksumFail = "Kontrolní součet staženého souboru nesouhlasí. Nainstalovaná verze zůstala beze změny."
+	UpgradeBadArchive   = "Stažený archiv je neplatný: %v. Nainstalovaná verze zůstala beze změny."
+	UpgradeNotWritable  = "Do %s nelze zapisovat. Spusťte příkaz s dostatečným oprávněním (například přes sudo) nebo tuipe nainstalujte znovu do složky, kam smíte zapisovat."
+	UpgradeReplaceFail  = "Výměna programu se nepovedla: %v. Nainstalovaná verze zůstala beze změny."
+	UpgradeNotRelease   = "Tato kopie tuipe nebyla nainstalována z vydání, proto se nedá aktualizovat příkazem upgrade.\nNainstalujte ji znovu příkazem:\n  go install github.com/jiripisa/tuipe/cmd/tuipe@latest"
+	UpgradeAvailable    = "Je dostupná novější verze: %s (nainstalovaná je %s). Aktualizujte příkazem: tuipe upgrade"
+	UpgradeAlreadyLast  = "Máte nejnovější verzi (%s)."
+	UpgradeDone         = "Aktualizováno z verze %s na %s."
+)

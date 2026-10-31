@@ -38,3 +38,19 @@ func TestDispatch(t *testing.T) {
 	require(t, run("help") == 0)
 	require(t, run("nonsense") == 2 && strings.Contains(errb.String(), "help"))
 }
+
+func TestUpgradeRejectsUnknownArguments(t *testing.T) {
+	for _, args := range [][]string{
+		{"upgrade", "--chek"},
+		{"upgrade", "--check", "extra"},
+		{"upgrade", "x"},
+	} {
+		var out, errb bytes.Buffer
+		ran := false
+		code := cli.Run(args, &out, &errb,
+			func() error { return nil },
+			func(bool) error { ran = true; return nil })
+		require(t, code == 2 && !ran)
+		require(t, strings.Contains(errb.String(), "tuipe upgrade --check"))
+	}
+}

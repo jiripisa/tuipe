@@ -16,8 +16,15 @@ func Run(args []string, stdout, stderr io.Writer, runApp func() error, runUpgrad
 	}
 	switch args[0] {
 	case "upgrade":
-		check := len(args) > 1 && args[1] == "--check"
-		return finish(stderr, runUpgrade(check))
+		switch {
+		case len(args) == 1:
+			return finish(stderr, runUpgrade(false))
+		case len(args) == 2 && args[1] == "--check":
+			return finish(stderr, runUpgrade(true))
+		default:
+			fmt.Fprint(stderr, text.Usage)
+			return 2
+		}
 	case "version":
 		fmt.Fprintln(stdout, buildinfo.String())
 		return 0
