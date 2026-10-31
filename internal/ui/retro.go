@@ -39,17 +39,18 @@ type retroScreen struct {
 }
 
 // NewRetroScreen sums up the given runs of a Sprint against the 7 days before
-// the first of them. The characters are compared with the snapshot saved when
-// the Sprint started, which this call takes from Profile.Resume and clears.
+// the first of them. The characters are compared with the snapshot of the
+// Sprint in Profile.Resume. It leaves Resume alone; endSprint clears it.
 func NewRetroScreen(a *App, runs []store.Run) Screen {
-	s := &retroScreen{runs: len(runs)}
-	p := a.Store.Profile()
 	var snap *store.SprintState
-	if r := p.Resume; r != nil && r.Kind == resumeKindSprint {
+	if r := a.Store.Profile().Resume; sprintResume(r) {
 		snap = r.Sprint
-		p.Resume = nil
-		a.SaveErr(a.Store.SaveProfile())
 	}
+	return newRetro(a, runs, snap)
+}
+
+func newRetro(a *App, runs []store.Run, snap *store.SprintState) Screen {
+	s := &retroScreen{runs: len(runs)}
 	if len(runs) == 0 {
 		return s
 	}

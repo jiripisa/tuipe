@@ -312,6 +312,9 @@ func (r *roundScreen) rememberLesson(a *App, now time.Time) {
 	if r.resumeSet || (r.spec.LessonID == "" && a.chain == nil) {
 		return
 	}
+	if sprintResume(a.Store.Profile().Resume) && (a.chain == nil || a.chain.state == nil) {
+		return // a Sprint left earlier outranks the lesson of this round
+	}
 	if _, log := r.sess.PartialLog(); len(log) == 0 {
 		return
 	}

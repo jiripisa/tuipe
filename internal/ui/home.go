@@ -67,8 +67,8 @@ type homeScreen struct {
 func NewHomeScreen(a *App) Screen {
 	a.chain = nil
 	// A Sprint left on an earlier day ends with a Retro on the part that was done.
-	if r := a.Store.Profile().Resume; r != nil && r.Kind == resumeKindSprint && r.Day != a.today() {
-		return NewRetroScreen(a, a.sessionRuns(r.Sprint))
+	if r := a.Store.Profile().Resume; sprintResume(r) && r.Day != a.today() {
+		return a.endSprint(r.Sprint)
 	}
 	h := &homeScreen{pick: a.recommended(), up: a.uptime()}
 	if r := a.Store.Profile().Resume; r != nil && r.LessonID != "" {

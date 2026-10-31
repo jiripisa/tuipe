@@ -125,3 +125,8 @@ func RoundFrame(a *App) play.Frame {
 
 // SprintPlan regenerates the plan of a sprint from its saved state.
 func SprintPlan(a *App, s *store.SprintState) []recommend.Pick { return a.sprintPlan(s) }
+
+// AddEntry appends a home entry that has no screen.
+func AddEntry(a *App, label string) {
+	a.Entries = append(a.Entries, menuEntry{id: "fake", label: label})
+}

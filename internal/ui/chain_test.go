@@ -482,3 +482,113 @@ func TestSprintFinaleIsPlayedAtSEV3(t *testing.T) {
 		t.Errorf("finale severity = %q, want SEV3", sev)
 	}
 }
+
+// leaveSprintAfterOneRound plays round 1 of a new Sprint, starts round 2 and
+// leaves from the pause menu. It returns the run of round 1.
+func leaveSprintAfterOneRound(t *testing.T, a *ui.App, st *store.Store, clk *clock) store.Run {
+	t.Helper()
+	openEntry(a, homeSprint)
+	a.Update(enter)
+	typeKeys(a, clk, -1)
+	runs, _ := st.Runs()
+	if len(runs) != 1 {
+		t.Fatalf("runs = %d, want 1", len(runs))
+	}
+	clk.advance(time.Second)
+	a.Update(enter)
+	typeKeys(a, clk, 3)
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter)
+	wantScreen(t, a, "home")
+	if r := st.Profile().Resume; r == nil || r.Sprint == nil || r.Sprint.NextIndex != 1 {
+		t.Fatalf("resume after leaving = %+v", r)
+	}
+	return runs[0]
+}
+
+// slowRound types the current round at 400 ms a key.
+func slowRound(a *ui.App, clk *clock) {
+	for _, r := range ui.RoundKeys(a) {
+		clk.advance(400 * time.Millisecond)
+		a.Update(key(r))
+	}
+}
+
+func TestQuickRunAfterLeavingSprintKeepsTheSprint(t *testing.T) {
+	a, st, clk := playApp(t)
+	leaveSprintAfterOneRound(t, a, st, clk)
+	saved := st.Profile().Resume.Sprint
+	a.Update(enter) // the quick run
+	wantScreen(t, a, "round")
+	slowRound(a, clk)
+	wantScreen(t, a, "results")
+	r := st.Profile().Resume
+	if r == nil || r.Kind != "sprint" || r.Sprint == nil || r.Sprint.NextIndex != 1 || len(r.Sprint.Chars) != len(saved.Chars) {
+		t.Fatalf("a quick run changed the sprint resume: %+v", r)
+	}
+	a.Update(esc)
+	wantText(t, a, text.MenuSprint+" ("+text.HomeContinue+")")
+	openEntry(a, homeSprint)
+	wantScreen(t, a, "round")
+	wantText(t, a, "Sprint ")
+	if st.Profile().Resume.Sprint.NextIndex != 1 {
+		t.Errorf("NextIndex = %d, want 1", st.Profile().Resume.Sprint.NextIndex)
+	}
+}
+
+func TestStandupAfterLeavingSprintKeepsTheSprint(t *testing.T) {
+	a, st, clk := playApp(t)
+	leaveSprintAfterOneRound(t, a, st, clk)
+	openEntry(a, homeStandup)
+	wantScreen(t, a, "round")
+	slowRound(a, clk)
+	a.Update(esc)
+	r := st.Profile().Resume
+	if r == nil || r.Kind != "sprint" || r.Sprint == nil || r.Sprint.NextIndex != 1 {
+		t.Fatalf("a standup changed the sprint resume: %+v", r)
+	}
+	openEntry(a, homeSprint)
+	wantScreen(t, a, "round")
+	wantText(t, a, "Sprint ")
+}
+
+func TestRetroIgnoresRunsOutsideTheSprintAndSurvivesQuickRuns(t *testing.T) {
+	a, st, clk := playApp(t)
+	sprintRun := leaveSprintAfterOneRound(t, a, st, clk)
+	a.Update(enter) // an outside quick run, slower than the sprint round
+	slowRound(a, clk)
+	a.Update(esc)
+	all, _ := st.Runs()
+	if len(all) != 2 || all[1].WPM >= sprintRun.WPM {
+		t.Fatalf("runs = %+v, want a slower outside run", all)
+	}
+
+	clk.advance(26 * time.Hour)
+	b, err := ui.New(st, a.Lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Now = clk.now
+	b.Update(windowSize(80, 24))
+	ui.SetScreen(b, ui.NewHomeScreen(b))
+	wantScreen(t, b, "retro")
+	wantText(t, b, fmt.Sprintf(text.RetroRuns, 1))
+	wantText(t, b, fmt.Sprintf("%6.1f", sprintRun.WPM))
+	if st.Profile().Resume != nil {
+		t.Errorf("Resume = %+v after the retro was opened", st.Profile().Resume)
+	}
+}
+
+func TestUnregisteredHomeEntryIsNotReady(t *testing.T) {
+	a, _, _ := playApp(t)
+	ui.AddEntry(a, "Nehotovo")
+	for range len(a.Entries) { // the fake entry is the last one
+		a.Update(down)
+	}
+	a.Update(enter)
+	if ui.ScreenName(a) != "home" || !strings.Contains(screen(a), text.HomeNotReady) {
+		t.Errorf("expected the not-ready note:\n%s", screen(a))
+	}
+}

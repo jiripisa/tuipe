@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"time"
 
@@ -146,22 +147,29 @@ func (c *chain) next(a *App) Screen {
 	if c.state == nil {
 		return NewHomeScreen(a)
 	}
-	return NewRetroScreen(a, a.sessionRuns(c.state))
+	return a.endSprint(c.state)
 }
 
-// sessionRuns are the runs recorded since the Sprint started.
+// sprintResume reports a Resume that holds a Sprint.
+func sprintResume(r *store.Resume) bool { return r != nil && r.Kind == resumeKindSprint }
+
+// endSprint opens the Retro of a Sprint and drops the Sprint to resume.
+func (a *App) endSprint(s *store.SprintState) Screen {
+	retro := newRetro(a, a.sessionRuns(s), s)
+	a.Store.Profile().Resume = nil
+	a.SaveErr(a.Store.SaveProfile())
+	return retro
+}
+
+// sessionRuns are the runs that belong to the Sprint.
 func (a *App) sessionRuns(s *store.SprintState) []store.Run {
 	if s == nil {
-		return nil
-	}
-	start, err := time.Parse(time.RFC3339Nano, s.Started)
-	if err != nil {
 		return nil
 	}
 	all, _ := a.Store.Runs()
 	var out []store.Run
 	for _, r := range all {
-		if !r.At.Before(start) {
+		if slices.Contains(s.RunIDs, r.ID) {
 			out = append(out, r)
 		}
 	}
@@ -180,7 +188,7 @@ func activeOf(r play.Result) time.Duration {
 
 // finished is called by Finish, before it saves the profile. It counts the
 // round and keeps the Sprint to resume, or marks the day of a finished Standup.
-func (c *chain) finished(a *App, r play.Result) {
+func (c *chain) finished(a *App, r play.Result, runID string) {
 	if c == nil {
 		return
 	}
@@ -189,6 +197,7 @@ func (c *chain) finished(a *App, r play.Result) {
 	case c.state != nil:
 		c.state.ActiveMs += activeOf(r).Milliseconds()
 		c.state.NextIndex = c.done
+		c.state.RunIDs = append(c.state.RunIDs, runID)
 		c.remember(a)
 	case c.done >= len(c.picks):
 		a.Store.Profile().StandupDay = a.today()
@@ -228,7 +237,7 @@ func (c *chain) label(extra time.Duration) string {
 		return fmt.Sprintf(text.ChainStandup, c.idx+1, len(c.picks))
 	}
 	s := int((time.Duration(c.state.ActiveMs)*time.Millisecond + extra).Seconds())
-	return fmt.Sprintf(text.ChainSprint, s/60, s%60, c.state.Minutes, 0)
+	return fmt.Sprintf(text.ChainSprint, s/60, s%60, c.state.Minutes)
 }
 
 // sprintToContinue is the Sprint left earlier today.

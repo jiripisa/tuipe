@@ -76,6 +76,7 @@ type SprintState struct {
 	Stars        map[string]int
 	Completed    map[string]bool
 	IncidentBest map[string]string
+	RunIDs       []string // the runs of this Sprint, as its rounds finish
 }
 
 // Resume is what to offer the user when they come back.

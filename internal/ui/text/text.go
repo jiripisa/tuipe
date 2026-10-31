@@ -192,7 +192,7 @@ const (
 // Standup, Sprint and Retro.
 const (
 	ChainStandup = "Standup %d/%d"
-	ChainSprint  = "Sprint %d:%02d / %d:%02d"
+	ChainSprint  = "Sprint %d:%02d / %d:00"
 
 	HomeDone     = "hotovo"
 	HomeContinue = "pokračovat"

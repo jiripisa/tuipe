@@ -42,10 +42,9 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	if testOut && r.Stars >= testOutStars {
 		a.Curr.ApplySkip(p, a.stats(), a.skippedBy(spec.ChapterID))
 	}
-	if !testOut {
-		p.Resume = nil // a test-out is no part of the lesson to continue
+	if !testOut && !sprintResume(p.Resume) {
+		p.Resume = nil // a test-out is no part of the lesson to continue; a Sprint outranks everything
 	}
-	a.chain.finished(a, r) // may set Resume again, for a Sprint
 
 	var errs []error
 	hash := r.Text.Hash
@@ -75,6 +74,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 			Severity: spec.Severity, Won: r.Incident.Won, SLA: r.Incident.SLA, MTTRMs: r.Incident.MTTR.Milliseconds(),
 		}
 	}
+	a.chain.finished(a, r, run.ID) // keeps the Sprint to resume or marks the Standup
 	errs = append(errs, a.Store.AppendRun(run), a.Store.SaveProfile())
 
 	err := errors.Join(errs...)
