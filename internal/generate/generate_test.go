@@ -3,6 +3,7 @@ package generate_test
 import (
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/jiripisa/tuipe/internal/content"
@@ -165,6 +166,83 @@ func TestDrillUnallowedFocusIsIgnored(t *testing.T) {
 	for _, r := range s {
 		if !allowed.Has(r) {
 			t.Fatalf("disallowed %q in %q", r, s)
+		}
+	}
+}
+
+func TestBigramDrillOnNarrowAlphabetContainsBigram(t *testing.T) {
+	s := generate.Drill(lib(t), generate.Input{Bigrams: []string{"fj"}, Allowed: setOf("asdfjkl ").Has, Length: 60, Seed: 1})
+	if n := strings.Count(s, "fj"); n < 3 {
+		t.Errorf("only %d occurrences of fj in %q", n, s)
+	}
+}
+
+func TestUppercaseFocusUsesCapitalisedRealWords(t *testing.T) {
+	l := lib(t)
+	real := map[string]bool{}
+	for _, w := range append(append([]string{}, l.WordsCS...), l.WordsEN...) {
+		real[w] = true
+	}
+	s := generate.Drill(l, generate.Input{Focus: []rune("R"), Allowed: all, Length: 200, Seed: 3})
+	tokens := strings.Fields(s)
+	good := 0
+	for _, tok := range tokens {
+		r, n := utf8.DecodeRuneInString(tok)
+		if r == 'R' && real[strings.ToLower(tok[:1])+tok[n:]] {
+			good++ // capitalised real word
+		} else if strings.Contains(tok, "R") && !strings.ContainsAny(tok, "{}[]") {
+			good++ // camelCase such as userRole
+		}
+	}
+	if good*10 < len(tokens)*8 {
+		t.Errorf("only %d of %d tokens are capitalised or camelCase real words: %q", good, len(tokens), s)
+	}
+}
+
+func TestSymbolFocusBuildsTokensFromRealWords(t *testing.T) {
+	l := lib(t)
+	real := map[string]bool{}
+	for _, w := range l.WordsEN {
+		real[w] = true
+	}
+	for _, w := range l.WordsCS {
+		real[w] = true
+	}
+	s := generate.Drill(l, generate.Input{Focus: []rune("{}"), Allowed: all, Length: 200, Seed: 4})
+	if strings.Contains(s, "{{{{") {
+		t.Errorf("gibberish in %q", s)
+	}
+	withWord := 0
+	tokens := strings.Fields(s)
+	for _, tok := range tokens {
+		for _, part := range strings.FieldsFunc(tok, func(r rune) bool { return !unicode.IsLetter(r) }) {
+			if real[part] {
+				withWord++
+				break
+			}
+		}
+	}
+	if withWord*10 < len(tokens)*8 {
+		t.Errorf("only %d of %d tokens contain a real word: %q", withWord, len(tokens), s)
+	}
+}
+
+func TestDigitFocusBuildsTokens(t *testing.T) {
+	s := generate.Drill(lib(t), generate.Input{Focus: []rune("7"), Allowed: all, Length: 100, Seed: 2})
+	if !strings.Contains(s, "7") || strings.ContainsAny(s, "ďřŘ") {
+		t.Errorf("unexpected %q", s)
+	}
+}
+
+func TestNoRepeatedTokensInWindow(t *testing.T) {
+	for seed := int64(1); seed <= 20; seed++ {
+		s := generate.Drill(lib(t), generate.Input{Focus: []rune("fj"), Allowed: setOf("asdfjklů ").Has, Length: 100, Seed: seed})
+		counts := map[string]int{}
+		for _, tok := range strings.Fields(s) {
+			counts[tok]++
+			if counts[tok] > 3 || utf8.RuneCountInString(tok) < 2 {
+				t.Fatalf("seed %d: token %q repeated or too short in %q", seed, tok, s)
+			}
 		}
 	}
 }

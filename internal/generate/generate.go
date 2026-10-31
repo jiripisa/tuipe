@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/jiripisa/tuipe/internal/content"
 )
@@ -23,7 +24,8 @@ const (
 	defaultLength = 100
 	minRealWords  = 8    // fewer real focus words than this are mixed with pseudo-words
 	strongDensity = 0.25 // share of focus characters that makes a word a strong drill word
-	vowels        = "aeiouyáéěíóúůý"
+	vowels        = "aeiouy"
+	repeatWindow  = 12 // tokens in which a repeat is avoided
 )
 
 // Drill returns text of at least in.Length characters made of tokens separated
@@ -41,7 +43,6 @@ func Drill(lib *content.Library, in Input) string {
 	g := &gen{
 		rng:     rand.New(rand.NewPCG(uint64(in.Seed), uint64(in.Seed)^0x9e3779b97f4a7c15)),
 		allowed: allowed,
-		bigrams: in.Bigrams,
 		sep:     "",
 	}
 	if allowed(' ') {
@@ -52,17 +53,26 @@ func Drill(lib *content.Library, in Input) string {
 			g.focus = append(g.focus, r)
 		}
 	}
+	for _, b := range in.Bigrams {
+		if b != "" && g.within(b) {
+			g.bigrams = append(g.bigrams, b)
+		}
+	}
 	if !g.collectAlphabet(lib) {
 		return ""
 	}
 	g.collectPools(lib)
 
 	var sb strings.Builder
-	n, prev := 0, ""
+	n := 0
+	var recent []string
 	for i := 0; n < length; i++ {
 		tok := g.token(i == 0)
-		for try := 0; tok == prev && try < 5; try++ {
+		for try := 0; contains(recent, tok) && try < 8; try++ {
 			tok = g.token(false)
+		}
+		if contains(recent, tok) {
+			tok = g.pseudo()
 		}
 		if tok == "" {
 			continue
@@ -72,10 +82,34 @@ func Drill(lib *content.Library, in Input) string {
 			n += len([]rune(g.sep))
 		}
 		sb.WriteString(tok)
-		n += len([]rune(tok))
-		prev = tok
+		n += utf8.RuneCountInString(tok)
+		recent = append(recent, tok)
+		if len(recent) > repeatWindow {
+			recent = recent[1:]
+		}
 	}
 	return sb.String()
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// templates turn a real word into a code-like token. WORD is a random short
+// English word and DIGIT is one of the focus digits.
+var templates = []string{
+	"{WORD}", "[WORD]", "(WORD)", `"WORD"`, "WORD;", "@WORD", "#WORD", "$WORD",
+	"WORD=WORD", "WORD->WORD", "WORD&&WORD", "~/WORD", "WORD|WORD", `\WORD`,
+	"<WORD>", "*WORD", "%WORD", "^WORD", "WORD!", "'WORD'", "`WORD`",
+	"WORD.WORD", "WORD:WORD", "WORD?", "WORD+WORD", "WORD-WORD", "WORD_WORD",
+	"WORD/WORD", "WORD<WORD", "WORD>WORD", "{WORD:WORD}", "${WORD}", "{WORD}{WORD}",
+	"WORD()", "{}", "[]", "()", "[WORD]=WORD",
+	"WORDDIGIT", "[DIGIT]", "DIGITDIGITDIGIT", "DIGITDIGITDIGITDIGIT", "WORDDIGITDIGIT",
 }
 
 type gen struct {
@@ -90,9 +124,13 @@ type gen struct {
 	consonant []rune
 	symbols   []rune // allowed non-space characters, sorted
 
-	strong, loose []string // real words drilling the focus
-	plain         []string // real words without a focus requirement
-	commits       []string // commit messages drilling a diacritic focus
+	strong, loose []string   // real words drilling the focus
+	baseWords     []string   // short allowed words used inside templates
+	templates     []string   // templates usable with the focus
+	upperFocus    []rune     // uppercase focus letters
+	upperWords    [][]string // words starting with the lowercase of each upperFocus
+	plain         []string   // real words without a focus requirement
+	commits       []string   // commit messages drilling a diacritic focus
 	diacritic     bool
 }
 
@@ -122,11 +160,19 @@ func (g *gen) collectAlphabet(lib *content.Library) bool {
 	}
 	sort.Slice(g.symbols, func(i, j int) bool { return g.symbols[i] < g.symbols[j] })
 	for _, r := range g.symbols {
-		if !unicode.IsLetter(r) {
-			continue
+		if r >= 'a' && r <= 'z' {
+			g.letters = append(g.letters, r)
 		}
-		g.letters = append(g.letters, r)
-		if strings.ContainsRune(vowels, unicode.ToLower(r)) {
+	}
+	if len(g.letters) == 0 { // no plain lowercase letters: take any lowercase letter
+		for _, r := range g.symbols {
+			if unicode.IsLower(r) {
+				g.letters = append(g.letters, r)
+			}
+		}
+	}
+	for _, r := range g.letters {
+		if strings.ContainsRune(vowels, r) {
 			g.vowels = append(g.vowels, r)
 		} else {
 			g.consonant = append(g.consonant, r)
@@ -144,7 +190,7 @@ func (g *gen) collectPools(lib *content.Library) {
 	hasFocus := len(g.focus) > 0 || len(g.bigrams) > 0
 	for _, list := range [][]string{lib.WordsCS, lib.WordsEN} {
 		for _, w := range list {
-			if !g.within(w) {
+			if utf8.RuneCountInString(w) < 2 || !g.within(w) {
 				continue
 			}
 			if !hasFocus {
@@ -161,11 +207,77 @@ func (g *gen) collectPools(lib *content.Library) {
 			}
 		}
 	}
+	g.collectDerived(lib)
 	if g.diacritic {
 		for _, c := range lib.CommitsCS {
 			if g.within(c) && g.focusScore(c) > 0 {
 				g.commits = append(g.commits, c)
 			}
+		}
+	}
+}
+
+// collectDerived prepares the sources for capitalised words and code-like tokens.
+func (g *gen) collectDerived(lib *content.Library) {
+	for _, r := range g.focus {
+		if unicode.IsUpper(r) {
+			g.upperFocus = append(g.upperFocus, r)
+			var ws []string
+			for _, list := range [][]string{lib.WordsEN, lib.WordsCS} {
+				for _, w := range list {
+					if n := utf8.RuneCountInString(w); n >= 2 && n <= 10 && g.within(w) &&
+						strings.HasPrefix(w, string(unicode.ToLower(r))) {
+						ws = append(ws, w)
+					}
+				}
+			}
+			g.upperWords = append(g.upperWords, ws)
+		}
+	}
+	symbolic := false
+	for _, r := range g.focus {
+		symbolic = symbolic || !unicode.IsLetter(r)
+	}
+	for _, b := range g.bigrams {
+		for _, r := range b {
+			symbolic = symbolic || !unicode.IsLetter(r)
+		}
+	}
+	if !symbolic && len(g.upperFocus) == 0 {
+		return
+	}
+	for _, list := range [][]string{lib.WordsEN, lib.WordsCS} {
+		for _, w := range list {
+			if n := utf8.RuneCountInString(w); n >= 2 && n <= 5 && g.within(w) {
+				g.baseWords = append(g.baseWords, w)
+			}
+		}
+		if len(g.baseWords) >= minRealWords {
+			break
+		}
+	}
+	if !symbolic {
+		return
+	}
+	digits := ""
+	for _, r := range g.focus {
+		if unicode.IsDigit(r) {
+			digits += string(r)
+		}
+	}
+	for _, t := range templates {
+		fixed := strings.ReplaceAll(t, "WORD", "")
+		if strings.Contains(fixed, "DIGIT") {
+			if digits == "" {
+				continue
+			}
+			fixed = strings.ReplaceAll(fixed, "DIGIT", digits)
+		}
+		if strings.Contains(t, "WORD") && len(g.baseWords) == 0 {
+			continue
+		}
+		if g.within(fixed) && g.focusScore(fixed) > 0 {
+			g.templates = append(g.templates, t)
 		}
 	}
 }
@@ -227,6 +339,11 @@ func (g *gen) token(first bool) string {
 	if len(g.strong) >= minRealWords {
 		pool = g.strong
 	}
+	if (len(g.templates) > 0 || g.hasUpper()) && (len(pool) < minRealWords || g.rng.IntN(2) == 0) {
+		if d := g.derived(); d != "" {
+			return d
+		}
+	}
 	switch {
 	case len(pool) >= minRealWords:
 		return g.pick(pool)
@@ -243,38 +360,133 @@ func (g *gen) pick(list []string) string { return list[g.rng.IntN(len(list))] }
 
 func pickRune(rng *rand.Rand, rs []rune) rune { return rs[rng.IntN(len(rs))] }
 
-// pseudo builds a pronounceable word of 3 to 6 characters, about half of them focus characters.
-func (g *gen) pseudo() string {
-	n := 3 + g.rng.IntN(4)
-	vowel := g.rng.IntN(2) == 0
-	out := make([]rune, 0, n)
-	for len(out) < n {
-		var r rune
-		switch {
-		case len(g.focus) > 0 && g.rng.IntN(2) == 0:
-			r = pickRune(g.rng, g.focus)
-		case len(g.letters) == 0:
-			r = pickRune(g.rng, g.symbols)
-		case vowel && len(g.vowels) > 0:
-			r = pickRune(g.rng, g.vowels)
-		case !vowel && len(g.consonant) > 0:
-			r = pickRune(g.rng, g.consonant)
-		default:
-			r = pickRune(g.rng, g.letters)
+func (g *gen) hasUpper() bool {
+	for _, ws := range g.upperWords {
+		if len(ws) > 0 {
+			return true
 		}
-		out = append(out, r)
-		vowel = !vowel
+	}
+	return false
+}
+
+// derived builds a capitalised word, a camelCase identifier or a code-like
+// token from real words. It returns "" when nothing fits.
+func (g *gen) derived() string {
+	for try := 0; try < 10; try++ {
+		var tok string
+		if g.hasUpper() && (len(g.templates) == 0 || g.rng.IntN(2) == 0) {
+			k := g.rng.IntN(len(g.upperWords))
+			if len(g.upperWords[k]) == 0 {
+				continue
+			}
+			w := capitalise(g.pick(g.upperWords[k]))
+			tok = w
+			if len(g.baseWords) > 0 && g.rng.IntN(2) == 0 {
+				tok = g.pick(g.baseWords) + w
+			}
+		} else if len(g.templates) > 0 {
+			tok = g.pick(g.templates)
+			for strings.Contains(tok, "WORD") {
+				tok = strings.Replace(tok, "WORD", g.pick(g.baseWords), 1)
+			}
+			for strings.Contains(tok, "DIGIT") {
+				tok = strings.Replace(tok, "DIGIT", string(pickRune(g.rng, g.digits())), 1)
+			}
+		} else {
+			continue
+		}
+		if g.within(tok) && g.focusScore(tok) > 0 && !strings.Contains(tok, " ") {
+			return tok
+		}
+	}
+	return ""
+}
+
+func (g *gen) digits() []rune {
+	var ds []rune
+	for _, r := range g.focus {
+		if unicode.IsDigit(r) {
+			ds = append(ds, r)
+		}
+	}
+	return ds
+}
+
+func capitalise(w string) string {
+	r, n := utf8.DecodeRuneInString(w)
+	return string(unicode.ToUpper(r)) + w[n:]
+}
+
+// pseudo builds a pronounceable word of 3 to 6 lowercase characters, about a
+// third of them focus characters, with a bigram spliced in when there are any.
+func (g *gen) pseudo() string {
+	var out []rune
+	for try := 0; try < 5; try++ {
+		n := 3 + g.rng.IntN(4)
+		vowel := g.rng.IntN(2) == 0
+		out = out[:0]
+		for len(out) < n {
+			var r rune
+			switch {
+			case len(g.focus) > 0 && g.rng.IntN(3) == 0:
+				r = pickRune(g.rng, g.focus)
+			case len(g.letters) == 0:
+				r = pickRune(g.rng, g.symbols)
+			case vowel && len(g.vowels) > 0:
+				r = pickRune(g.rng, g.vowels)
+			case !vowel && len(g.consonant) > 0:
+				r = pickRune(g.rng, g.consonant)
+			default:
+				r = pickRune(g.rng, g.letters)
+			}
+			out = append(out, r)
+			vowel = !vowel
+		}
+		if len(g.bigrams) > 0 && g.rng.IntN(4) != 0 {
+			b := []rune(g.pick(g.bigrams))
+			at := g.rng.IntN(len(out) + 1)
+			out = append(out[:at], append(b, out[at:]...)...)
+		}
+		if distinct(out) >= 2 {
+			break
+		}
 	}
 	return string(out)
 }
 
-// pattern repeats a short group of focus characters, such as "fjfj" or "ffjj".
+func distinct(rs []rune) int {
+	seen := map[rune]bool{}
+	for _, r := range rs {
+		seen[r] = true
+	}
+	return len(seen)
+}
+
+// pattern repeats a short group of focus characters, such as "fjkfj" or "fafa".
 func (g *gen) pattern() string {
+	if len(g.bigrams) > 0 && g.rng.IntN(2) == 0 {
+		b := g.pick(g.bigrams)
+		if g.rng.IntN(2) == 0 {
+			return b + b
+		}
+		other := g.letters
+		if len(other) == 0 {
+			other = g.symbols
+		}
+		return b + string(pickRune(g.rng, other)) + b
+	}
 	pool := g.focus
 	if len(pool) == 0 {
 		pool = g.symbols
 	}
 	a, b := pickRune(g.rng, pool), pickRune(g.rng, pool)
+	if a == b {
+		other := g.letters
+		if len(other) == 0 {
+			other = g.symbols
+		}
+		b = pickRune(g.rng, other)
+	}
 	if g.rng.IntN(2) == 0 {
 		return string([]rune{a, b, a, b})
 	}

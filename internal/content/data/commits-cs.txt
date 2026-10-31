@@ -100,7 +100,7 @@ změň rozložení hlavní stránky
 přidej automatické uložení rozepsaného textu
 oprav posun kurzoru při vkládání textu
 zjednoduš příkazy pro spuštění projektu
-oprav správné načtení nastavení při startu
+oprav chybné načtení nastavení při startu
 přidej kontrolu verze při aktualizaci
 odstraň zbytečné čekání ve smyčce
 oprav souběh při zpracování plateb
