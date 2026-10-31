@@ -41,6 +41,8 @@ func ScreenName(a *App) string {
 		return "retro"
 	case *sprintPickerScreen:
 		return "sprint-minutes"
+	case *statsScreen:
+		return "stats"
 	}
 	return "other"
 }

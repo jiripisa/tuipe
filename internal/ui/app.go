@@ -98,6 +98,7 @@ func New(st *store.Store, lib *content.Library) (*App, error) {
 	a.RegisterEntry(EntryCareer, func(a *App) (Screen, tea.Cmd) { return NewCareerScreen(a), nil })
 	a.RegisterEntry(EntryIncident, func(a *App) (Screen, tea.Cmd) { return NewIncidentListScreen(a), nil })
 	a.RegisterEntry(EntryPractice, func(a *App) (Screen, tea.Cmd) { return NewPracticeScreen(a), nil })
+	a.RegisterEntry(EntryStats, func(a *App) (Screen, tea.Cmd) { return NewStatsScreen(a), nil })
 	a.screen = NewHomeScreen(a)
 	return a, nil
 }

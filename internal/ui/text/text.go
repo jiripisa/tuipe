@@ -218,3 +218,41 @@ const (
 	RetroNoSnapshot = "Znaky: chybí snímek ze startu sprintu, nemám co porovnat."
 	HintRetro       = "Enter domů · Esc domů · Ctrl+T styl"
 )
+
+// Statistics.
+const (
+	StatsEmpty           = "Zatím žádná kola. Odehrajte první a tady se objeví historie."
+	StatsHeatEmpty       = "Zatím není co ukázat: klávesy se obarví, až se nasbírá pár kol."
+	StatsLost            = "prohráno"
+	StatsWeakestFinger   = "nejslabší prst: %s"
+	StatsGroupOverall    = "celkem"
+	StatsGroupLetters    = "písmena"
+	StatsGroupDiacritics = "diakritika"
+	StatsGroupDigits     = "čísla"
+	StatsGroupShift      = "Shift"
+	StatsGroupOption     = "Option"
+	StatsModeLesson      = "lekce"
+	StatsModeCode        = "kód"
+	StatsModeIncident    = "incident"
+	StatsModeDrill       = "drill"
+)
+
+// More statistics strings.
+const (
+	StatsModePractice  = "trénink"
+	StatsModeTestOut   = "test-out"
+	StatsModePlacement = "vstupní pohovor"
+	StatsRecordScore   = "skóre"
+	StatsWPM           = "WPM"
+	StatsAccuracy      = "Přesnost"
+	HintStats          = "←→ záložky · ↑↓ PgUp PgDn · Esc domů · Ctrl+T styl"
+)
+
+// StatsTabs are the tabs of the statistics screen; git log is the app's own term.
+var StatsTabs = [...]string{"git log", "heatmap", "trendy", "rekordy"}
+
+// Names of the hands and fingers, indexed by layout.Hand and layout.Finger.
+var (
+	StatsHandNames   = [...]string{"levý", "pravý"}
+	StatsFingerNames = [...]string{"malíček", "prsteník", "prostředník", "ukazovák", "palec"}
+)
