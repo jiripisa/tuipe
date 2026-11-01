@@ -359,6 +359,10 @@ const (
 	FirstRunCheckHow   = "Jak ho napsat: %s"
 	FirstRunCheckLater = "Tuhle klávesu zatím znát nemusíte, učí se později. Zkuste ji znovu, nebo kontrolu přeskočte klávesou Esc."
 	FirstRunCheckHint  = "Esc přeskočit · Tab jiné rozložení"
+	// FirstRunCheckWrong warns about the first character (typed, wanted, typed).
+	FirstRunCheckWrong     = "Napsali jste %s místo %s. Napište znak znovu, nebo stiskněte Enter, pokud klávesa opravdu dává %s."
+	FirstRunCheckWrongHint = "Enter potvrdit · Esc přeskočit"
+	FirstRunCheckSpace     = "mezeru" // the space key in that sentence
 
 	FirstRunPickTitle = "Rozložení klávesnice"
 	FirstRunPickAsk   = "Napsaný znak neodpovídá rozložení %s. Které rozložení používáte?"

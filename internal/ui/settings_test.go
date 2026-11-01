@@ -462,9 +462,15 @@ var fitCases = []fitCase{
 	}},
 	{"first-run-style", firstRunReach(func(t *testing.T, a *ui.App) {})},
 	{"first-run-check", firstRunReach(func(t *testing.T, a *ui.App) { a.Update(enter) })},
+	{"first-run-wrong-char", firstRunReach(func(t *testing.T, a *ui.App) {
+		a.Update(enter)
+		a.Update(key('x'))
+		showsAll(t, a, text.FirstRunCheckWrongHint)
+	})},
 	{"first-run-picker", firstRunReach(func(t *testing.T, a *ui.App) {
 		a.Update(enter)
 		a.Update(key('x'))
+		a.Update(enter)
 		showsAll(t, a, text.FirstRunPickTitle)
 	})},
 	{"first-run-option", firstRunReach(func(t *testing.T, a *ui.App) {

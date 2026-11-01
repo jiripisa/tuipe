@@ -56,6 +56,7 @@ type firstRunScreen struct {
 	checks  []rune // the telltale characters the layout can type
 	check   int    // index into checks
 	note    string // shown under the current check, such as "not needed yet"
+	wrong   rune   // what the first check got instead; Enter confirms it, 0 is none
 	layouts []*layout.Layout
 	pickAt  int
 	forkAt  int
@@ -101,7 +102,7 @@ func needsOption(l *layout.Layout, r rune) bool {
 // startCheck begins the check with the characters the layout can type. A layout
 // that can type none of them has nothing to check.
 func (f *firstRunScreen) startCheck(a *App) {
-	f.checks, f.check, f.note = telltales(a.Layout), 0, ""
+	f.checks, f.check, f.note, f.wrong = telltales(a.Layout), 0, "", 0
 	f.step = stepCheck
 	if len(f.checks) == 0 {
 		f.step = stepFork
@@ -228,12 +229,19 @@ func (f *firstRunScreen) updateCheck(k tea.KeyPressMsg, a *App) {
 	case "tab": // the way to the picker for a layout that really differs
 		f.openPicker(a)
 		return
+	case "enter":
+		if f.wrong != 0 { // not a typo: the key really gives this character
+			f.openPicker(a)
+			return
+		}
 	}
 	r, alt, ok := typedRune(k)
+	if !ok {
+		return
+	}
 	want := f.checks[f.check]
-	f.note = ""
+	f.note, f.wrong = "", 0
 	switch {
-	case !ok:
 	case r == want:
 		if f.check++; f.check == len(f.checks) {
 			f.step = stepFork
@@ -242,7 +250,7 @@ func (f *firstRunScreen) updateCheck(k tea.KeyPressMsg, a *App) {
 		f.step = stepOptionHelp // Option arrived as Alt: nothing is saved, the user re-tests
 	case alt:
 	case f.check == 0:
-		f.openPicker(a) // the very first key is the layout's own: it differs
+		f.wrong = r // a typo, or a layout that differs: the user says which
 	default:
 		f.note = text.FirstRunCheckLater // a key not yet learned says nothing about the layout
 	}
@@ -320,6 +328,18 @@ func (f *firstRunScreen) View(a *App, w, h int) string {
 	case stepCheck:
 		r := f.checks[f.check]
 		body := []string{"", acc(fmt.Sprintf(text.FirstRunCheckAsk, string(r), f.check+1, len(f.checks)))}
+		hintLine := text.FirstRunCheckHint
+		if f.wrong != 0 { // first, so that a short window still shows it
+			hintLine = text.FirstRunCheckWrongHint
+			body = append(body, "")
+			got := string(f.wrong)
+			if f.wrong == ' ' {
+				got = text.FirstRunCheckSpace
+			}
+			for _, l := range prose(fmt.Sprintf(text.FirstRunCheckWrong, got, string(r), got)) {
+				body = append(body, st.Base().Foreground(st.Bad).Render(l))
+			}
+		}
 		if how := hint.Text(a.Layout, r); how != "" {
 			_, how, _ = strings.Cut(how, " → ") // the character itself is already asked for
 			body = append(body, "")
@@ -333,7 +353,7 @@ func (f *firstRunScreen) View(a *App, w, h int) string {
 				body = append(body, fg(l))
 			}
 		}
-		return frame(text.FirstRunCheckTitle, body, text.FirstRunCheckHint)
+		return frame(text.FirstRunCheckTitle, body, hintLine)
 	case stepPicker:
 		var head, list, tail []string
 		for _, l := range prose(fmt.Sprintf(text.FirstRunPickAsk, a.Layout.Name)) {

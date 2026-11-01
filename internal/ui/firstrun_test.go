@@ -177,6 +177,7 @@ func TestLayoutMismatchOpensPicker(t *testing.T) {
 	writeUserLayout(t, st, czechCopy(t))
 	a.Update(enter)
 	a.Update(key('2')) // a US layout types 2 where ě should come
+	a.Update(enter)    // it really is the key's own character
 	showsAll(t, a, "macOS Czech QWERTY", "Testovací rozložení", "docs/layouts.md", "cfg/layouts")
 	showsNone(t, a, "(darwin)", "(linux)")
 	showsNone(t, a, "Vítejte")
@@ -203,6 +204,7 @@ func TestSkippingFromThePickerKeepsTheLayout(t *testing.T) {
 	a, st, _ := firstRunApp(t)
 	a.Update(enter)
 	a.Update(key('2'))
+	a.Update(enter) // it really is the key's own character
 	showsAll(t, a, "macOS Czech QWERTY")
 	a.Update(esc)
 	showsAll(t, a, "Začínám od nuly")
@@ -553,6 +555,7 @@ func TestPickedUserLayoutSurvivesARestart(t *testing.T) {
 	writeUserLayout(t, st, czechCopy(t))
 	a.Update(enter)
 	a.Update(key('2'))
+	a.Update(enter) // it really is the key's own character
 	a.Update(down)
 	a.Update(enter)
 	if a.Layout.ID != "user-test" {
@@ -614,6 +617,7 @@ func TestPickedLayoutWithoutTelltaleCharsSkipsTheCheck(t *testing.T) {
 	writeUserLayout(t, st, userLayout) // no characters at all
 	a.Update(enter)
 	a.Update(key('2'))
+	a.Update(enter) // it really is the key's own character
 	a.Update(down)
 	a.Update(enter)
 	showsAll(t, a, "Začínám od nuly")
@@ -624,6 +628,7 @@ func TestPickedLayoutChecksOnlyWhatItCanType(t *testing.T) {
 	writeUserLayout(t, st, userLayout+"\n[[char]]\nc = \"{\"\nroute = [\"option+k1\"]\n")
 	a.Update(enter)
 	a.Update(key('2'))
+	a.Update(enter) // it really is the key's own character
 	a.Update(down)
 	a.Update(enter)
 	showsAll(t, a, "{", "1/1")
@@ -790,4 +795,73 @@ func reopenFirstRunDone(t *testing.T, st *store.Store) (*ui.App, *store.Store) {
 		t.Fatal(err)
 	}
 	return reopen(t, st)
+}
+
+func TestWrongFirstCharWarnsAndLetsYouTypeItAgain(t *testing.T) {
+	a, st, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key('é'))
+	showsAll(t, a, "1/3", "Napsali jste é místo ě", text.FirstRunCheckWrongHint)
+	showsNone(t, a, "Které rozložení", text.FirstRunCheckHint)
+	fits(t, a)
+
+	a.Update(key('ě'))
+	showsAll(t, a, "{", "2/3", text.FirstRunCheckHint)
+	showsNone(t, a, "Napsali jste", text.FirstRunCheckWrongHint)
+	if st.Config().Layout != "" {
+		t.Errorf("a typo changed the layout: %q", st.Config().Layout)
+	}
+}
+
+func TestAnotherWrongCharWarnsAboutTheNewOne(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key('é'))
+	a.Update(key('3'))
+	showsAll(t, a, "1/3", "Napsali jste 3 místo ě")
+	showsNone(t, a, "Které rozložení")
+}
+
+func TestConfirmingTheWrongCharOpensThePicker(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key('2'))
+	a.Update(enter)
+	showsAll(t, a, "Které rozložení", "docs/layouts.md")
+}
+
+func TestEnterConfirmsNothingWithoutAWrongChar(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(enter)
+	showsAll(t, a, "1/3")
+	showsNone(t, a, "Které rozložení")
+	a.Update(key('ě'))
+	a.Update(key('x')) // a later key is only not learned yet
+	a.Update(enter)
+	showsAll(t, a, "2/3")
+	showsNone(t, a, "Které rozložení")
+}
+
+func TestWrongCharCanStillBeSkipped(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key('2'))
+	a.Update(esc)
+	showsAll(t, a, "Začínám od nuly")
+}
+
+func TestWrongCharWarningIsSeenInTheSmallestWindow(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
+	a.Update(key('é'))
+	showsAll(t, a, "Napsali jste é místo ě")
+}
+
+func TestWrongSpaceIsNamed(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	a.Update(enter)
+	a.Update(key(' '))
+	showsAll(t, a, "Napsali jste mezeru místo ě")
 }
