@@ -226,3 +226,28 @@ func TestNoticeArrivesDuringARoundWithoutDisturbingIt(t *testing.T) {
 		t.Errorf("notice = %q", a.UpdateNotice)
 	}
 }
+
+func TestStaleNoticeIsCleared(t *testing.T) {
+	client, _ := releaseServer(t, http.StatusOK, "v1.0.0")
+	a, _ := updateApp(t, client, true, "1.0.0")
+	a.Update(ui.UpdateAvailableMsg{Version: "v1.0.0"})
+	if a.UpdateNotice != "" {
+		t.Fatalf("a version that is not newer set the notice %q", a.UpdateNotice)
+	}
+	a.UpdateNotice = "stale"
+	a.Update(ui.UpdateAvailableMsg{Version: "v1.0.0"})
+	if a.UpdateNotice != "" {
+		t.Errorf("a stale notice stayed: %q", a.UpdateNotice)
+	}
+}
+
+func TestLaterCheckClearsANoticeThatNoLongerHolds(t *testing.T) {
+	client, _ := releaseServer(t, http.StatusOK, "v1.0.0") // the newer release was withdrawn
+	a, st := updateApp(t, client, true, "1.0.0")
+	st.Profile().LastUpdateCheck = ""
+	a.UpdateNotice = "stale"
+	drive(a, a.Init())
+	if a.UpdateNotice != "" {
+		t.Errorf("the notice stayed after a check found nothing newer: %q", a.UpdateNotice)
+	}
+}

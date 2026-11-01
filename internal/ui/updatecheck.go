@@ -70,8 +70,10 @@ func (a *App) initUpdate() tea.Cmd {
 	return UpdateCheckCmd(a)
 }
 
-// showUpdate sets the home notice when version is newer than the running one.
+// showUpdate sets the home notice when version is newer than the running one,
+// and clears a notice that no longer holds.
 func (a *App) showUpdate(version string) {
+	a.UpdateNotice = ""
 	if version != "" && upgrade.Newer(a.update.current, version) {
 		a.UpdateNotice = fmt.Sprintf(text.UpdateNotice, version)
 	}
@@ -85,7 +87,7 @@ func (a *App) updateChecked(m updateCheckedMsg) tea.Cmd {
 		p.LatestSeen = m.Tag
 	}
 	_ = a.Store.SaveProfile()
-	if m.Tag == "" || !upgrade.Newer(a.update.current, m.Tag) {
+	if m.Tag == "" { // a failed check knows nothing new
 		return nil
 	}
 	return func() tea.Msg { return UpdateAvailableMsg{Version: m.Tag} }

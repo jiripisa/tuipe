@@ -43,17 +43,18 @@ const (
 
 // Entry is the running statistics of one character or bigram.
 type Entry struct {
-	LatencyMs, ErrorRate float64
-	Samples              int
-	Mastery              Mastery
-	LastSeen             time.Time
+	LatencyMs float64   `json:"LatencyMs"`
+	ErrorRate float64   `json:"ErrorRate"`
+	Samples   int       `json:"Samples"`
+	Mastery   Mastery   `json:"Mastery"`
+	LastSeen  time.Time `json:"LastSeen"`
 }
 
 // Stats holds the entries by character and by bigram. Keys are strings so the
 // value serialises to JSON.
 type Stats struct {
-	Chars   map[string]*Entry
-	Bigrams map[string]*Entry
+	Chars   map[string]*Entry `json:"Chars"`
+	Bigrams map[string]*Entry `json:"Bigrams"`
 }
 
 // New returns empty stats.

@@ -32,79 +32,90 @@ var (
 	ErrLocked = errors.New("another tuipe is running")
 )
 
+// The JSON tags keep the keys of the files as they are written today, whatever
+// a field is called in Go later. Changing one drops the user's data: add a
+// migration instead. testdata/profile-v1.json guards them.
+
 // IncidentResult is the outcome of an incident round.
 type IncidentResult struct {
-	Severity string
-	Won      bool
-	SLA      float64
-	MTTRMs   int64
+	Severity string  `json:"Severity"`
+	Won      bool    `json:"Won"`
+	SLA      float64 `json:"SLA"`
+	MTTRMs   int64   `json:"MTTRMs"`
 }
 
 // Run is one finished round in the history.
 type Run struct {
-	Schema                             int
-	ID                                 string
-	At                                 time.Time
-	Mode, LessonID, TextHash, LayoutID string
-	Session                            string // how the round was started: quick, standup, sprint, career or practice; empty in old runs
-	WPM, Accuracy, Score               float64
-	Stars                              int
-	DurationMs                         int64
-	Paused, HintUsed                   bool
-	GhostDeltaMs                       *int64
-	Incident                           *IncidentResult
+	Schema       int             `json:"Schema"`
+	ID           string          `json:"ID"`
+	At           time.Time       `json:"At"`
+	Mode         string          `json:"Mode"`
+	LessonID     string          `json:"LessonID"`
+	TextHash     string          `json:"TextHash"`
+	LayoutID     string          `json:"LayoutID"`
+	Session      string          `json:"Session"` // how the round was started: quick, standup, sprint, career or practice; empty in old runs
+	WPM          float64         `json:"WPM"`
+	Accuracy     float64         `json:"Accuracy"`
+	Score        float64         `json:"Score"`
+	Stars        int             `json:"Stars"`
+	DurationMs   int64           `json:"DurationMs"`
+	Paused       bool            `json:"Paused"`
+	HintUsed     bool            `json:"HintUsed"`
+	GhostDeltaMs *int64          `json:"GhostDeltaMs"`
+	Incident     *IncidentResult `json:"Incident"`
 }
 
 // Ghost is the best recorded replay of one text.
 type Ghost struct {
-	Schema   int
-	TextHash string
-	Score    float64
-	TimesMs  []int64
+	Schema   int     `json:"Schema"`
+	TextHash string  `json:"TextHash"`
+	Score    float64 `json:"Score"`
+	TimesMs  []int64 `json:"TimesMs"`
 }
 
 // SprintState is the saved state of an interrupted sprint. Seed and the
-// snapshot taken at the start (Chars, Bigrams, Stars, Completed, IncidentBest, WPM) fix
-// the plan and the extra drills after it, so a resumed sprint regenerates the
-// same rounds from NextIndex. Chars is also what the retro compares the final
+// snapshot taken at the start (Chars, Bigrams, Stars, Completed, IncidentBest,
+// WPM) fix the plan and the extra drills after it, so a resumed sprint regenerates
+// the same rounds from NextIndex. Chars is also what the retro compares the final
 // statistics with.
 type SprintState struct {
-	Minutes      int
-	ActiveMs     int64
-	NextIndex    int
-	Seed         int64
-	Started      string // RFC 3339
-	Chars        map[string]stats.Entry
-	Bigrams      map[string]stats.Entry
-	Stars        map[string]int
-	Completed    map[string]bool
-	IncidentBest map[string]string
-	RunIDs       []string // the runs of this Sprint, as its rounds finish
-	WPM          float64  // the pace at the start, which sets the drill length
-	FinaleDone   bool     // the finale has been played: only the Retro is left
+	Minutes      int                    `json:"Minutes"`
+	ActiveMs     int64                  `json:"ActiveMs"`
+	NextIndex    int                    `json:"NextIndex"`
+	Seed         int64                  `json:"Seed"`
+	Started      string                 `json:"Started"` // RFC 3339
+	Chars        map[string]stats.Entry `json:"Chars"`
+	Bigrams      map[string]stats.Entry `json:"Bigrams"`
+	Stars        map[string]int         `json:"Stars"`
+	Completed    map[string]bool        `json:"Completed"`
+	IncidentBest map[string]string      `json:"IncidentBest"`
+	RunIDs       []string               `json:"RunIDs"`     // the runs of this Sprint, as its rounds finish
+	WPM          float64                `json:"WPM"`        // the pace at the start, which sets the drill length
+	FinaleDone   bool                   `json:"FinaleDone"` // the finale has been played: only the Retro is left
 }
 
 // Resume is what to offer the user when they come back.
 type Resume struct {
-	Kind, LessonID string
-	Sprint         *SprintState
-	Day            string
+	Kind     string       `json:"Kind"`
+	LessonID string       `json:"LessonID"`
+	Sprint   *SprintState `json:"Sprint"`
+	Day      string       `json:"Day"`
 }
 
 // Profile is the mastery and progress of the user.
 type Profile struct {
-	Schema          int
-	Stats           map[string]*stats.Stats // by layout id
-	Stars           map[string]int          // by lesson id
-	Completed       map[string]bool         // by chapter id
-	IncidentBest    map[string]string       // by incident id: best severity won
-	FirstRunDone    bool
-	FocusTerminals  map[string]bool // by terminal key: reports focus changes
-	StandupDay      string
-	LastUpdateCheck string
-	LatestSeen      string
-	Resume          *Resume
-	SkipNoted       map[string]bool // by layout id: told about the content it cannot type
+	Schema          int                     `json:"Schema"`
+	Stats           map[string]*stats.Stats `json:"Stats"`        // by layout id
+	Stars           map[string]int          `json:"Stars"`        // by lesson id
+	Completed       map[string]bool         `json:"Completed"`    // by chapter id
+	IncidentBest    map[string]string       `json:"IncidentBest"` // by incident id: best severity won
+	FirstRunDone    bool                    `json:"FirstRunDone"`
+	FocusTerminals  map[string]bool         `json:"FocusTerminals"` // by terminal key: reports focus changes
+	StandupDay      string                  `json:"StandupDay"`
+	LastUpdateCheck string                  `json:"LastUpdateCheck"`
+	LatestSeen      string                  `json:"LatestSeen"`
+	Resume          *Resume                 `json:"Resume"`
+	SkipNoted       map[string]bool         `json:"SkipNoted"` // by layout id: told about the content it cannot type
 }
 
 func newProfile() *Profile {
@@ -175,7 +186,7 @@ func Paths() (configDir, dataDir string, err error) {
 func Open(configDir, dataDir string) (*Store, error) {
 	for _, d := range []string{configDir, dataDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
-			return nil, err
+			return nil, fmt.Errorf(text.StoreNoDir, d)
 		}
 	}
 	lock := flock.New(filepath.Join(dataDir, "tuipe.lock"))
@@ -343,7 +354,7 @@ func (s *Store) SaveGhost(g Ghost) error {
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return fmt.Errorf(text.StoreNoDir, filepath.Dir(path))
 	}
 	g.Schema = SchemaVersion
 	return writeJSON(path, g)

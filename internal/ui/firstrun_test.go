@@ -16,6 +16,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
+	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 const userLayout = `id = "user-test"
@@ -767,4 +768,11 @@ func TestPlacementCountsOnlyNewlyUnlockedChapters(t *testing.T) {
 	playStage(t, a, clk) // letters: chapters 0-4, one done already
 	failStage(t, a, clk)
 	showsAll(t, a, "Odemčeny 4 kapitoly")
+}
+
+func TestJobOfferPointsToSelectedCharacters(t *testing.T) {
+	a, _, _ := playApp(t)
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	a.Update(esc) // give up: the offer of a beginner
+	showsAll(t, a, text.PracticeChars)
 }

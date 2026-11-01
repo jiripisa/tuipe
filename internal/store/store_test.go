@@ -1,11 +1,13 @@
 package store
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -440,5 +442,127 @@ func TestCorruptedProfileNoticeSaysWhatHappenedAndWhere(t *testing.T) {
 	n := s.Notices()
 	if len(n) != 1 || !strings.Contains(n[0], "Profil byl poškozený") || !strings.Contains(n[0], filepath.Join(data, "profile.json.corrupt-1")) {
 		t.Errorf("notices = %q", n)
+	}
+}
+
+func copyFixture(t *testing.T, data string) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("testdata", "profile-v1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "profile.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The fixture is what a first release writes. If this test fails, a field was
+// renamed or moved and users would lose that data: add a migration instead.
+func TestGoldenV1ProfileLoads(t *testing.T) {
+	cfg, data := dirs(t)
+	copyFixture(t, data)
+	s := open(t, cfg, data)
+	defer s.Close()
+	if n := s.Notices(); len(n) != 0 {
+		t.Fatalf("the fixture was set aside: %q", n)
+	}
+	p := s.Profile()
+	e := p.Stats["macos-czech-qwerty"].Chars["{"]
+	if e == nil || e.Samples != 44 || e.Mastery != stats.Solid || e.LatencyMs != 412.5 {
+		t.Errorf("char entry = %+v", e)
+	}
+	if b := p.Stats["macos-czech-qwerty"].Bigrams["st"]; b == nil || b.Samples != 12 {
+		t.Errorf("bigram entry = %+v", b)
+	}
+	if p.Stars["ch01-01"] != 2 || !p.Completed["ch01"] || p.IncidentBest["INC-1001"] != "SEV2" {
+		t.Errorf("progress = %+v %+v %+v", p.Stars, p.Completed, p.IncidentBest)
+	}
+	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] || p.StandupDay != "2026-10-30" ||
+		p.LastUpdateCheck != "2026-10-30" || p.LatestSeen != "v1.0.0" || !p.SkipNoted["user-layout"] {
+		t.Errorf("flags = %+v", p)
+	}
+	r := p.Resume
+	if r == nil || r.Kind != "sprint" || r.Day != "2026-10-30" || r.Sprint == nil {
+		t.Fatalf("resume = %+v", r)
+	}
+	sp := r.Sprint
+	if sp.Minutes != 20 || sp.ActiveMs != 61000 || sp.NextIndex != 2 || sp.Seed != 77 || sp.WPM != 41.5 ||
+		sp.Chars["a"].Samples != 30 || sp.Stars["ch01-01"] != 1 || len(sp.RunIDs) != 1 {
+		t.Errorf("sprint = %+v", sp)
+	}
+}
+
+// keysOf lists the object keys of a JSON document, with their paths. Map keys
+// are data, so what is under a map is walked with a wildcard.
+func keysOf(t *testing.T, raw []byte) []string {
+	t.Helper()
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	var walk func(path string, v any)
+	walk = func(path string, v any) {
+		if m, ok := v.(map[string]any); ok {
+			for k, sub := range m {
+				out = append(out, path+"/"+k)
+				walk(path+"/"+k, sub)
+			}
+		}
+	}
+	walk("", v)
+	slices.Sort(out)
+	return out
+}
+
+func TestSavingKeepsEveryKeyOfTheGoldenProfile(t *testing.T) {
+	cfg, data := dirs(t)
+	copyFixture(t, data)
+	want, err := os.ReadFile(filepath.Join(data, "profile.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := open(t, cfg, data)
+	defer s.Close()
+	if err := s.SaveProfile(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(data, "profile.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	have := keysOf(t, got)
+	for _, k := range keysOf(t, want) {
+		if !slices.Contains(have, k) {
+			t.Errorf("saving dropped the key %s", k)
+		}
+	}
+}
+
+// Every field carries a JSON tag, so that a later rename in Go cannot drop data.
+func TestPersistedStructsHaveJSONTags(t *testing.T) {
+	for _, v := range []any{Profile{}, Resume{}, SprintState{}, Run{}, IncidentResult{}, Ghost{}, stats.Stats{}, stats.Entry{}} {
+		ty := reflect.TypeOf(v)
+		for i := range ty.NumField() {
+			f := ty.Field(i)
+			if tag := f.Tag.Get("json"); tag != f.Name {
+				t.Errorf("%s.%s has tag %q, want the key %q as it always was", ty.Name(), f.Name, tag, f.Name)
+			}
+		}
+	}
+}
+
+func TestDirectoryThatCannotBeMadeIsToldInCzech(t *testing.T) {
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "file")
+	if err := os.WriteFile(blocker, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Open(filepath.Join(blocker, "cfg"), filepath.Join(dir, "data"))
+	if err == nil || !strings.Contains(err.Error(), "nelze vytvořit") || strings.Contains(err.Error(), "mkdir") {
+		t.Errorf("error = %v", err)
 	}
 }

@@ -636,3 +636,28 @@ func TestRefusesRedirectDowngradeToHTTP(t *testing.T) {
 	eq(t, hits, 0)
 	eq(t, read(t, exe), "OLD")
 }
+
+func TestDownloadFailuresAreToldInCzech(t *testing.T) {
+	name := upgrade.AssetName("1.1.0", "linux", "amd64")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/loop":
+			http.Redirect(w, r, "/loop", http.StatusFound)
+		default:
+			w.WriteHeader(http.StatusBadGateway)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &upgrade.Client{APIBase: srv.URL, HTTP: srv.Client(), Repo: "jiripisa/tuipe"}
+	for path, want := range map[string]string{"/loop": "přesměrování", "/gone": "server odpověděl HTTP 502"} {
+		rel := upgrade.Release{Tag: "v1.1.0", Assets: map[string]string{name: srv.URL + path, "checksums.txt": srv.URL + path}}
+		err := c.Apply(context.Background(), rel, installOld(t), "linux", "amd64")
+		if err == nil {
+			t.Fatalf("%s: expected an error", path)
+		}
+		contains(t, err.Error(), want)
+		if strings.Contains(err.Error(), "too many") || strings.Contains(err.Error(), ": HTTP") {
+			t.Errorf("%s: English in %q", path, err)
+		}
+	}
+}

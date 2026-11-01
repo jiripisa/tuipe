@@ -216,5 +216,7 @@ func (p *placementScreen) View(a *App, w, h int) string {
 		body = append(body, "")
 		body = append(body, prose(text.OfferSkipped(p.placed), dim)...)
 	}
+	body = append(body, "")
+	body = append(body, prose(text.OfferPractice, dim)...)
 	return frame(text.OfferTitle, body, text.OfferHint)
 }

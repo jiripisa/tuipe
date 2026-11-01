@@ -72,6 +72,12 @@ const TooSmall = "Potřebuji víc místa.\nZvětšete prosím okno terminálu."
 // SaveWarning is the notice for a failed save (%v is the error).
 const SaveWarning = "Uložení se nepovedlo: %v"
 
+// StoreNoDir is the error for a folder that cannot be created (%s is the folder).
+const StoreNoDir = "Složku %s nelze vytvořit. Zkontrolujte oprávnění a volné místo na disku."
+
+// NewerFile is the warning for one file written by a newer tuipe, which stays as it is.
+const NewerFile = "Soubor uložila novější verze tuipe, nechávám ho být. Pomůže příkaz tuipe upgrade."
+
 // SecondInstance is the error when another tuipe holds the data directory.
 const SecondInstance = "tuipe už běží v jiném okně. Zavřete ho a zkuste to znovu."
 
@@ -401,6 +407,7 @@ const (
 	OfferGreeting = "Dobrý den,"
 	OfferFromZero = "pohovor skončil u první fáze. To je v pořádku, začínáte od nuly a každý někde začíná."
 	OfferHolding  = "Hodnost: %s."
+	OfferPractice = "Symboly si můžete procvičovat hned: Trénink › Vybrané znaky."
 	OfferRank     = "na základě pohovoru Vám nabízíme pozici: %s."
 	OfferNoChange = "pohovor nic nepřidal, Vaše hodnost zůstává: %s."
 	OfferStart    = "Začínáte v kapitole %d: %s."
@@ -436,6 +443,8 @@ const (
 
 // Messages of `tuipe upgrade`.
 const (
+	UpgradeTooManyRedirects   = "příliš mnoho přesměrování"
+	UpgradeBadStatus          = "server odpověděl HTTP %d"
 	UpgradeOffline            = "Nelze se spojit s GitHubem. Zkontrolujte připojení k internetu a zkuste to znovu."
 	UpgradeRateLimited        = "GitHub dočasně odmítl dotaz (příliš mnoho požadavků). Zkuste to za chvíli."
 	UpgradeNoRelease          = "Zatím neexistuje žádné vydání ke stažení."

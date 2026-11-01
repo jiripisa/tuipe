@@ -253,6 +253,10 @@ func (a *App) SaveErr(err error) {
 		a.saveWarn = ""
 		return
 	}
+	if errors.Is(err, store.ErrNewerData) {
+		a.saveWarn = text.NewerFile
+		return
+	}
 	a.saveWarn = fmt.Sprintf(text.SaveWarning, err)
 }
 

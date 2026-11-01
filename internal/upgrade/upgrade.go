@@ -81,7 +81,7 @@ func (c *Client) get(ctx context.Context, rawURL, accept string, timeout time.Du
 	client := *c.HTTP
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
-			return errors.New("too many redirects")
+			return errors.New(text.UpgradeTooManyRedirects)
 		}
 		if !c.secure(r.URL) {
 			return fmt.Errorf(text.UpgradeInsecureURL, r.URL)
@@ -244,7 +244,7 @@ func (c *Client) Apply(ctx context.Context, r Release, exePath string, goos, goa
 func (c *Client) download(ctx context.Context, url string, limit int64) ([]byte, error) {
 	body, status, err := c.get(ctx, url, "application/octet-stream", downloadTimeout, limit)
 	if err == nil && status != http.StatusOK {
-		err = fmt.Errorf("HTTP %d", status)
+		err = fmt.Errorf(text.UpgradeBadStatus, status)
 	}
 	if err != nil {
 		return nil, fmt.Errorf(text.UpgradeDownloadFail, err)

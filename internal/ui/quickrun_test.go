@@ -1012,3 +1012,24 @@ func TestLessonResultsKeepTheirStars(t *testing.T) {
 		t.Errorf("a lesson shows its stars:\n%s", v)
 	}
 }
+
+func TestGhostFromANewerVersionIsToldInCzech(t *testing.T) {
+	a, st, _ := playApp(t)
+	id, _ := firstLesson(t, a)
+	txt, err := a.Curr.LessonText(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(filepath.Dir(st.ConfigDir()), "data", "ghosts", engine.Prepare(txt).Hash+".json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"Schema": 99}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	startLesson(t, a)
+	v := screen(a)
+	if strings.Contains(v, "newer") || !strings.Contains(v, "novější verze") {
+		t.Errorf("the warning is not Czech:\n%s", v)
+	}
+}
