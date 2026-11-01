@@ -47,8 +47,8 @@ func TestRecordSamplesAndLatency(t *testing.T) {
 	s.Record(text, log, now)
 	e := s.Chars["a"]
 	eq(t, e.Samples, 3)
-	eq(t, e.LatencyMs, 100.0) // first char has no latency sample
-	eq(t, e.ErrorRate, 0.0)
+	eq(t, e.LatencyMs, 100.0)                          // first char has no latency sample
+	eq(t, e.ErrorRate > 0 && e.ErrorRate < 0.02, true) // the small prior, fading
 	eq(t, e.LastSeen, now)
 	eq(t, s.Bigrams["aa"].Samples, 2)
 }
@@ -96,10 +96,59 @@ func TestMasteryFallsWithErrors(t *testing.T) {
 	text, log := fastClean(strings.Repeat("a", 100))
 	s := stats.New()
 	s.Record(text, log, now)
-	text, log = typeText(strings.Repeat("a", 10),
-		func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
-	s.Record(text, log, now)
+	bad := func() {
+		text, log = typeText(strings.Repeat("a", 10),
+			func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
+		s.Record(text, log, now)
+	}
+	bad()
+	eq(t, s.MasteryOf('a'), stats.Solid) // one level a round
+	bad()
+	eq(t, s.MasteryOf('a'), stats.Learning)
+	bad()
 	eq(t, s.MasteryOf('a'), stats.NewChar)
+}
+
+func TestFirstSampleDoesNotSetTheErrorRateRaw(t *testing.T) {
+	text, log := typeText("a", func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
+	s := stats.New()
+	s.Record(text, log, now)
+	e := s.Chars["a"]
+	if e.ErrorRate >= 0.12 {
+		t.Errorf("ErrorRate = %v after one slip and one correct press, want below the fall threshold", e.ErrorRate)
+	}
+}
+
+// A character placed as solid and typed for the first time with one slip must
+// not read as new because of it.
+func TestOneSlipKeepsAPlacedCharacterSolid(t *testing.T) {
+	s := stats.New()
+	s.SetMastery('a', stats.Solid)
+	text, log := typeText("a", func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
+	s.Record(text, log, now)
+	eq(t, s.MasteryOf('a'), stats.Solid)
+}
+
+func TestMasteryFallsAtMostOneLevelPerRound(t *testing.T) {
+	text, log := fastClean(strings.Repeat("a", 100))
+	s := stats.New()
+	s.Record(text, log, now)
+	eq(t, s.MasteryOf('a'), stats.Automatic)
+	// Every press of a long round starts with three wrong ones.
+	text, log = typeText(strings.Repeat("a", 60),
+		func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 3 })
+	s.Record(text, log, now)
+	eq(t, s.MasteryOf('a'), stats.Solid)
+}
+
+func TestStaleFallAndErrorsTogetherFallOneLevel(t *testing.T) {
+	text, log := fastClean(strings.Repeat("a", 100))
+	s := stats.New()
+	s.Record(text, log, now)
+	text, log = typeText(strings.Repeat("a", 10),
+		func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 2 })
+	s.Record(text, log, now.Add(20*24*time.Hour))
+	eq(t, s.MasteryOf('a'), stats.Solid)
 }
 
 func TestStaleCharacterDecays(t *testing.T) {

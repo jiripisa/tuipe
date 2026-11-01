@@ -28,6 +28,7 @@ const (
 	alpha      = 0.1
 	staleAfter = 14 * 24 * time.Hour
 	fallError  = 0.12
+	errorPrior = 0.02 // the error rate before the first sample, so one slip stays under fallError
 
 	learningSamples = 10
 	solidSamples    = 30
@@ -80,10 +81,9 @@ func (e *Entry) sample(wrong bool, latencyMs *float64, now time.Time) {
 		errv = 1
 	}
 	if e.Samples == 0 {
-		e.ErrorRate = errv
-	} else {
-		e.ErrorRate += alpha * (errv - e.ErrorRate)
+		e.ErrorRate = errorPrior // one sample says little: it only moves the prior
 	}
+	e.ErrorRate += alpha * (errv - e.ErrorRate)
 	if latencyMs != nil {
 		if e.LatencyMs == 0 {
 			e.LatencyMs = *latencyMs
@@ -137,8 +137,21 @@ func minSamples(m Mastery) int {
 	return 0
 }
 
-// Record folds one finished round into the stats. Auto cells never appear in the log.
+// Record folds one finished round into the stats. Auto cells never appear in
+// the log. However badly the round went, an entry falls at most one level.
 func (s *Stats) Record(t engine.Text, log []engine.Keystroke, now time.Time) {
+	before := map[*Entry]Mastery{}
+	note := func(e *Entry) *Entry {
+		if _, ok := before[e]; !ok {
+			before[e] = e.Mastery
+		}
+		return e
+	}
+	defer func() {
+		for e, m := range before {
+			e.Mastery = max(e.Mastery, m-1)
+		}
+	}()
 	var prev *engine.Keystroke // previous correct keystroke
 	for i := range log {
 		k := log[i]
@@ -150,10 +163,10 @@ func (s *Stats) Record(t engine.Text, log []engine.Keystroke, now time.Time) {
 			ms := float64(k.T-prev.T) / float64(time.Millisecond)
 			lat = &ms
 		}
-		entry(&s.Chars, string(t.Cells[k.Pos].R)).sample(!k.Correct, lat, now)
+		note(entry(&s.Chars, string(t.Cells[k.Pos].R))).sample(!k.Correct, lat, now)
 		if prev != nil && prev.Pos == k.Pos-1 {
 			bg := string([]rune{t.Cells[prev.Pos].R, t.Cells[k.Pos].R})
-			entry(&s.Bigrams, bg).sample(!k.Correct, lat, now)
+			note(entry(&s.Bigrams, bg)).sample(!k.Correct, lat, now)
 		}
 		if k.Correct {
 			prev = &log[i]
