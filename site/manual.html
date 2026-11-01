@@ -13,11 +13,12 @@
     if (s === "fosfor" || s === "editor" || s === "velin") document.documentElement.setAttribute("data-style", s);
   } catch (e) {}
 </script>
-<noscript><style>.statusline { display: none; }</style></noscript>
 <link rel="stylesheet" href="assets/site.css">
+<noscript><style>.statusline { display: none; }</style></noscript>
 <script src="assets/site.js" defer></script>
 </head>
 <body>
+<a class="skip" href="#main">Přeskočit na obsah</a>
 
 <nav class="tabline" aria-label="Stránky">
   <a href="index.html">index.html</a>
@@ -27,7 +28,8 @@
 
 <div class="manual">
 
-<details class="toc" open>
+<nav class="toc" aria-label="Obsah manuálu">
+<details open>
   <summary>Obsah</summary>
   <ol>
     <li><a href="#instalace">Instalace</a></li>
@@ -46,8 +48,9 @@
     <li><a href="#potize">Časté potíže</a></li>
   </ol>
 </details>
+</nav>
 
-<main>
+<main id="main">
 
 <h1>Manuál tuipe</h1>
 <p class="lead">tuipe je trenažér psaní všemi deseti pro programátory na české klávesnici QWERTY. Běží v terminálu a nejvíc času věnuje tomu, co ostatní trenažéry přeskakují: symbolům, číslicím a mrtvým klávesám.</p>
@@ -58,7 +61,7 @@
 
 <h3>macOS a Linux</h3>
 <pre class="block"><code>curl -fsSL https://raw.githubusercontent.com/<wbr>jiripisa/<wbr>tuipe/<wbr>main/<wbr>install.sh | sh</code></pre>
-<p>Skript vybere vydání pro váš systém a architekturu (arm64 nebo amd64), ověří kontrolní součet SHA-256 a uloží program do <code>~/.local/bin</code>. Nepotřebuje <code>sudo</code>. Když tahle složka není na <code>PATH</code>, vypíše přesně ten řádek, který máte přidat do <code>~/.zshrc</code> nebo jiného souboru vašeho shellu. Pak otevřete nový terminál.</p>
+<p>Skript vybere vydání pro váš systém a architekturu (arm64 nebo amd64), ověří kontrolní součet SHA-256 a uloží program do <code>~/.local/bin</code>. Nepotřebuje <code>sudo</code>. Když tato složka není na <code>PATH</code>, vypíše přesně ten řádek, který máte přidat do <code>~/.zshrc</code> nebo jiného souboru vašeho shellu. Pak otevřete nový terminál.</p>
 
 <h3>Windows</h3>
 <p>V PowerShellu 5.1 nebo novějším:</p>
@@ -94,7 +97,7 @@
 <p>Po změně terminál znovu načtěte nebo restartujte. V jiném terminálu hledejte volbu, která se anglicky jmenuje „Option as Meta“ nebo „Option as Alt“, a vypněte ji.</p>
 
 <h2 id="prvni-spusteni">První spuštění</h2>
-<p>Napište <code>tuipe</code>. První spuštění vás provede několika kroky a pak už nikdy.</p>
+<p>Napište <code>tuipe</code>. Při prvním spuštění vás tuipe provede několika kroky. Příště už se na ně neptá.</p>
 
 <h3>Vzhled</h3>
 <p>Šipkami vyberete jeden ze tří stylů a rovnou vidíte, jak vypadá skutečné kolo. Enter výběr potvrdí. Není to napořád, styl přepnete kdykoli klávesou <kbd>Ctrl+T</kbd>.</p>
@@ -105,7 +108,7 @@
 <ul>
 <li>Když první znak nesedí, vaše klávesnice je asi jiná a otevře se výběr rozložení.</li>
 <li>Když terminál pošle Alt s písmenem, ukáže se návod na <a href="#option">nastavení Option</a>. Po změně zkusíte znak znovu klávesou Enter.</li>
-<li>Když nesedí <code>{</code> nebo <code>@</code>, nevadí to. Tyhle klávesy se učí později.</li>
+<li>Když nesedí <code>{</code> nebo <code>@</code>, nevadí to. Tyto klávesy se učí později.</li>
 </ul>
 <p>Kontrolu přeskočíte klávesou <kbd>Esc</kbd>, jiné rozložení vyberete klávesou <kbd>Tab</kbd>.</p>
 
@@ -127,7 +130,7 @@
 </tbody>
 </table>
 </div>
-<p>Fáze skončí i předčasně, když po aspoň 20 stiscích tvoří chyby přes čtvrtinu. Pohovor ukončíte sami klávesou <kbd>Esc</kbd> před každou fází.</p>
+<p>Fáze skončí i předčasně, když po nejméně 20 stiscích tvoří chyby přes čtvrtinu. Pohovor ukončíte sami klávesou <kbd>Esc</kbd> před každou fází.</p>
 <p>Výsledek dostanete jako pracovní nabídku: hodnost a kapitolu, kde začínáte. Přeskočené kapitoly jsou hotové, ale bez hvězd, a jejich lekce zůstávají otevřené. Znaky z nich začínají jako <a href="#napoveda">jisté</a>, nebo jako rozpracované, pokud vám v pohovoru dělaly potíže.</p>
 <figure><img src="assets/offer.png" width="1488" height="904" loading="lazy" alt="Pracovní nabídka: na základě pohovoru Vám nabízíme pozici Medior, začínáte v kapitole 8."></figure>
 <p>Pohovor můžete zopakovat v Nastavení položkou Znovu vstupní pohovor. Hodnost nikdy nesníží.</p>
@@ -142,12 +145,12 @@
 <p>Konec řádku značí symbol <code>↵</code> a píše se klávesou Enter. Odsazení dalšího řádku tuipe přeskočí samo, jako by to udělal editor, takže mezery na začátku řádku nepíšete.</p>
 
 <h3>Čas a pauza</h3>
-<p>Čas běží od prvního stisku. Kolo se pozastaví samo, když okno terminálu ztratí fokus. Terminály, které změnu fokusu nehlásí, se pozastaví po 5 sekundách bez stisku. Takovou pauzu ukončí první další klávesa, která se zároveň počítá jako vstup.</p>
+<p>Čas běží od prvního stisku. Kolo se pozastaví samo, když okno terminálu ztratí fokus. V terminálech, které změnu fokusu nehlásí, se kolo pozastaví po 5 sekundách bez stisku. Takovou pauzu ukončí první další klávesa, která se zároveň počítá jako vstup.</p>
 <p>Klávesa <kbd>Esc</kbd> otevře nabídku pauzy s položkami pokračovat, začít znovu a odejít. <kbd>Ctrl+R</kbd> začne kolo znovu rovnou. Čas pauzy se nikdy nezapočítá. Kolo s pauzou se dopíše normálně a počítá se pro statistiky, hvězdy i uptime, jen se z něj nestane duch ani rekord. Nedopsané kolo není prohra: do historie se nezapíše, ale stisky z něj se do statistik znaků počítají.</p>
 <p>Když zavřete aplikaci uprostřed lekce, další spuštění nabídne <code>pokračuj: název lekce</code>. Kolo pak začne od začátku.</p>
 
 <h3 id="napoveda">Nápověda a jak mizí</h3>
-<p>Nápověda říká, co zmáčknout a kterým prstem. Třeba:</p>
+<p>Nápověda říká, co stisknout a kterým prstem. Třeba:</p>
 <pre class="block"><code>{ → levý Option + í (pravý prsteník)</code></pre>
 <figure><img src="assets/hint-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor s nápovědou pro znak { a mapou klávesnice, na které svítí í a levý Option."></figure>
 <p>Kdy se ukáže, záleží na tom, jak dobře znak umíte. tuipe si u každého znaku vede rychlost a chybovost a podle nich ho řadí do čtyř stavů:</p>
@@ -163,7 +166,7 @@
 </table>
 </div>
 <p>Od stavu rozpracovaný výš se nápověda ukáže i při druhé chybě na stejném místě, nikdy při první. Jeden překlep vás tak stojí přesnost, ale ne třetí hvězdu. Výš se znak posune, jen když chybovost nepřesáhne 12 %. Může se i zhoršit: o stupeň klesne, když chybovost přeroste 12 % nebo když znak dva týdny nepíšete.</p>
-<p>Mapa klávesnice a panel Další znak jsou taky nápověda a řídí se stejnými pravidly. Mimo nápovědu jsou tyto plochy prázdné nebo ukazují neutrální přehled, takže nic neprozradí, co přijde.</p>
+<p>Mapa klávesnice a panel Další znak jsou také nápověda a řídí se stejnými pravidly. Mimo nápovědu jsou tyto plochy prázdné nebo ukazují neutrální přehled, takže neprozradí, co přijde.</p>
 
 <h3>Hvězdy</h3>
 <p>Každá lekce má tři hvězdy. Každá hvězda chce rychlost i přesnost zároveň:</p>
@@ -185,11 +188,11 @@
 <ul>
 <li><strong>WPM</strong> je počet správně napsaných znaků děleno pěti a děleno minutami.</li>
 <li><strong>Přesnost</strong> je podíl znaků napsaných správně napoprvé.</li>
-<li><strong>Skóre</strong> je <code>WPM × přesnost⁴</code>. 60 WPM při 98 % dá skóre 55, při 90 % jen 39. Přesnost tu váží mnohem víc než rychlost a vy ho uvidíte v <a href="#statistiky">rekordech</a>.</li>
+<li><strong>Skóre</strong> je <code>WPM × přesnost⁴</code>. 60 WPM při 98 % dá skóre 55, při 90 % jen 39. Přesnost tu váží mnohem víc než rychlost. Skóre uvidíte v <a href="#statistiky">rekordech</a>.</li>
 </ul>
 
 <h2 id="duch">Duch HEAD~1</h2>
-<p>Duch je druhý kurzor, který běží textem s vámi. Vidíte ho jako barevné pole v textu a jeho náskok nebo ztrátu v sekundách: <code>+1.3 s</code> znamená, že vedete, <code>-0.3 s</code>, že prohráváte.</p>
+<p>Duch je druhý kurzor, který běží textem s vámi. Vidíte ho jako barevné pole v textu a váš náskok nebo ztrátu v sekundách: <code>+1.3 s</code> znamená, že vedete, <code>-0.3 s</code>, že prohráváte.</p>
 <figure class="by-style">
 <img class="editor" src="assets/round-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor: fialové pole ducha je o kus za kurzorem a stavový řádek ukazuje náskok před HEAD~1.">
 <img class="fosfor" src="assets/round-fosfor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Fosfor: dva pruhy HEAD~1 a ty pod textem a náskok před duchem.">
@@ -210,7 +213,7 @@
 <p>Na obrazovce výsledku Enter spustí další kolo. Krátká pauza a dlouhé sezení tak mají stejný průběh.</p>
 
 <h3>Denní standup</h3>
-<p>Pět drillů za sebou na vaše nejslabší znaky, podle rychlosti to zabere pár minut. Průběh vidíte jako <code>Standup 2/5</code>. Po dokončení má položka v nabídce poznámku <code>(hotovo)</code>. Znovu ho spustit můžete, ale cíl na dnešek je splněný.</p>
+<p>Pět drillů za sebou na vaše nejslabší znaky, podle rychlosti to zabere několik minut. Průběh vidíte jako <code>Standup 2/5</code>. Po dokončení má položka v nabídce poznámku <code>(hotovo)</code>. Znovu ho spustit můžete, ale cíl na dnešek je splněný.</p>
 
 <h3>Sprint a Retro</h3>
 <p>Plánované sezení na 10, 20 nebo 30 minut. Začíná rozehřátím na slabých znacích, pokračuje nedokončenými lekcemi, od kapitoly 11 i kódem, pak přijde další drill a na závěr incident. Minuty se počítají jen z aktivního psaní, takže pauza Sprint prodlouží. Průběh vidíte jako <code>Sprint 3:12 / 20:00</code>. Když čas vyprší, další kolo je rovnou závěrečné.</p>
@@ -225,11 +228,11 @@
 <img class="fosfor" src="assets/incident-fosfor.png" width="1488" height="904" loading="lazy" alt="Incident ve stylu Fosfor: příběh, text, závod s duchem a SLA s měřidlem.">
 <img class="velin" src="assets/incident-velin.png" width="1488" height="904" loading="lazy" alt="Incident ve stylu Velín: velký panel SLA vlevo nahoře.">
 </figure>
-<p>SLA začíná na 100 % a hranice SLO je 99 %. Hoří s časem a každá chyba ukousne další kus, v krátkém incidentu 5 % rozpočtu, v dlouhém méně. Když SLA klesne na SLO, je to výpadek a incident je prohraný. Na začátku každého dalšího kroku měřidlo chvíli počká, abyste si přečetli zadání. Čekání ukončí první stisk.</p>
+<p>SLA začíná na 100 % a hranice SLO je 99 %. Hoří s časem a každá chyba ubere další kus, v krátkém incidentu 5 % rozpočtu, v dlouhém méně. Když SLA klesne na SLO, je to výpadek a incident je prohraný. Na začátku každého dalšího kroku měřidlo chvíli počká, abyste si přečetli zadání. Čekání ukončí první stisk.</p>
 <p>Závažnost nastavuje, jak rychle hoří. Vychází z vašeho základního tempa, což je medián posledních 20 kol, nejméně 15 WPM. Když píšete přesně tempem závažnosti, spálíte 60 % rozpočtu.</p>
 <div class="scroll">
 <table>
-<thead><tr><th>Závažnost</th><th>Požadované tempo</th><th></th></tr></thead>
+<thead><tr><th>Závažnost</th><th>Požadované tempo</th><th>Situace</th></tr></thead>
 <tbody>
 <tr><td>SEV3</td><td>vaše běžné</td><td>nikdo nevolá</td></tr>
 <tr><td>SEV2</td><td>o 5 % rychleji</td><td>někdo už píše do chatu</td></tr>
@@ -276,10 +279,10 @@
 </ul>
 
 <h2 id="statistiky">Statistiky</h2>
-<p>Čtyři záložky. Přepínáte je šipkami vlevo a vpravo nebo klávesou <kbd>Tab</kbd>.</p>
+<p>Čtyři záložky. Přepínáte je šipkami vlevo a vpravo, nebo klávesou <kbd>Tab</kbd> dopředu a <kbd>Shift+Tab</kbd> zpět.</p>
 
 <h3>git log</h3>
-<p>Každé dokončené kolo je jeden řádek, seskupené po dnech a nejnovější nahoře: krátký hash, rychlost, přesnost, hvězdy, rozdíl proti duchovi a co jste psali. Prohraný incident má poznámku <code>prohráno</code>.</p>
+<p>Každé dokončené kolo je jeden řádek. Řádky jsou seskupené po dnech, nejnovější nahoře: krátký hash, rychlost, přesnost, hvězdy, rozdíl proti duchovi a co jste psali. Prohraný incident má poznámku <code>prohráno</code>.</p>
 <figure><img src="assets/gitlog.png" width="1488" height="904" loading="lazy" alt="Záložka git log: kola po dnech s hashem, rychlostí, přesností, hvězdami a náskokem."></figure>
 
 <h3>heatmap</h3>
@@ -305,14 +308,14 @@
 <li><strong>Editor</strong> vypadá jako Neovim: zvýraznění syntaxe, čísla řádků, stavový řádek a dole přehled, který při nápovědě vystřídá mapa klávesnice.</li>
 <li><strong>Velín</strong> je hustý dashboard ve stylu <code>htop</code>: postup nebo SLA, propustnost, náskok před duchem, přehled a panel Další znak.</li>
 </ul>
-<p>Ideální okno je polovina obrazovky vedle jiné práce, kolem 80 × 45, stejně dobře ale poslouží běžných 80 × 24.</p>
+<p>Ideální okno je polovina obrazovky vedle jiné práce, kolem 80 × 45, stejně dobře ale poslouží běžných 80 × 24.</p>
 <div class="scroll">
 <table>
 <thead><tr><th>Velikost okna</th><th>Co uvidíte</th></tr></thead>
 <tbody>
-<tr><td>od 60 × 18</td><td>plné rozložení stylu</td></tr>
+<tr><td>od 60 × 18</td><td>plné rozložení stylu</td></tr>
 <tr><td>menší</td><td>kolo se zúží na pruh: hlavní čísla, text a jednořádková nápověda bez mapy</td></tr>
-<tr><td>pod 40 × 8</td><td>kolo se pozastaví a tuipe požádá o víc místa</td></tr>
+<tr><td>pod 40 × 8</td><td>kolo se pozastaví a tuipe požádá o víc místa</td></tr>
 </tbody>
 </table>
 </div>
@@ -321,43 +324,60 @@
 <h2 id="zkratky">Klávesové zkratky</h2>
 <p>Během kola je každá tisknutelná klávesa vstup, proto se ovládání drží kláves Ctrl a Esc.</p>
 <div class="scroll">
-<table>
+<table class="keys">
 <thead><tr><th>Kde</th><th>Klávesa</th><th>Co udělá</th></tr></thead>
 <tbody>
-<tr><td>Všude</td><td><kbd>Ctrl+T</kbd></td><td>další styl</td></tr>
-<tr><td></td><td><kbd>Ctrl+C</kbd></td><td>konec aplikace</td></tr>
-<tr><td>Úvodní obrazovka</td><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
-<tr><td></td><td><kbd>Enter</kbd></td><td>spustit</td></tr>
-<tr><td>Kolo</td><td><kbd>Esc</kbd></td><td>pauza</td></tr>
-<tr><td></td><td><kbd>Ctrl+R</kbd></td><td>začít kolo znovu</td></tr>
-<tr><td></td><td><kbd>Enter</kbd></td><td>konec řádku v textu</td></tr>
-<tr><td>Pauza</td><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Enter</kbd></td><td>výběr a potvrzení</td></tr>
-<tr><td></td><td><kbd>Esc</kbd></td><td>pokračovat</td></tr>
-<tr><td>Výsledek kola</td><td><kbd>Enter</kbd></td><td>další kolo</td></tr>
-<tr><td></td><td><kbd>Esc</kbd></td><td>domů</td></tr>
-<tr><td>Výhra nebo postmortem incidentu</td><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>další, domů (obrazovka prvních 0,7 s klávesy ignoruje)</td></tr>
-<tr><td>Postmortem</td><td><kbd>d</kbd></td><td>drill na znaky, které selhaly</td></tr>
-<tr><td>Seznamy (Kariéra, Trénink, Incident, Sprint)</td><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
-<tr><td></td><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>spustit, zpět</td></tr>
-<tr><td>Vybrané znaky</td><td><kbd>Backspace</kbd></td><td>smazat znak</td></tr>
-<tr><td>Statistiky</td><td><kbd>←</kbd> <kbd>→</kbd>, <kbd>h</kbd> <kbd>l</kbd> nebo <kbd>Tab</kbd></td><td>záložky</td></tr>
-<tr><td></td><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>k</kbd> <kbd>j</kbd>, <kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>posun v git logu</td></tr>
-<tr><td></td><td><kbd>Esc</kbd></td><td>domů</td></tr>
-<tr><td>Nastavení</td><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
-<tr><td></td><td><kbd>Enter</kbd>, <kbd>←</kbd> <kbd>→</kbd> nebo <kbd>h</kbd> <kbd>l</kbd></td><td>změnit hodnotu</td></tr>
-<tr><td></td><td><kbd>Esc</kbd></td><td>domů</td></tr>
+<tr><th scope="row" rowspan="2">Všude</th><td><kbd>Ctrl+T</kbd></td><td>další styl</td></tr>
+<tr><td><kbd>Ctrl+C</kbd></td><td>konec aplikace</td></tr>
+<tr><th scope="row" rowspan="2">První spuštění: styl a rozcestník „Kde začínáte?“</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>potvrdit</td></tr>
+<tr><th scope="row" rowspan="2">První spuštění: kontrola klávesnice</th><td><kbd>Tab</kbd></td><td>otevřít výběr rozložení</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>kontrolu přeskočit</td></tr>
+<tr><th scope="row" rowspan="2">První spuštění: nápověda k Option</th><td><kbd>Enter</kbd></td><td>zkusit znak znovu</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>kontrolu přeskočit</td></tr>
+<tr><th scope="row" rowspan="3">První spuštění: výběr rozložení</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>potvrdit rozložení a zkontrolovat znovu</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>kontrolu přeskočit</td></tr>
+<tr><th scope="row" rowspan="2">První spuštění: domovská pozice</th><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>k</kbd> <kbd>j</kbd>, <kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>posun textu</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>pokračovat</td></tr>
+<tr><th scope="row" rowspan="2">Úvodní obrazovka</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>spustit</td></tr>
+<tr><th scope="row" rowspan="3">Kolo</th><td><kbd>Esc</kbd></td><td>pauza</td></tr>
+<tr><td><kbd>Ctrl+R</kbd></td><td>začít kolo znovu</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>konec řádku v textu</td></tr>
+<tr><th scope="row" rowspan="2">Pauza</th><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Enter</kbd></td><td>výběr a potvrzení</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>pokračovat</td></tr>
+<tr><th scope="row" rowspan="2">Výsledek kola</th><td><kbd>Enter</kbd></td><td>další kolo</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>domů</td></tr>
+<tr><th scope="row" rowspan="2">Výhra nebo postmortem incidentu</th><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>další, domů (obrazovka prvních 0,7 s klávesy ignoruje)</td></tr>
+<tr><td><kbd>d</kbd></td><td>v postmortemu drill na znaky, které selhaly</td></tr>
+<tr><th scope="row" rowspan="2">Seznamy (Kariéra, Trénink, Incident, Sprint)</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
+<tr><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>spustit, zpět</td></tr>
+<tr><th scope="row" rowspan="3">Vybrané znaky</th><td><kbd>Backspace</kbd></td><td>smazat znak</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>spustit drill</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>zpět do nabídky Trénink</td></tr>
+<tr><th scope="row" rowspan="2">Vstupní pohovor a pracovní nabídka</th><td><kbd>Enter</kbd></td><td>začít fázi nebo pokračovat z nabídky</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>ukončit pohovor (před fází)</td></tr>
+<tr><th scope="row" rowspan="4">Statistiky</th><td><kbd>→</kbd>, <kbd>l</kbd> nebo <kbd>Tab</kbd></td><td>další záložka</td></tr>
+<tr><td><kbd>←</kbd>, <kbd>h</kbd> nebo <kbd>Shift+Tab</kbd></td><td>předchozí záložka</td></tr>
+<tr><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>k</kbd> <kbd>j</kbd>, <kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>posun v git logu</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>domů</td></tr>
+<tr><th scope="row">Retro</th><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>domů</td></tr>
+<tr><th scope="row" rowspan="3">Nastavení</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
+<tr><td><kbd>Enter</kbd>, <kbd>←</kbd> <kbd>→</kbd> nebo <kbd>h</kbd> <kbd>l</kbd></td><td>změnit hodnotu</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>domů</td></tr>
 </tbody>
 </table>
 </div>
 
 <h2 id="klavesnice">Česká klávesnice</h2>
-<p>Všechno v téhle kapitole platí pro rozložení macOS Czech QWERTY na fyzické klávesnici ISO. V Nastavení macOS se jmenuje Czech – QWERTY. Na české klávesnici QWERTZ je část kláves jinde.</p>
+<p>Všechno v této kapitole platí pro rozložení macOS Czech QWERTY na fyzické klávesnici ISO. Ve vstupních zdrojích macOS se jmenuje <code>Czech – QWERTY</code> a v českém systému zřejmě <code>Česká – QWERTY</code>. Pokud takový název nenajdete, hledejte položku s dovětkem QWERTY. Na české klávesnici QWERTZ je část kláves jinde.</p>
 
 <h3>Horní řada je naruby</h3>
 <p>Číslice jsou za Shiftem: bez něj píšete <code>+ ě š č ř ž ý á í é</code>, se Shiftem <code>1 2 3 4 5 6 7 8 9 0</code>. Každé číslo v kódu tak stojí stisk navíc. Symboly s Option jsou ve stejné řadě: <code>` @ # $ ~ ^ &amp; * { }</code>.</p>
 
 <h3>Kterou rukou modifikátor</h3>
-<p>Shift nebo Option mačká ruka, která nepíše samotnou klávesu. Proto nápověda říká <code>levý Option + í</code>: <code>í</code> je pod pravým prsteníkem, takže Option drží levá. tuipe to nevidí a poradit může jen nápovědou, ale s tímhle návykem budete rychlejší.</p>
+<p>Shift nebo Option stiskne ruka, která nepíše samotnou klávesu. Proto nápověda říká <code>levý Option + í</code>: <code>í</code> je pod pravým prsteníkem, takže Option drží levá. tuipe to nevidí a poradit může jen nápovědou, ale s tímto návykem budete rychlejší.</p>
 
 <h3>Mrtvé klávesy</h3>
 <p>Mrtvá klávesa sama nic nenapíše. Čeká na další stisk a teprve spolu dají znak. Terminál přitom vidí jen výsledek, proto se čas znaku měří za celou sekvenci.</p>
@@ -476,7 +496,7 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <dd>Když tuipe během kola napíše <code>Terminál bere Option jako Alt. V nastavení to změňte.</code>, terminál posílá Alt místo znaku. Pomůže <a href="#option">nastavení Option</a>. Po změně terminál restartujte.</dd>
 
 <dt>Místo { se píše něco jiného</dt>
-<dd>Zkontrolujte, že je v macOS aktivní vstupní zdroj Czech – QWERTY, ne obyčejné Czech, které je QWERTZ. tuipe vstupní zdroj nepřepíná a v základu zná jen Czech – QWERTY.</dd>
+<dd>Zkontrolujte, že je v macOS aktivní vstupní zdroj <code>Czech – QWERTY</code> (v českém systému zřejmě <code>Česká – QWERTY</code>), ne varianta bez QWERTY, která je QWERTZ. tuipe vstupní zdroj nepřepíná a v základu zná jen rozložení Czech QWERTY.</dd>
 
 <dt>{ jde, ale @ ne (iTerm2)</dt>
 <dd>Levý a pravý Option se v iTerm2 nastavují zvlášť a <code>@</code> se píše pravým. Nastavte <code>Right Option key = Normal</code>.</dd>
@@ -485,7 +505,7 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <dd>To je správně, je to <a href="#klavesnice">mrtvá klávesa</a>. Znak vznikne až po dalším stisku.</dd>
 
 <dt>Po instalaci command not found: tuipe</dt>
-<dd>Složka <code>~/.local/bin</code> není na <code>PATH</code>. Instalační skript vypsal řádek, který máte přidat do souboru svého shellu. Pro zsh je to do <code>~/.zshrc</code> tento: <code>export PATH="$HOME/.local/bin:$PATH"</code>. Pak otevřete nový terminál.</dd>
+<dd>Složka <code>~/.local/bin</code> není na <code>PATH</code>. Instalační skript vypsal řádek, který máte přidat do souboru svého shellu. Pro zsh patří do <code>~/.zshrc</code> tento řádek: <code>export PATH="$HOME/.local/bin:$PATH"</code>. Pak otevřete nový terminál.</dd>
 
 <dt>tuipe už běží v jiném okně</dt>
 <dd>tuipe drží zámek na svá data, aby se dvě kopie nepoškodily. Zavřete druhé okno a zkuste to znovu.</dd>
@@ -494,7 +514,7 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <dd>Data jsou z novější verze než program. Spusťte <code>tuipe upgrade</code>.</dd>
 
 <dt>Potřebuji víc místa</dt>
-<dd>Okno je menší než 40 × 8. Zvětšete ho, kolo mezitím čeká.</dd>
+<dd>Okno je menší než 40 × 8. Zvětšete ho, kolo mezitím čeká.</dd>
 
 <dt>Proč nemám třetí hvězdu?</dt>
 <dd>Třetí hvězda chce přesnost aspoň 98 %, třetí cíl rychlosti a kolo bez jediné nápovědy. Pokud se nápověda ukázala, i kdyby jen na chvíli, výsledek napíše <code>nápověda použita: třetí hvězda není možná</code>.</dd>

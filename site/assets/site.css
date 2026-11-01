@@ -25,7 +25,7 @@ html[data-style="fosfor"] {
   --bg: #050805;
   --fg: #3fae55;
   --ink: #9dffb0;
-  --muted: #54855f;
+  --muted: #5c9a69;
   --accent: #9dffb0;
   --ok: #9dffb0;
   --bad: #ff5a4a;
@@ -73,6 +73,29 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 a:hover { color: var(--ink); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The skip link shows only when it has focus; .sr-only is for the live region. */
+.skip {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  z-index: 3;
+  background: var(--accent);
+  color: var(--bg);
+  font: 700 0.9rem/1 var(--mono);
+  padding: 0.7rem 0.9rem;
+}
+.skip:focus { top: 0.5rem; color: var(--bg); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 h1, h2, h3 { font-family: var(--mono); color: var(--ink); line-height: 1.2; }
 h2 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.75rem; }
@@ -127,7 +150,7 @@ kbd {
 .statusline button {
   border: 0;
   background: var(--bar-hi);
-  color: var(--fg);
+  color: var(--ink);
   font: inherit;
   padding: 0.5rem 0.7rem;
   cursor: pointer;
@@ -192,7 +215,7 @@ kbd {
   padding: 0.9rem 1rem;
 }
 .command pre { flex: 1; min-width: 0; margin: 0; font-size: 0.9375rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-.command code::before { content: "$ "; color: var(--muted); }
+.command code::before { content: "$ "; color: var(--accent); }
 .command.ps code::before { content: "> "; }
 .copy {
   flex: none;
@@ -297,6 +320,7 @@ html[data-style="velin"] .by-style img.velin { display: block; }
 .lead { font-size: 1.3rem; line-height: 1.5; }
 
 .toc { font: 400 0.9rem/1.35 var(--mono); padding-top: 1.25rem; }
+.toc > details > ol, .toc > ol { margin-top: 0.5rem; }
 .toc summary { cursor: pointer; color: var(--ink); padding: 0.25rem 0; }
 .toc ol { list-style: none; margin: 0.5rem 0 0; padding: 0; }
 .toc li { margin: 0; }
@@ -312,6 +336,8 @@ html[data-style="velin"] .by-style img.velin { display: block; }
 table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 1rem; line-height: 1.4; }
 th, td { text-align: left; vertical-align: top; padding: 0.45rem 0.75rem 0.45rem 0; border-bottom: 1px solid var(--bar-hi); }
 th { color: var(--ink); font: 700 0.875rem/1.3 var(--mono); }
+tbody th { font: 400 1rem/1.4 var(--serif); }
+.keys tbody th { width: 30%; padding-right: 1rem; }
 td code, td kbd { white-space: nowrap; }
 td code.wrap { white-space: normal; overflow-wrap: anywhere; }
 .scroll { overflow-x: auto; }

@@ -79,7 +79,7 @@ so it cannot go stale.
 | `id` | yes | Stable identifier. It is stored in `config.toml`, and statistics are kept per id. |
 | `name` | yes | Shown in the layout picker and in settings. |
 | `os` | no | `darwin`, `linux` or `windows`. On first launch tuipe runs the keyboard check only if a layout exists for the current system. |
-| `modifier_name` | no | What the third-level key is called, used in the name of the Option stage of the placement test. A name other than `Option` also draws `Alt` instead of `⌥` on the keyboard map. |
+| `modifier_name` | needed for a layout with a third level | What the third-level key is called, used in the name of the Option stage of the placement test. Set it on every layout that has third-level keys. A name other than `Option` also draws `Alt` instead of `⌥` on the keyboard map. |
 
 ### Keys
 

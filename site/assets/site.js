@@ -64,10 +64,14 @@
     return ok;
   }
 
+  var live = document.getElementById("live");
+
   function copied(button, ok) {
     button.textContent = ok ? "Zkopírováno" : "Vyberte ručně";
+    if (live) live.textContent = ok ? "Zkopírováno" : "Kopírování se nepodařilo, vyberte příkaz ručně";
     button.classList.toggle("copied", ok);
     setTimeout(function () {
+      if (live) live.textContent = "";
       button.textContent = "Kopírovat";
       button.classList.remove("copied");
     }, 2000);
@@ -89,7 +93,7 @@
 
   // The contents of the manual stay open on a wide screen and out of the way
   // on a phone.
-  var toc = document.querySelector("details.toc");
+  var toc = document.querySelector(".toc details");
   if (toc && window.matchMedia("(max-width: 61.99rem)").matches) toc.open = false;
 
   // The headline is typed like a round: the ghost runs ahead, the cursor stops
