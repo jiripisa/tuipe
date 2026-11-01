@@ -254,9 +254,27 @@ func (s *resultsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 			return s.next(a), nil
 		case "esc":
 			return NewHomeScreen(a), nil
+		case "r", "R", "ctrl+r":
+			if s.canRepeat(a) {
+				return s.repeat(a), nil
+			}
 		}
 	}
 	return s, nil
+}
+
+// canRepeat says whether the round can be played again from here. A Sprint or a
+// Standup keeps to its plan, and a passed test-out has nothing left to prove.
+func (s *resultsScreen) canRepeat(a *App) bool {
+	passed := s.spec.Kind == play.KindTestOut && s.res.Stars >= testOutStars
+	return a.chain == nil && !passed
+}
+
+// repeat plays the same text again. The round that just ended may have left a
+// better ghost than the one it raced, so the ghost is read again.
+func (s *resultsScreen) repeat(a *App) Screen {
+	spec, _ := a.withReplay(s.spec) // a damaged ghost never blocks the round
+	return newRound(a, spec, s.next)
 }
 
 func (s *resultsScreen) View(a *App, w, h int) string {
@@ -365,7 +383,11 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 			body = append([]string{commit}, outcome...)
 		}
 	}
-	return style.Frame(st, w, h, text.AppName, strings.Join(body, "\n"), text.HintResults)
+	hint := text.HintResults
+	if s.canRepeat(a) {
+		hint = text.HintResultsRepeat
+	}
+	return style.Frame(st, w, h, text.AppName, strings.Join(body, "\n"), hint)
 }
 
 func (s *resultsScreen) starsLine() string {

@@ -875,3 +875,13 @@ func TestSprintLeftOverMidnightEndsOnTheNextKeyOnHome(t *testing.T) {
 	a.Update(enter)
 	wantScreen(t, a, "retro")
 }
+
+func TestRepeatKeepsOutOfAStandup(t *testing.T) {
+	a, _, clk := playApp(t)
+	openEntry(a, homeStandup)
+	typeKeys(a, clk, -1)
+	wantScreen(t, a, "results")
+	wantText(t, a, text.HintResults)
+	a.Update(key('r'))
+	wantScreen(t, a, "results")
+}

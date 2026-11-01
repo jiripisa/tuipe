@@ -1086,3 +1086,65 @@ func TestCodeRoundOnALayoutThatLacksACharacterNeverAsksForIt(t *testing.T) {
 		t.Fatal("no code round was picked")
 	}
 }
+
+func TestRepeatOnResultsPlaysTheSameTextAgain(t *testing.T) {
+	for _, press := range []tea.KeyPressMsg{key('r'), key('R'), {Code: 'r', Mod: tea.ModCtrl}} {
+		a, st, clk := playApp(t)
+		id := startLesson(t, a)
+		keys := ui.RoundKeys(a)
+		typeKeys(a, clk, -1)
+		wantText(t, a, text.HintResultsRepeat)
+
+		_, cmd := a.Update(press)
+		wantScreen(t, a, "round")
+		if cmd == nil {
+			t.Fatalf("%v: the repeated round has no tick", press)
+		}
+		if !slices.Equal(ui.RoundKeys(a), keys) {
+			t.Fatalf("%v: the text changed", press)
+		}
+		typeKeys(a, clk, -1)
+		wantScreen(t, a, "results")
+
+		runs, _ := st.Runs()
+		if len(runs) != 2 || runs[0].TextHash != runs[1].TextHash || runs[1].LessonID != id {
+			t.Fatalf("%v: runs = %+v", press, runs)
+		}
+	}
+}
+
+func TestRepeatRacesTheBestAttempt(t *testing.T) {
+	a, _, clk := playApp(t)
+	startLesson(t, a)
+	if v := screen(a); strings.Contains(v, text.RoundGhost) {
+		t.Fatalf("a first attempt has no ghost:\n%s", v)
+	}
+	typeKeys(a, clk, -1)
+	a.Update(key('r'))
+	a.Update(ui.TickMsg(a))
+	wantText(t, a, text.RoundGhost)
+}
+
+func TestEnterAfterARepeatStillGoesOn(t *testing.T) {
+	a, _, clk := playApp(t)
+	startLesson(t, a)
+	typeKeys(a, clk, -1)
+	a.Update(key('r'))
+	typeKeys(a, clk, -1)
+	_, cmd := a.Update(enter)
+	if ui.ScreenName(a) != "round" || cmd == nil {
+		t.Errorf("screen %s, tick cmd nil: %v", ui.ScreenName(a), cmd == nil)
+	}
+}
+
+func TestRepeatOfADrillKeepsItsText(t *testing.T) {
+	a, _, clk := playApp(t)
+	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1}, nil))
+	keys := ui.RoundKeys(a)
+	typeKeys(a, clk, -1)
+	a.Update(key('r'))
+	wantScreen(t, a, "round")
+	if !slices.Equal(ui.RoundKeys(a), keys) {
+		t.Fatal("the text changed")
+	}
+}

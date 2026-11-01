@@ -74,7 +74,8 @@ which may not match your keyboard. See [`docs/layouts.md`](docs/layouts.md).
 | `tuipe help` | Show usage |
 
 During a round every printable key is input, so the controls are `Esc` (pause),
-`Ctrl+R` (restart) and `Ctrl+T` (next style). `Ctrl+C` quits from any screen.
+`Ctrl+R` (restart) and `Ctrl+T` (next style). `Ctrl+C` quits from any screen. On
+the results screen `Enter` goes on and `R` plays the same text again.
 
 `tuipe upgrade` works for installs from a release. A `go install` build tells you
 to run `go install` again instead.

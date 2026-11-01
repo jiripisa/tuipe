@@ -105,7 +105,9 @@ const NewerData = "Data uložila novější verze tuipe. Spusťte „tuipe upgra
 const (
 	HintHome    = "↑↓ výběr · Enter spustit · Ctrl+T styl · Ctrl+C konec"
 	HintResults = "Enter další kolo · Esc domů · Ctrl+T styl"
-	HintPause   = "↑↓ · Enter · Esc pokračovat"
+	// HintResultsRepeat is for a round that can be played again.
+	HintResultsRepeat = "Enter další kolo · R znovu · Esc domů · Ctrl+T styl"
+	HintPause         = "↑↓ · Enter · Esc pokračovat"
 )
 
 // Home screen.

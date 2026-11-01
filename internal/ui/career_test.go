@@ -883,3 +883,31 @@ func TestTestOutVerdictStaysInAShortWindow(t *testing.T) {
 		}
 	}
 }
+
+func TestFailedTestOutCanBeRepeated(t *testing.T) {
+	a, _, clk := playApp(t)
+	tall(a)
+	openTestOut(t, a, a.Curr.Chapters()[4].ID)
+	typeWrongThenRight(a, clk)
+	if !strings.Contains(view(a), text.TestOutFailed) {
+		t.Fatalf("precondition: the test-out failed:\n%s", view(a))
+	}
+	a.Update(key('r'))
+	if ui.ScreenName(a) != "round" {
+		t.Fatalf("screen = %s, want round", ui.ScreenName(a))
+	}
+}
+
+func TestPassedTestOutHasNothingToRepeat(t *testing.T) {
+	a, _, clk := playApp(t)
+	tall(a)
+	openTestOut(t, a, a.Curr.Chapters()[1].ID)
+	typeKeys(a, clk, -1)
+	if strings.Contains(view(a), text.HintResultsRepeat) {
+		t.Errorf("the repeat is offered:\n%s", view(a))
+	}
+	a.Update(key('r'))
+	if ui.ScreenName(a) != "results" {
+		t.Fatalf("screen = %s, want results", ui.ScreenName(a))
+	}
+}
