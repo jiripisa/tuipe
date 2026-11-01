@@ -34,6 +34,7 @@ type Pick struct {
 	LessonID, SnippetID, IncidentID string
 	Focus                           []rune
 	Seed                            int64
+	Length                          int // characters of a Drill
 }
 
 // State is everything the recommender looks at.
@@ -45,6 +46,7 @@ type State struct {
 	RunCount int // finished rounds so far
 	Rand     *rand.Rand
 	Now      time.Time // ages the characters; a Sprint passes the time it began
+	WPM      float64   // the player's pace for drill length, see PaceWPM; a Sprint passes the one it began with
 }
 
 const (
@@ -56,6 +58,10 @@ const (
 	standupRounds  = 5
 	baseWPMWindow  = 20
 	baseWPMFloor   = 15.0
+	drillSeconds   = 60 // typing time of a drill at the player's pace
+	charsPerWord   = 5
+	minDrillChars  = 30
+	maxDrillChars  = 600
 	weightLesson   = 60
 	weightDrill    = 30
 	weightCode     = 10
@@ -111,8 +117,10 @@ func Standup(s State) []Pick {
 }
 
 // Sprint lays out a sit-down session of the given minutes (10, 20 or 30): a
-// warm-up drill, lessons, code, a closing drill and an incident as the finale.
-// One round is budgeted as 75 s. Lessons are the unfinished ones from the
+// warm-up drill, lessons, code, a closing drill and an incident as the finale,
+// which is always the last pick. One round is budgeted as 75 s; a typist who
+// gets through them early goes on with SprintExtra until the minutes are spent,
+// and only then the finale comes. Lessons are the unfinished ones from the
 // current chapter on; whatever runs out becomes a drill, and code is left out
 // before chapter 11.
 func Sprint(s State, minutes int) []Pick {
@@ -157,9 +165,32 @@ func Sprint(s State, minutes int) []Pick {
 	return append(picks, finale)
 }
 
+// SprintExtra is the drill of round i of a Sprint that has played all its
+// planned rounds and has minutes left. It follows from s alone, so give it the
+// Sprint's snapshot and a Rand seeded from its seed and i.
+func SprintExtra(s State, i int) Pick {
+	return s.drillAt(s.Curr.CurrentChapter(s.Profile).ID, i)
+}
+
+// DrillLength is the length of a drill: about a minute of typing at wpm, the
+// player's pace, or at the floor pace without a history. The bounds keep it
+// within 30 to 90 s at any speed a person types.
+func DrillLength(wpm float64) int {
+	if wpm <= 0 {
+		wpm = baseWPMFloor
+	}
+	chars := int(math.Round(wpm * charsPerWord * drillSeconds / 60))
+	return min(max(chars, minDrillChars), maxDrillChars)
+}
+
 // BaseWPM is the median WPM of the last 20 runs, never below 15. Runs without
 // a valid WPM are ignored.
 func BaseWPM(runs []store.Run) float64 {
+	return max(PaceWPM(runs), baseWPMFloor)
+}
+
+// PaceWPM is the median WPM of the last 20 runs, or 0 without a valid one.
+func PaceWPM(runs []store.Run) float64 {
 	if len(runs) > baseWPMWindow {
 		runs = runs[len(runs)-baseWPMWindow:]
 	}
@@ -170,15 +201,14 @@ func BaseWPM(runs []store.Run) float64 {
 		}
 	}
 	if len(wpm) == 0 {
-		return baseWPMFloor
+		return 0
 	}
 	sort.Float64s(wpm)
 	mid := len(wpm) / 2
-	median := wpm[mid]
 	if len(wpm)%2 == 0 {
-		median = (wpm[mid-1] + wpm[mid]) / 2
+		return (wpm[mid-1] + wpm[mid]) / 2
 	}
-	return max(median, baseWPMFloor)
+	return wpm[mid]
 }
 
 func (s State) seed() int64 { return s.Rand.Int64() }
@@ -191,7 +221,7 @@ func (s State) drill(chapterID string) Pick { return s.drillAt(chapterID, 0) }
 // keep rare characters in training, which weakness alone would never pick: it
 // ignores what has not been typed lately. The other slots go to the weakest.
 func (s State) drillAt(chapterID string, n int) Pick {
-	p := Pick{Kind: Drill, Seed: s.seed()}
+	p := Pick{Kind: Drill, Seed: s.seed(), Length: DrillLength(s.WPM)}
 	if s.Stats == nil {
 		return p
 	}

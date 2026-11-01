@@ -158,3 +158,9 @@ func Centre(s string, w, h int) string { return centre(s, w, h) }
 
 // StatsOf returns the character statistics of the active layout.
 func StatsOf(a *App) *stats.Stats { return a.stats() }
+
+// SprintPick is the pick of a round of a sprint, planned or extra, from its saved state.
+func SprintPick(a *App, s *store.SprintState, i int) recommend.Pick {
+	c := &chain{kind: kindSprint, state: s, picks: a.sprintPlan(s)}
+	return c.pickAt(a, i)
+}

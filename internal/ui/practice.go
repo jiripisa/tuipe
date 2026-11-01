@@ -156,7 +156,9 @@ func (p *practiceScreen) charsRound(a *App) Screen {
 
 // generatedSpec is a drill on focus, with a pace ghost from the user's timing.
 func (a *App) generatedSpec(title string, focus []rune, allowed func(rune) bool, targets score.Targets) play.Spec {
-	txt := generate.Drill(a.Lib, generate.Input{Focus: focus, Allowed: allowed, Seed: a.seed()})
+	txt := generate.Cover(a.Lib, generate.Input{
+		Focus: focus, Allowed: allowed, Seed: a.seed(), Length: a.drillLength(),
+	}, focus, focusRepeats)
 	return play.Spec{
 		Kind: play.KindDrill, Title: title, Text: txt, Targets: targets,
 		Ghost:       ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs),

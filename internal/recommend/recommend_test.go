@@ -448,3 +448,33 @@ func TestDrillFocusNeverHoldsSpaceOrEnter(t *testing.T) {
 		}
 	}
 }
+
+func TestDrillLengthIsAboutAMinuteOfTyping(t *testing.T) {
+	for wpm, want := range map[float64]int{9: 45, 25: 125, 40: 200, 60: 300, 80: 400} {
+		eq(t, recommend.DrillLength(wpm), want)
+	}
+	eq(t, recommend.DrillLength(0), 75) // no history: the floor pace
+	for wpm := 5.0; wpm <= 200; wpm += 5 {
+		if secs := float64(recommend.DrillLength(wpm)) / (wpm * 5 / 60); secs < 30 || secs > 90 {
+			t.Errorf("%.0f wpm: a drill takes %.0f s", wpm, secs)
+		}
+	}
+}
+
+func TestPaceWPMHasNoFloor(t *testing.T) {
+	eq(t, recommend.PaceWPM(nil), 0.0)
+	eq(t, recommend.PaceWPM([]store.Run{{WPM: 8}, {WPM: 10}}), 9.0)
+	eq(t, recommend.BaseWPM([]store.Run{{WPM: 8}, {WPM: 10}}), 15.0)
+}
+
+func TestPicksCarryTheDrillLength(t *testing.T) {
+	f := newFixture(t)
+	s := f.state(0, 3)
+	s.WPM = 60
+	for _, p := range recommend.Standup(s) {
+		eq(t, p.Length, 300)
+	}
+	eq(t, recommend.Sprint(s, 10)[0].Length, 300)
+	eq(t, recommend.SprintExtra(s, 9).Kind, recommend.Drill)
+	eq(t, recommend.SprintExtra(s, 9).Length, 300)
+}

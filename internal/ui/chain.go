@@ -33,6 +33,7 @@ const (
 	sprintDefault = 1
 	msPerMinute   = 60_000
 	seedMix       = 0x9e3779b97f4a7c15
+	finaleRound   = -1 // the round of a Sprint that plays its finale
 )
 
 // chain drives a series of planned rounds: the daily Standup or a Sprint. The
@@ -43,7 +44,7 @@ type chain struct {
 	kind  string
 	picks []recommend.Pick
 	state *store.SprintState // set for a Sprint, shared with Profile.Resume
-	idx   int                // the round on screen
+	idx   int                // the round on screen, or finaleRound
 	done  int                // rounds finished: the index to continue at
 }
 
@@ -62,7 +63,7 @@ func NewChain(a *App, kind string, picks []recommend.Pick, minutes int) Screen {
 	switch kind {
 	case kindStandup:
 		if c.picks == nil {
-			c.picks = recommend.Standup(a.planState(a.Store.Profile(), a.stats(), seededRand(a.Now().UnixNano()), a.Now()))
+			c.picks = recommend.Standup(a.liveState(seededRand(a.Now().UnixNano())))
 		}
 	case kindSprint:
 		c.state = a.newSprintState(minutes)
@@ -79,8 +80,27 @@ func NewChain(a *App, kind string, picks []recommend.Pick, minutes int) Screen {
 	return c.screen(a)
 }
 
-func (a *App) planState(p *store.Profile, st *stats.Stats, rng *rand.Rand, now time.Time) recommend.State {
-	return recommend.State{Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: st, RunCount: a.runCadence(), Rand: rng, Now: now}
+// liveState is what the recommender looks at now.
+func (a *App) liveState(rng *rand.Rand) recommend.State {
+	runs, _ := a.Store.Runs() // a damaged history only affects the drill length
+	return recommend.State{
+		Curr: a.Curr, Lib: a.Lib, Profile: a.Store.Profile(), Stats: a.stats(),
+		RunCount: a.runCadence(), Rand: rng, Now: a.Now(), WPM: recommend.PaceWPM(runs),
+	}
+}
+
+// sprintPlanState is what the recommender looks at for a Sprint: the snapshot
+// of its start and nothing that has moved since.
+func (a *App) sprintPlanState(s *store.SprintState, rng *rand.Rand) recommend.State {
+	st := stats.New()
+	for k, e := range s.Chars {
+		st.Chars[k] = &e
+	}
+	started, _ := time.Parse(time.RFC3339Nano, s.Started)
+	return recommend.State{
+		Curr: a.Curr, Lib: a.Lib, Stats: st, RunCount: a.runCadence(), Rand: rng, Now: started, WPM: s.WPM,
+		Profile: &store.Profile{Stars: s.Stars, Completed: s.Completed, IncidentBest: s.IncidentBest},
+	}
 }
 
 // newSprintState snapshots what the plan and the Retro need: the character
@@ -90,6 +110,7 @@ func (a *App) newSprintState(minutes int) *store.SprintState {
 	now := a.Now()
 	s := &store.SprintState{
 		Minutes: minutes, Seed: now.UnixNano(), Started: now.Format(time.RFC3339Nano),
+		WPM:          a.liveState(nil).WPM,
 		Chars:        map[string]stats.Entry{},
 		Stars:        maps.Clone(p.Stars),
 		Completed:    maps.Clone(p.Completed),
@@ -104,29 +125,35 @@ func (a *App) newSprintState(minutes int) *store.SprintState {
 // sprintPlan lays out a Sprint from its saved state alone: the same seed and
 // snapshot give the same rounds, however far the profile has moved on since.
 func (a *App) sprintPlan(s *store.SprintState) []recommend.Pick {
-	st := stats.New()
-	for k, e := range s.Chars {
-		st.Chars[k] = &e
-	}
-	prof := &store.Profile{Stars: s.Stars, Completed: s.Completed, IncidentBest: s.IncidentBest}
-	started, _ := time.Parse(time.RFC3339Nano, s.Started) // the start, not today: the plan must not move
-	return recommend.Sprint(a.planState(prof, st, seededRand(s.Seed), started), s.Minutes)
+	return recommend.Sprint(a.sprintPlanState(s, seededRand(s.Seed)), s.Minutes)
 }
 
-// current is the index of the round to play. Once the budget of a Sprint is
-// spent it is the last round, the finale, whatever else the plan had left.
+// current is the round to play. Once the budget of a Sprint is spent it is the
+// finale, whatever else was left.
 func (c *chain) current() int {
-	last := len(c.picks) - 1
-	if c.state != nil && c.done < last && c.state.ActiveMs >= int64(c.state.Minutes)*msPerMinute {
-		return last
+	if c.state != nil && c.state.ActiveMs >= int64(c.state.Minutes)*msPerMinute {
+		return finaleRound
 	}
 	return c.done
+}
+
+// pickAt is the pick of a round. A Sprint with minutes left after its planned
+// rounds goes on with extra drills, which follow from its state and the index.
+func (c *chain) pickAt(a *App, i int) recommend.Pick {
+	last := len(c.picks) - 1
+	switch {
+	case i == finaleRound:
+		return c.picks[last]
+	case c.state == nil || i < last:
+		return c.picks[i]
+	}
+	return recommend.SprintExtra(a.sprintPlanState(c.state, seededRand(c.state.Seed+int64(i))), i)
 }
 
 // screen builds the round to play now.
 func (c *chain) screen(a *App) Screen {
 	c.idx = c.current()
-	pick := c.picks[c.idx]
+	pick := c.pickAt(a, c.idx)
 	if pick.Kind == recommend.Incident {
 		inc, ok := a.incidentByID(pick.IncidentID)
 		if !ok {
@@ -138,9 +165,17 @@ func (c *chain) screen(a *App) Screen {
 	return NewRoundScreen(a, pick, c.next)
 }
 
+// over reports a chain with nothing left to play.
+func (c *chain) over() bool {
+	if c.state != nil {
+		return c.state.FinaleDone
+	}
+	return c.done >= len(c.picks)
+}
+
 // next follows a results screen: the next round, or the end of the chain.
 func (c *chain) next(a *App) Screen {
-	if c.done < len(c.picks) {
+	if !c.over() {
 		return c.screen(a)
 	}
 	a.chain = nil
@@ -192,11 +227,14 @@ func (c *chain) finished(a *App, r play.Result, runID string) {
 	if c == nil {
 		return
 	}
-	c.done = c.idx + 1
+	if c.idx != finaleRound {
+		c.done = c.idx + 1
+	}
 	switch {
 	case c.state != nil:
 		c.state.ActiveMs += activeOf(r).Milliseconds()
 		c.state.NextIndex = c.done
+		c.state.FinaleDone = c.idx == finaleRound
 		c.state.RunIDs = append(c.state.RunIDs, runID)
 		c.remember(a)
 	case c.done >= len(c.picks):

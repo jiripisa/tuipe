@@ -322,7 +322,8 @@ func TestSprintEndsWithIncidentThenRetro(t *testing.T) {
 
 func TestLostIncidentCountsRealActiveTime(t *testing.T) {
 	a, st, clk := playApp(t)
-	almostDone(t, a, st, clk, 0, 7)
+	const budget = 10 * 60 * 1000
+	almostDone(t, a, st, clk, budget, 7)
 	openEntry(a, homeSprint)
 	wantScreen(t, a, "round")
 	if k := ui.RoundSpec(a).Kind; k != play.KindIncident {
@@ -335,9 +336,9 @@ func TestLostIncidentCountsRealActiveTime(t *testing.T) {
 	if len(runs) != 1 || runs[0].Incident == nil || runs[0].Incident.Won {
 		t.Fatalf("runs = %+v, want one lost incident", runs)
 	}
-	got := st.Profile().Resume.Sprint.ActiveMs
+	got := st.Profile().Resume.Sprint.ActiveMs - budget
 	if got <= 0 || got != runs[0].DurationMs {
-		t.Errorf("ActiveMs = %d, run duration %d ms: a lost incident counts its real active time", got, runs[0].DurationMs)
+		t.Errorf("ActiveMs grew by %d, run duration %d ms: a lost incident counts its real active time", got, runs[0].DurationMs)
 	}
 }
 
@@ -474,7 +475,7 @@ func TestRetroFitsSixtyByEighteen(t *testing.T) {
 
 func TestSprintFinaleIsPlayedAtSEV3(t *testing.T) {
 	a, st, clk := playApp(t)
-	almostDone(t, a, st, clk, 0, 7)
+	almostDone(t, a, st, clk, 10*60*1000, 7)
 	openEntry(a, homeSprint)
 	if sev := ui.RoundSpec(a).Severity; sev != incident.SEV3.String() {
 		t.Errorf("finale severity = %q, want SEV3", sev)
@@ -637,4 +638,171 @@ func TestNinetyDaysKeepEveryUnlockedSymbolInTraining(t *testing.T) {
 			t.Errorf("%q was typed %d times in 90 days, want it to keep coming back", r, typed[r])
 		}
 	}
+}
+
+// typist is someone with a history at wpm, placed before the given chapter.
+func typist(t *testing.T, wpm float64, chapter int) (*ui.App, *store.Store, *clock) {
+	t.Helper()
+	a, st, clk := playApp(t)
+	var skipped []string
+	for _, ch := range a.Curr.Chapters()[:chapter] {
+		skipped = append(skipped, ch.ID)
+	}
+	a.Curr.ApplySkip(st.Profile(), ui.StatsOf(a), skipped)
+	for i := range 20 {
+		run := store.Run{ID: fmt.Sprintf("h%d", i), At: clk.now().Add(-time.Hour), Mode: "lesson", WPM: wpm, Accuracy: 0.98}
+		if err := st.AppendRun(run); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	return a, st, clk
+}
+
+// playChain types every round of a Standup or Sprint at wpm, without a
+// mistake, until the chain ends on the given screen. It returns the active time.
+func playChain(t *testing.T, a *ui.App, st *store.Store, clk *clock, wpm float64, end string) time.Duration {
+	t.Helper()
+	before, _ := st.Runs()
+	gap := time.Duration(12 / wpm * float64(time.Second))
+	for rounds := 0; ui.ScreenName(a) != end; {
+		switch ui.ScreenName(a) {
+		case "round":
+			if rounds++; rounds > 2000 {
+				t.Fatal("the chain does not end")
+			}
+			for _, r := range ui.RoundKeys(a) {
+				clk.advance(gap)
+				a.Update(key(r))
+			}
+		case "results", "incident-results":
+			clk.advance(time.Second)
+			a.Update(enter)
+		default:
+			t.Fatalf("stuck on %s:\n%s", ui.ScreenName(a), screen(a))
+		}
+	}
+	after, _ := st.Runs()
+	var active time.Duration
+	for _, r := range after[len(before):] {
+		active += time.Duration(r.DurationMs) * time.Millisecond
+	}
+	return active
+}
+
+func TestSprintLandsNearItsMinutesAtAnySpeed(t *testing.T) {
+	for _, wpm := range []float64{25, 40, 60, 80} {
+		t.Run(fmt.Sprintf("%.0f wpm", wpm), func(t *testing.T) {
+			a, st, clk := typist(t, wpm, 5)
+			openEntry(a, homeSprint)
+			wantScreen(t, a, "sprint-minutes")
+			a.Update(enter) // 20 minutes
+			got := playChain(t, a, st, clk, wpm, "retro")
+			t.Logf("%.0f wpm: %v of active time", wpm, got.Round(time.Second))
+			if got < 17*time.Minute || got > 23*time.Minute {
+				t.Errorf("a 20 minute Sprint took %v of active time", got.Round(time.Second))
+			}
+		})
+	}
+}
+
+func TestSprintStillLandsForAFastTypistWithoutHistory(t *testing.T) {
+	a, st, clk := playApp(t)
+	openEntry(a, homeSprint)
+	a.Update(up) // 10 minutes
+	a.Update(enter)
+	if got := playChain(t, a, st, clk, 80, "retro"); got < 8*time.Minute || got > 12*time.Minute {
+		t.Errorf("a 10 minute Sprint took %v of active time", got.Round(time.Second))
+	}
+}
+
+func TestStandupLastsAboutFiveMinutesAtAnySpeed(t *testing.T) {
+	for _, wpm := range []float64{25, 40, 60, 80} {
+		t.Run(fmt.Sprintf("%.0f wpm", wpm), func(t *testing.T) {
+			a, st, clk := typist(t, wpm, 5)
+			openEntry(a, homeStandup)
+			got := playChain(t, a, st, clk, wpm, "home")
+			t.Logf("%.0f wpm: %v of active time", wpm, got.Round(time.Second))
+			if got < 4*time.Minute || got > 6*time.Minute {
+				t.Errorf("a Standup took %v of active time", got.Round(time.Second))
+			}
+		})
+	}
+}
+
+func TestDrillsLastAboutAMinute(t *testing.T) {
+	for _, wpm := range []float64{9, 15, 25, 40, 60, 80} {
+		a, _, _ := typist(t, wpm, 5)
+		for seed := range 10 {
+			spec, err := a.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("ě§ˇ{q"), Seed: int64(seed + 1)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			secs := float64(len([]rune(spec.Text))) / (wpm * 5 / 60)
+			if secs < 30 || secs > 90 {
+				t.Errorf("%.0f wpm: a drill of %d characters takes %.0f s", wpm, len([]rune(spec.Text)), secs)
+			}
+		}
+	}
+}
+
+// Extra drills must come out the same after leaving: they follow from the
+// saved state and the index, whatever the profile did meanwhile.
+func TestExtraSprintDrillsResumeDeterministically(t *testing.T) {
+	a, st, clk := typist(t, 80, 5)
+	openEntry(a, homeSprint)
+	a.Update(enter)
+	s := st.Profile().Resume
+	if s != nil {
+		t.Fatalf("no keystroke yet, resume = %+v", s)
+	}
+	typeKeys(a, clk, 1)
+	saved := st.Profile().Resume.Sprint
+	saved.NextIndex = len(ui.SprintPlan(a, saved)) + 3 // past the planned rounds
+	saved.ActiveMs = 60_000
+	want := ui.SprintPick(a, saved, saved.NextIndex)
+	st.Profile().Stats[a.Layout.ID] = stats.New()
+	if got := ui.SprintPick(a, saved, saved.NextIndex); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("the extra drill changed with the profile:\n%v\n%v", want, got)
+	}
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter)
+	wantScreen(t, a, "home")
+	openEntry(a, homeSprint)
+	wantScreen(t, a, "round")
+	first := ui.RoundSpec(a)
+	if first.Kind != play.KindDrill {
+		t.Fatalf("past the plan the Sprint plays a drill, got %v", first.Kind)
+	}
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter)
+	openEntry(a, homeSprint)
+	if got := ui.RoundSpec(a); got.Text != first.Text {
+		t.Errorf("resuming gave another text:\n%q\n%q", first.Text, got.Text)
+	}
+}
+
+// When the budget is spent the finale comes, at once and only once.
+func TestSprintFinaleEndsTheSprintEvenWhenResumedAfterIt(t *testing.T) {
+	a, st, clk := playApp(t)
+	almostDone(t, a, st, clk, 10*60*1000, 1)
+	openEntry(a, homeSprint)
+	wantScreen(t, a, "round")
+	if k := ui.RoundSpec(a).Kind; k != play.KindIncident {
+		t.Fatalf("round kind = %v, want the finale", k)
+	}
+	for _, r := range ui.RoundKeys(a) {
+		clk.advance(100 * time.Millisecond)
+		a.Update(key(r))
+	}
+	wantScreen(t, a, "incident-results")
+	clk.advance(time.Second)
+	a.Update(esc) // home, without passing the Retro
+	wantScreen(t, a, "home")
+	openEntry(a, homeSprint)
+	wantScreen(t, a, "retro")
 }

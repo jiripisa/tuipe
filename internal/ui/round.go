@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"slices"
 	"strings"
 	"time"
@@ -118,8 +117,12 @@ func (a *App) codeSpec(id string) (play.Spec, error) {
 // drillSpec generates the text and races a pace ghost computed from the user's timing.
 func (a *App) drillSpec(p recommend.Pick) play.Spec {
 	cur := a.Curr.CurrentChapter(a.Store.Profile())
+	length := p.Length
+	if length == 0 {
+		length = a.drillLength()
+	}
 	txt := generate.Cover(a.Lib, generate.Input{
-		Focus: p.Focus, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed,
+		Focus: p.Focus, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed, Length: length,
 	}, p.Focus, focusRepeats)
 	return play.Spec{
 		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,
@@ -127,6 +130,12 @@ func (a *App) drillSpec(p recommend.Pick) play.Spec {
 		Ghost:       ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs),
 		GhostIsPace: true,
 	}
+}
+
+// drillLength is about a minute of typing at the player's recent pace.
+func (a *App) drillLength() int {
+	runs, _ := a.Store.Runs() // a damaged history only affects the length
+	return recommend.DrillLength(recommend.PaceWPM(runs))
 }
 
 // chapterTargets are the targets of the last lesson of the current chapter,
@@ -154,11 +163,7 @@ func (a *App) withReplay(spec play.Spec) (play.Spec, error) {
 
 // recommended picks the next round for the quick run.
 func (a *App) recommended() recommend.Pick {
-	seed := uint64(a.Now().UnixNano())
-	return recommend.Next(recommend.State{
-		Curr: a.Curr, Lib: a.Lib, Profile: a.Store.Profile(), Stats: a.stats(),
-		RunCount: a.runCadence(), Rand: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)), Now: a.Now(),
-	})
+	return recommend.Next(a.liveState(seededRand(a.Now().UnixNano())))
 }
 
 // quickRun is the next-round function of the quick run: the recommended round.
