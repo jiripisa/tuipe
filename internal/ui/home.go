@@ -19,13 +19,14 @@ type entryID string
 
 // The menu entries below the recommended round, in display order.
 const (
-	EntryStandup  entryID = "standup"
-	EntrySprint   entryID = "sprint"
-	EntryCareer   entryID = "career"
-	EntryPractice entryID = "practice"
-	EntryIncident entryID = "incident"
-	EntryStats    entryID = "stats"
-	EntrySettings entryID = "settings"
+	EntryStandup   entryID = "standup"
+	EntrySprint    entryID = "sprint"
+	EntryCareer    entryID = "career"
+	EntryPractice  entryID = "practice"
+	EntryIncident  entryID = "incident"
+	EntryStats     entryID = "stats"
+	EntrySettings  entryID = "settings"
+	EntryEndSprint entryID = "end-sprint"
 )
 
 type menuEntry struct {
@@ -52,6 +53,22 @@ func (a *App) RegisterEntry(id entryID, open func(*App) (Screen, tea.Cmd)) {
 		a.Entries[i].open = open
 	}
 }
+
+// entries are the rows of the menu now: a Sprint left today adds the way to end
+// it right under the one to continue it.
+func (a *App) entries() []menuEntry {
+	if a.sprintToContinue() == nil {
+		return a.Entries
+	}
+	out := slices.Clone(a.Entries)
+	if i := slices.IndexFunc(out, func(e menuEntry) bool { return e.id == EntrySprint }); i >= 0 {
+		out = slices.Insert(out, i+1, menuEntry{EntryEndSprint, text.MenuEndSprint, closeSprint})
+	}
+	return out
+}
+
+// closeSprint gives up the rest of a Sprint left today and shows its Retro.
+func closeSprint(a *App) (Screen, tea.Cmd) { return a.endSprint(a.sprintToContinue()), nil }
 
 // homeScreen offers the recommended round first, then the other screens.
 type homeScreen struct {
@@ -97,7 +114,8 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return h, nil
 	}
 	a.Banner = nil
-	count := len(a.Entries) + 1
+	entries := a.entries()
+	count := len(entries) + 1
 	switch k.String() {
 	case "up", "k":
 		h.sel = (h.sel + count - 1) % count
@@ -107,7 +125,7 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		if h.sel == 0 {
 			return NewRoundScreen(a, h.pick, quickRun), nil
 		}
-		if open := a.Entries[h.sel-1].open; open != nil {
+		if open := entries[h.sel-1].open; open != nil {
 			return open(a)
 		}
 	}
@@ -126,6 +144,9 @@ func (h *homeScreen) pickLabel(a *App) string {
 	case recommend.Code:
 		return text.HomeQuickRun + ": " + fmt.Sprintf(text.PickCode, h.pick.SnippetID)
 	case recommend.Incident:
+		if inc, ok := a.owedBoss(a.Curr.CurrentChapter(a.Store.Profile())); ok && inc.ID == h.pick.IncidentID {
+			return text.HomeQuickRun + ": " + fmt.Sprintf(text.PickBoss, inc.ID, inc.Title)
+		}
 		return text.HomeQuickRun + ": " + text.PickIncident
 	}
 	return text.HomeQuickRun + ": " + text.PickDrill
@@ -143,7 +164,7 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 	}
 	lines = append(lines, "")
 	labels := []string{ansi.Truncate(h.pickLabel(a), max(w-6, 1), "…")} // "│> " in front
-	for _, e := range a.Entries {
+	for _, e := range a.entries() {
 		labels = append(labels, e.label+a.entryNote(e.id))
 	}
 	selLine := 0

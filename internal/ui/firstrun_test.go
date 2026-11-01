@@ -766,5 +766,5 @@ func TestPlacementCountsOnlyNewlyUnlockedChapters(t *testing.T) {
 	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 	playStage(t, a, clk) // letters: chapters 0-4, one done already
 	failStage(t, a, clk)
-	showsAll(t, a, "Odemčeno: 4 kapitol")
+	showsAll(t, a, "Odemčeny 4 kapitoly")
 }

@@ -479,7 +479,7 @@ func TestCareerOpensOnTheNextLesson(t *testing.T) {
 	}
 }
 
-func TestCareerOpensOnCurrentChapterWhenNoLessonIsOwed(t *testing.T) {
+func TestCareerOpensOnTheOwedBossWhenNoLessonIsOwed(t *testing.T) {
 	a, st, _ := playApp(t)
 	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
 	p := st.Profile()
@@ -492,8 +492,9 @@ func TestCareerOpensOnCurrentChapterWhenNoLessonIsOwed(t *testing.T) {
 		t.Fatal("precondition: the incident of chapter 1 is owed, no lesson")
 	}
 	openFromHome(t, a, homeCareer, "career")
-	if want := chs[1].Lessons[0].Title; !strings.Contains(selectedLine(a), want) {
-		t.Errorf("selected line %q, want the first row of the current chapter %q", selectedLine(a), want)
+	inc, _ := a.Curr.IncidentDef(chs[1].ID)
+	if !strings.Contains(selectedLine(a), inc.ID) {
+		t.Errorf("selected line %q, want the owed incident %s", selectedLine(a), inc.ID)
 	}
 }
 

@@ -214,7 +214,7 @@ func (p *placementScreen) View(a *App, w, h int) string {
 	body = append(body, prose(fmt.Sprintf(text.OfferStart, start.Number, start.Title), fg)...)
 	if p.placed > 0 {
 		body = append(body, "")
-		body = append(body, prose(fmt.Sprintf(text.OfferSkipped, p.placed), dim)...)
+		body = append(body, prose(text.OfferSkipped(p.placed), dim)...)
 	}
 	return frame(text.OfferTitle, body, text.OfferHint)
 }

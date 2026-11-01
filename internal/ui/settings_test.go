@@ -427,7 +427,7 @@ var fitCases = []fitCase{
 		ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 		for range 40 {
 			if ui.ScreenName(a) == "placement" && strings.Contains(screen(a), text.OfferTitle) {
-				wantText(t, a, "Odemčeno:")
+				wantText(t, a, "před nástupem")
 				return
 			}
 			switch ui.ScreenName(a) {

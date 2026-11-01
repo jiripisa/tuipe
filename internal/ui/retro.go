@@ -162,7 +162,7 @@ func (s *retroScreen) View(a *App, w, h int) string {
 		para(text.RetroNoRuns, true, false)
 		return s.frame(a, w, h, lines)
 	}
-	para(fmt.Sprintf(text.RetroRuns, s.runs), true, true)
+	para(fmt.Sprintf(text.RetroRuns, text.Rounds(s.runs)), true, true)
 	para("", true, false)
 	if s.hasPrev {
 		para(fmt.Sprintf(text.RetroWPM, s.wpm, s.wpm-s.prevWPM), true, false)

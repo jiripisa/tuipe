@@ -477,9 +477,7 @@ func (s *incidentResultsScreen) buildWin(a *App, width int, blank bool) []string
 			add(st.Bad, fmt.Sprintf(text.IncidentBehind, -d.Seconds()))
 		}
 	}
-	n := max(0, min(s.res.Stars, maxStars))
 	add(st.Fg, "")
-	add(st.Accent, text.ResultsStars+"  "+starBar(n))
 	if s.res.Paused {
 		add(st.Dim, text.ResultsPaused)
 	}

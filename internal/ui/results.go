@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/ghost"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/store"
@@ -83,19 +85,24 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	return run, err
 }
 
-// completeChapter completes the chapter of a lesson without an incident once
-// its last lesson has a star. A chapter with an incident waits for the incident.
+// completeChapter completes the chapter of a lesson that earned a star: one
+// without an incident once its last lesson has a star, one with an incident when
+// that was won earlier and this was the last lesson it waited for.
 func (a *App) completeChapter(spec play.Spec, r play.Result) {
 	if spec.LessonID == "" || r.Stars == 0 {
 		return
 	}
+	p := a.Store.Profile()
 	for _, ch := range a.Curr.Chapters() {
-		n := len(ch.Lessons)
-		if n == 0 || ch.Lessons[n-1].ID != spec.LessonID {
+		if !slices.ContainsFunc(ch.Lessons, func(l content.LessonDef) bool { return l.ID == spec.LessonID }) {
 			continue
 		}
-		if _, hasIncident := a.Curr.IncidentDef(ch.ID); !hasIncident {
-			a.Curr.CompleteChapter(a.Store.Profile(), ch.ID)
+		inc, hasIncident := a.Curr.IncidentDef(ch.ID)
+		switch {
+		case hasIncident && p.IncidentBest[inc.ID] != "" && a.lessonsDone(ch.ID):
+			a.Curr.CompleteChapter(p, ch.ID)
+		case !hasIncident && ch.Lessons[len(ch.Lessons)-1].ID == spec.LessonID:
+			a.Curr.CompleteChapter(p, ch.ID)
 		}
 	}
 }
@@ -291,6 +298,10 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 		verdict = append(verdict, st.Base().Foreground(st.OK).Render(text.TestOutPassed(len(s.closed))))
 	case s.spec.Kind == play.KindTestOut:
 		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.TestOutFailed))
+	default:
+		for _, id := range s.closed {
+			verdict = append(verdict, st.Base().Foreground(st.Accent).Render(fmt.Sprintf(text.IncidentPromoted, a.chapterTitle(id))))
+		}
 	}
 	if s.res.Paused {
 		verdict = append(verdict, dim(text.ResultsPaused))

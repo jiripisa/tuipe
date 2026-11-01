@@ -29,6 +29,7 @@ type rowKind int
 const (
 	rowChapter rowKind = iota
 	rowLesson
+	rowBoss
 	rowTestOut
 )
 
@@ -67,14 +68,16 @@ func newChapterList(mode listMode, back func(*App) Screen, a *App) *careerScreen
 	return c
 }
 
-// selectDefault selects the next lesson, or when none is due (its incident is
-// owed, or all are done) the first row of the current chapter. Practice of
-// chapters selects the current chapter.
+// selectDefault selects the next lesson, or the owed incident when none is due,
+// or when all are done the first row of the current chapter. Practice of chapters
+// selects the current chapter.
 func (c *careerScreen) selectDefault(a *App) {
 	p := a.Store.Profile()
 	rows := c.rows(a)
 	cur := a.Curr.CurrentChapter(p)
 	next, hasNext := a.Curr.NextLesson(p)
+	_, boss := a.owedBoss(cur)
+	boss = boss && c.mode == listCareer
 	pickIdx := -1
 	for _, r := range rows {
 		if !r.pick {
@@ -83,7 +86,8 @@ func (c *careerScreen) selectDefault(a *App) {
 		pickIdx++
 		switch {
 		case c.mode != listPracticeChapter && hasNext && r.kind == rowLesson && r.lesson.ID == next.ID,
-			(!hasNext || c.mode == listPracticeChapter) && r.chapter.ID == cur.ID:
+			c.mode != listPracticeChapter && !hasNext && boss && r.kind == rowBoss,
+			(!hasNext && !boss || c.mode == listPracticeChapter) && r.chapter.ID == cur.ID:
 			c.sel = pickIdx
 			return
 		}
@@ -130,11 +134,26 @@ func (c *careerScreen) rows(a *App) []careerRow {
 				rows = append(rows, careerRow{kind: rowLesson, chapter: ch, lesson: l, pick: true})
 			}
 		}
-		if c.mode == listCareer && ch.Number > 0 && !a.Curr.IsDone(p, ch.ID) {
+		if c.mode != listCareer {
+			continue
+		}
+		if _, owed := a.owedBoss(ch); owed && open {
+			rows = append(rows, careerRow{kind: rowBoss, chapter: ch, pick: true})
+		}
+		if ch.Number > 0 && !a.Curr.IsDone(p, ch.ID) {
 			rows = append(rows, careerRow{kind: rowTestOut, chapter: ch, pick: true})
 		}
 	}
 	return rows
+}
+
+// owedBoss is the incident a chapter still waits for, once its lessons are done.
+func (a *App) owedBoss(ch content.ChapterDef) (content.Incident, bool) {
+	inc, ok := a.Curr.IncidentDef(ch.ID)
+	if !ok || a.Curr.IsDone(a.Store.Profile(), ch.ID) || !a.lessonsDone(ch.ID) {
+		return content.Incident{}, false
+	}
+	return inc, true
 }
 
 // testOutLine is the row of a test-out. It says so when a pass would close
@@ -202,6 +221,9 @@ func (c *careerScreen) start(a *App, r careerRow) (Screen, tea.Cmd) {
 	var spec play.Spec
 	var err error
 	switch {
+	case r.kind == rowBoss:
+		inc, _ := a.Curr.IncidentDef(r.chapter.ID)
+		return NewSeverityScreen(a, inc, again, again), nil
 	case r.kind == rowTestOut:
 		spec, err = a.testOutSpec(r.chapter)
 	case r.kind == rowChapter:
@@ -269,6 +291,9 @@ func (c *careerScreen) View(a *App, w, h int) string {
 			}
 		case rowLesson:
 			plain, col = starBar(p.Stars[r.lesson.ID])+"  "+r.lesson.Title, st.Fg
+		case rowBoss:
+			inc, _ := a.Curr.IncidentDef(r.chapter.ID)
+			plain, col = fmt.Sprintf(text.CareerBoss, inc.ID, inc.Title), st.Warn
 		case rowTestOut:
 			plain, col = testOutLine(a, r.chapter), st.Dim
 		}

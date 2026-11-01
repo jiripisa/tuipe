@@ -22,6 +22,11 @@ func Chapters(n int) string {
 	return fmt.Sprintf("%d %s", n, Plural(n, "kapitola", "kapitoly", "kapitol"))
 }
 
+// Rounds counts rounds: "1 kolo", "3 kola", "12 kol".
+func Rounds(n int) string {
+	return fmt.Sprintf("%d %s", n, Plural(n, "kolo", "kola", "kol"))
+}
+
 // SkippedContent is the note about what a layout cannot type, told once. It is
 // empty when nothing is skipped.
 func SkippedContent(layout string, lessons, incidents int) string {
@@ -90,16 +95,18 @@ const (
 	HomeQuickRun    = "Rychlovka"
 	HomeResume      = "pokračuj: %s"
 
-	MenuStandup  = "Denní standup"
-	MenuSprint   = "Sprint"
-	MenuCareer   = "Kariéra"
-	MenuPractice = "Trénink"
-	MenuIncident = "Incident v produkci"
-	MenuStats    = "Statistiky"
-	MenuSettings = "Nastavení"
+	MenuStandup   = "Denní standup"
+	MenuSprint    = "Sprint"
+	MenuCareer    = "Kariéra"
+	MenuEndSprint = "Ukončit sprint"
+	MenuPractice  = "Trénink"
+	MenuIncident  = "Incident v produkci"
+	MenuStats     = "Statistiky"
+	MenuSettings  = "Nastavení"
 
 	PickDrill    = "drill na slabá místa"
 	PickIncident = "incident v produkci"
+	PickBoss     = "závěrečný incident %s %s"
 	PickCode     = "kód: %s"
 )
 
@@ -171,6 +178,7 @@ const (
 	CareerTestOut   = "test-out: přeskočit kapitolu"
 	CareerDone      = "hotovo"
 	CareerLocked    = "zamčeno"
+	CareerBoss      = "incident: %s %s"
 	HintCareer      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
 	TestOutTitle    = "test-out: %s"
 	TestOutFailed   = "test-out nesplněn: nic se nezměnilo"
@@ -254,7 +262,7 @@ const (
 
 	RetroTitle      = "Retro"
 	RetroHead       = "git log --stat --since=7.days"
-	RetroRuns       = "%d kol v tomto sprintu"
+	RetroRuns       = "%s v tomto sprintu"
 	RetroNoRuns     = "Prázdný commit: žádné dokončené kolo, není co hodnotit."
 	RetroWPM        = "wpm   %6.1f  (%+.1f)"
 	RetroAccuracy   = "přes. %5.1f %%  (%+.1f p. b.)"
@@ -396,9 +404,14 @@ const (
 	OfferRank     = "na základě pohovoru Vám nabízíme pozici: %s."
 	OfferNoChange = "pohovor nic nepřidal, Vaše hodnost zůstává: %s."
 	OfferStart    = "Začínáte v kapitole %d: %s."
-	OfferSkipped  = "Odemčeno: %d kapitol před nástupem, bez hvězd. Jejich lekce zůstávají otevřené."
 	OfferHint     = "Enter pokračovat · Ctrl+C konec"
 )
+
+// OfferSkipped is the line of the job offer about the n chapters placement closed.
+func OfferSkipped(n int) string {
+	return fmt.Sprintf("%s %s před nástupem, bez hvězd. %s lekce zůstávají otevřené.",
+		Plural(n, "Odemčena", "Odemčeny", "Odemčeno"), Chapters(n), Plural(n, "Její", "Jejich", "Jejich"))
+}
 
 // Settings (Nastavení).
 const (

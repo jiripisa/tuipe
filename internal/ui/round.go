@@ -425,10 +425,14 @@ func (r *roundScreen) sample(now time.Time) {
 }
 
 func (r *roundScreen) View(a *App, w, h int) string {
+	const noStars = -1 // only a lesson keeps stars
 	f := r.sess.Frame(r.now)
 	v := roundview.View{
 		Frame: f, Title: r.spec.Title, Lang: r.spec.Lang, Layout: a.Layout,
-		Stars: a.Store.Profile().Stars[r.spec.LessonID], Throughput: r.samples,
+		Stars: noStars, Throughput: r.samples,
+	}
+	if r.spec.LessonID != "" {
+		v.Stars = a.Store.Profile().Stars[r.spec.LessonID]
 	}
 	if f.AltWarning {
 		v.AltHelp = altHelp()

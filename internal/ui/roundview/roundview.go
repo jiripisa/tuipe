@@ -44,7 +44,7 @@ type View struct {
 	Frame                          play.Frame
 	Title, Lang, Prompt, RightInfo string
 	Layout                         *layout.Layout
-	Stars                          int
+	Stars                          int       // best stars of the lesson; negative when the round has no lesson
 	Throughput                     []float64 // recent WPM samples, oldest first; may be empty
 	AltHelp                        string    // how to fix Option on this terminal, when known
 }
@@ -272,7 +272,10 @@ func wrapProse(sentence string, width, maxRows int) []string {
 }
 
 func stars(n int) string {
-	n = max(0, min(n, maxStars))
+	if n < 0 { // a round without a lesson has none to show
+		return ""
+	}
+	n = min(n, maxStars)
 	return strings.Repeat("★", n) + strings.Repeat("☆", maxStars-n)
 }
 

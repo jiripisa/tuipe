@@ -913,3 +913,94 @@ func TestTypistAtTheOneStarAccuracyWinsTheLongestBoss(t *testing.T) {
 		t.Errorf("accuracy = %.3f, the test is about 92 %%", last.Accuracy)
 	}
 }
+
+// The boss is won in free play first, and the last lesson's star closes the
+// chapter later. That must be as loud as winning last.
+func TestLastLessonAfterAnEarlierWinClosesTheChapterAloud(t *testing.T) {
+	a, st, clk := playApp(t)
+	boss, inc := bossAt(t, a, 4) // the first chapter that earns Junior
+	readyForBoss(a, st, boss)
+	p := st.Profile()
+	p.IncidentBest[inc.ID] = "SEV3"
+	last := boss.Lessons[len(boss.Lessons)-1]
+	delete(p.Stars, last.ID)
+	if a.Curr.IsDone(p, boss.ID) {
+		t.Fatal("precondition: the chapter is still open")
+	}
+	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: last.ID}, nil))
+	typeKeys(a, clk, -1)
+	wantScreen(t, a, "results")
+	wantText(t, a, fmt.Sprintf(text.IncidentPromoted, boss.Title))
+	wantText(t, a, fmt.Sprintf(text.IncidentRank, "Intern", "Junior"))
+	if !p.Completed[boss.ID] {
+		t.Error("the chapter is done but Completed is not set")
+	}
+}
+
+func TestWinShowsNoStarsThatNothingKeeps(t *testing.T) {
+	a, _, clk := playApp(t)
+	_, inc := bossChapter(t, a)
+	startIncident(t, a, inc, incident.SEV3)
+	for _, r := range ui.RoundKeys(a) {
+		clk.advance(100 * time.Millisecond)
+		a.Update(key(r))
+	}
+	wantScreen(t, a, "incident-results")
+	if v := screen(a); strings.ContainsAny(v, "★☆") {
+		t.Errorf("an incident has no lesson to keep stars:\n%s", v)
+	}
+}
+
+func TestCareerRowForTheOwedBoss(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	boss, inc := bossChapter(t, a)
+	openFromHome(t, a, homeCareer, "career")
+	if strings.Contains(view(a), inc.ID) {
+		t.Fatalf("the boss is not owed yet:\n%s", view(a))
+	}
+	a.Update(esc)
+	readyForBoss(a, st, boss)
+	openFromHome(t, a, homeCareer, "career")
+	row := selectedLine(a)
+	if !strings.Contains(row, inc.ID) || !strings.Contains(row, inc.Title) {
+		t.Fatalf("the owed boss is not the selected row, got %q:\n%s", row, view(a))
+	}
+	a.Update(enter)
+	wantScreen(t, a, "severity")
+	a.Update(enter)
+	wantScreen(t, a, "round")
+	if got := ui.RoundSpec(a); got.Title != inc.Title {
+		t.Fatalf("round %q, want the boss", got.Title)
+	}
+	for _, r := range ui.RoundKeys(a) {
+		clk.advance(100 * time.Millisecond)
+		a.Update(key(r))
+	}
+	wantScreen(t, a, "incident-results")
+	clk.advance(time.Second)
+	a.Update(enter)
+	wantScreen(t, a, "career")
+	if strings.Contains(view(a), inc.ID) {
+		t.Errorf("a won boss has no row:\n%s", view(a))
+	}
+}
+
+func TestPracticeListsNoBossRow(t *testing.T) {
+	a, st, _ := playApp(t)
+	tall(a)
+	boss, inc := bossChapter(t, a)
+	readyForBoss(a, st, boss)
+	openPractice(t, a, practiceLesson)
+	if strings.Contains(view(a), inc.ID) {
+		t.Errorf("the practice list offers the boss:\n%s", view(a))
+	}
+}
+
+func TestHomeNamesTheOwedBoss(t *testing.T) {
+	a, st, _ := playApp(t)
+	boss, inc := bossChapter(t, a)
+	readyForBoss(a, st, boss)
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	wantText(t, a, inc.ID)
+}

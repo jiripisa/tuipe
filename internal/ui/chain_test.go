@@ -255,7 +255,7 @@ func TestYesterdaysSprintEndsWithRetroOnCompletedPart(t *testing.T) {
 	}
 	b.Update(windowSize(80, 24))
 	wantScreen(t, b, "retro")
-	wantText(t, b, fmt.Sprintf(text.RetroRuns, 1))
+	wantText(t, b, text.Rounds(1)+" v tomto sprintu")
 	wantText(t, b, fmt.Sprintf("%.1f", runs[0].WPM))
 	b.Update(enter)
 	wantScreen(t, b, "home")
@@ -312,7 +312,7 @@ func TestSprintEndsWithIncidentThenRetro(t *testing.T) {
 	if runs, _ := st.Runs(); len(runs) != 2 {
 		t.Errorf("runs = %d, want the round and the incident", len(runs))
 	}
-	wantText(t, a, fmt.Sprintf(text.RetroRuns, 2))
+	wantText(t, a, text.Rounds(2)+" v tomto sprintu")
 	if st.Profile().Resume != nil {
 		t.Errorf("Resume = %+v after a finished sprint", st.Profile().Resume)
 	}
@@ -571,7 +571,7 @@ func TestRetroIgnoresRunsOutsideTheSprintAndSurvivesQuickRuns(t *testing.T) {
 	}
 	b.Update(windowSize(80, 24))
 	wantScreen(t, b, "retro")
-	wantText(t, b, fmt.Sprintf(text.RetroRuns, 1))
+	wantText(t, b, text.Rounds(1)+" v tomto sprintu")
 	wantText(t, b, fmt.Sprintf("%6.1f", sprintRun.WPM))
 	if st.Profile().Resume != nil {
 		t.Errorf("Resume = %+v after the retro was opened", st.Profile().Resume)
@@ -838,4 +838,31 @@ func TestSprintPlanKeepsTheBigramsOfItsStart(t *testing.T) {
 	if !slices.Contains(before[0].Bigrams, "st") {
 		t.Errorf("first drill = %+v, want it to train st", before[0])
 	}
+}
+
+func TestLeftSprintCanBeEndedFromHome(t *testing.T) {
+	a, st, clk := playApp(t)
+	if strings.Contains(screen(a), text.MenuEndSprint) {
+		t.Fatalf("nothing to end yet:\n%s", screen(a))
+	}
+	leaveSprintAfterOneRound(t, a, st, clk)
+	wantText(t, a, text.MenuEndSprint)
+	openEntry(a, homeSprint+1)
+	wantScreen(t, a, "retro")
+	wantText(t, a, text.Rounds(1)+" v tomto sprintu")
+	if st.Profile().Resume != nil {
+		t.Errorf("Resume = %+v after ending the sprint", st.Profile().Resume)
+	}
+	a.Update(enter)
+	wantScreen(t, a, "home")
+	if v := screen(a); strings.Contains(v, text.MenuEndSprint) || strings.Contains(v, text.HomeContinue) {
+		t.Errorf("home still offers the ended sprint:\n%s", v)
+	}
+}
+
+func TestEntriesAfterTheEndSprintRowStillOpen(t *testing.T) {
+	a, st, clk := playApp(t)
+	leaveSprintAfterOneRound(t, a, st, clk)
+	openEntry(a, homeCareer+1) // one row lower with the extra row
+	wantScreen(t, a, "career")
 }

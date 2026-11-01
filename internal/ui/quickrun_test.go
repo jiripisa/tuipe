@@ -983,3 +983,32 @@ func TestAltWarningNamesTheSettingOfThisTerminal(t *testing.T) {
 		}
 	}
 }
+
+func TestRoundsWithoutALessonShowNoStars(t *testing.T) {
+	a, _, clk := playApp(t)
+	playLesson(t, a, clk, 200*time.Millisecond, false) // some data, so a drill can race
+	for name, pick := range map[string]recommend.Pick{
+		"drill": {Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1},
+		"code":  {Kind: recommend.Code, SnippetID: "go-1"},
+	} {
+		ui.SetScreen(a, ui.NewRoundScreen(a, pick, nil))
+		a.Update(ui.TickMsg(a))
+		if v := screen(a); strings.ContainsAny(v, "★☆") {
+			t.Errorf("%s round shows stars:\n%s", name, v)
+		}
+		typeKeys(a, clk, -1)
+		wantScreen(t, a, "results")
+		if v := screen(a); strings.ContainsAny(v, "★☆") || strings.Contains(v, text.ResultsNoStars) {
+			t.Errorf("%s results show stars:\n%s", name, v)
+		}
+	}
+}
+
+func TestLessonResultsKeepTheirStars(t *testing.T) {
+	a, _, clk := playApp(t)
+	startLesson(t, a)
+	typeKeys(a, clk, -1)
+	if v := screen(a); !strings.Contains(v, "★") {
+		t.Errorf("a lesson shows its stars:\n%s", v)
+	}
+}
