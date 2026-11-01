@@ -681,3 +681,21 @@ func TestRecordLabelsAreCapitalised(t *testing.T) {
 		t.Errorf("git log lacks %q:\n%s", "Drill · Rychlovka", screen(a))
 	}
 }
+
+// Code chapters train everything at once, so neither letters nor any other
+// group of keys is the right place for them.
+func TestCodeChaptersHaveATrendOfTheirOwn(t *testing.T) {
+	a, st, clk := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+	addRun(t, st, store.Run{ID: "c11", At: daysAgo(clk, 2), Mode: "lesson", LessonID: "ch11-01", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "c12", At: daysAgo(clk, 1), Mode: "lesson", LessonID: "ch12-01", WPM: 40, Accuracy: 0.96})
+	openTrends(t, a)
+	s := screen(a)
+	line := nthLine(s, text.StatsGroupCode, 0)
+	if strings.Count(line, "▁")+strings.Count(line, "█") != 2 {
+		t.Errorf("trend of %s = %q, want the two days of chapters 11 and 12:\n%s", text.StatsGroupCode, line, s)
+	}
+	if l := nthLine(s, text.StatsGroupLetters, 0); strings.ContainsAny(l, "▁▂▃▄▅▆▇█") {
+		t.Errorf("code landed among the letters: %q", l)
+	}
+}

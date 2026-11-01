@@ -40,7 +40,7 @@ const (
 // first is every run.
 var trendGroups = []string{
 	text.StatsGroupOverall, text.StatsGroupLetters, text.StatsGroupDiacritics,
-	text.StatsGroupDigits, text.StatsGroupShift, text.StatsGroupOption,
+	text.StatsGroupDigits, text.StatsGroupShift, text.StatsGroupOption, text.StatsGroupCode,
 }
 
 // statsScreen shows the history: git log, heatmap, trends and personal bests.
@@ -147,7 +147,7 @@ func (s *statsScreen) View(a *App, w, h int) string {
 	case s.tab == tabHeatmap:
 		body = s.heatmap(a, w-2, rows)
 	case s.tab == tabTrends:
-		body = s.trends(a)
+		body = s.trends(a, rows)
 	default:
 		body = s.records(a)
 	}
@@ -305,11 +305,15 @@ func weakestFinger(sums map[[2]int]float64) string {
 	return text.StatsHandNames[best[0]] + " " + name
 }
 
-// lessonGroups maps every lesson to the trend group of its chapter.
+// lessonGroups maps every lesson to the trend group of its chapter. The code
+// chapters have a group of their own: they use the whole keyboard.
 func (a *App) lessonGroups() map[string]string {
 	groups := map[string]string{}
 	for _, ch := range a.Curr.Chapters() {
 		g := a.chapterGroup(ch.Introduces)
+		if ch.Number >= codeTrendChapter {
+			g = text.StatsGroupCode
+		}
 		if g == "" {
 			continue
 		}
@@ -459,20 +463,25 @@ func sparkline(v []float64) string {
 }
 
 // trends shows WPM and accuracy over time as sparklines, overall and per group.
-func (s *statsScreen) trends(a *App) []string {
+// Every value carries its unit, so the section titles can go when the window is
+// short.
+func (s *statsScreen) trends(a *App, rows int) []string {
 	st := a.Style
 	dim := func(t string) string { return st.Base().Foreground(st.Dim).Render(t) }
 	data := s.trendSeries()
+	titled := rows >= 2*(len(trendGroups)+1)
 	var out []string
 	for _, section := range []struct {
 		title string
 		pick  func(series) []float64
 		last  string
 	}{
-		{text.StatsWPM, func(x series) []float64 { return x.wpm }, "%.0f"},
+		{text.StatsWPM, func(x series) []float64 { return x.wpm }, "%.0f " + text.RoundWPM},
 		{text.StatsAccuracy, func(x series) []float64 { return x.acc }, "%.1f %%"},
 	} {
-		out = append(out, dim(section.title))
+		if titled {
+			out = append(out, dim(section.title))
+		}
 		for _, g := range trendGroups {
 			v := section.pick(data[g])
 			line := fmt.Sprintf("%-*s", trendLabelCol, g)

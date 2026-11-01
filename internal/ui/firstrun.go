@@ -514,6 +514,20 @@ func detectTerminal() terminalKind {
 	return termUnknown
 }
 
+// altHelp is the one line a round shows when Option arrives as Alt: the setting
+// of the detected terminal, or nothing when the terminal is unknown.
+func altHelp() string {
+	_, setting := optionHelp()
+	if setting == "" {
+		return ""
+	}
+	first, _, _ := strings.Cut(setting, "\n")
+	if detectTerminal() == termTerminalApp { // the one setting that is a tick to clear
+		return fmt.Sprintf(text.RoundAltUnset, first)
+	}
+	return fmt.Sprintf(text.RoundAltSet, first)
+}
+
 // optionHelp is the explanation for the detected terminal and, where the fix
 // is a line of configuration, that line.
 func optionHelp() (explanation, setting string) {

@@ -33,7 +33,7 @@ func fosfor(s style.Style, v View, w, h int) []string {
 	col := min(w-3, fosforColumn) // room for a 56-cell line and its mark at width 60
 	margin := strings.Repeat(" ", (w-col)/2)
 
-	below := fosforBelow(s, f, col)
+	below := fosforBelow(s, f, col, v.AltHelp)
 	gap := 1
 	if h < 20 {
 		gap = 0
@@ -106,7 +106,7 @@ func fosforText(s style.Style, f play.Frame, rows []row, above, height int, marg
 }
 
 // fosforBelow is what follows the text: the race, the numbers and a message row.
-func fosforBelow(s style.Style, f play.Frame, col int) []string {
+func fosforBelow(s style.Style, f play.Frame, col int, altHelp string) []string {
 	lines := []string{""}
 	if f.HasGhost {
 		lines = append(lines, fosforRace(s, f, col)...)
@@ -129,7 +129,7 @@ func fosforBelow(s style.Style, f play.Frame, col int) []string {
 
 	switch {
 	case f.AltWarning:
-		return append(lines, warning(s))
+		return append(lines, warning(s, altHelp))
 	case f.Paused:
 		return append(lines, pausedNote(s, f))
 	}

@@ -243,7 +243,7 @@ func velinText(s style.Style, v View, rows []row, head []string, w, h int) []str
 	footer := ""
 	switch {
 	case f.AltWarning:
-		footer = warning(s)
+		footer = warning(s, v.AltHelp)
 	case f.Paused && !f.ManualPause:
 		footer = plain(s, s.Warn).render(text.RoundResume)
 	}

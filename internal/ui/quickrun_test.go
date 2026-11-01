@@ -638,6 +638,10 @@ func TestResumeIsWrittenAtTheFirstKeystroke(t *testing.T) {
 }
 
 func TestAltChordReachesTheSession(t *testing.T) {
+	t.Setenv("TERM_PROGRAM", "") // an unknown terminal gets the general advice
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("ALACRITTY_WINDOW_ID", "")
+	t.Setenv("TERM", "xterm-256color")
 	a, _, clk := playApp(t)
 	startLesson(t, a)
 	clk.advance(time.Second)
@@ -648,7 +652,7 @@ func TestAltChordReachesTheSession(t *testing.T) {
 		t.Errorf("an expected rune with Alt did not advance: pos %d", ui.RoundPos(a))
 	}
 	a.Update(tea.KeyPressMsg{Code: '8', Mod: tea.ModAlt})
-	if !strings.Contains(screen(a), "Option jako Alt") {
+	if !strings.Contains(screen(a), "Option je Alt") {
 		t.Errorf("no Alt warning:\n%s", screen(a))
 	}
 }
@@ -957,5 +961,25 @@ func TestCodeLessonInEditorShowsItsFileNotProse(t *testing.T) {
 	a.Update(ui.TickMsg(a))
 	if v := screen(a); strings.Contains(v, text.RoundProseFile) || !strings.Contains(v, "main.go") {
 		t.Errorf("the Go lesson does not read as Go:\n%s", v)
+	}
+}
+
+func TestAltWarningNamesTheSettingOfThisTerminal(t *testing.T) {
+	t.Setenv("KITTY_WINDOW_ID", "")
+	for term, want := range map[string]string{
+		"ghostty":        "macos-option-as-alt = false",
+		"Apple_Terminal": "vypněte: Use Option as Meta key",
+		"iTerm.app":      "Left Option key = Normal",
+		"":               text.RoundAltWarning,
+	} {
+		t.Setenv("TERM_PROGRAM", term)
+		t.Setenv("TERM", "xterm-256color")
+		t.Setenv("ALACRITTY_WINDOW_ID", "")
+		a, _, _ := playApp(t)
+		startLesson(t, a)
+		a.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModAlt}) // Option arrives as Alt
+		if v := screen(a); !strings.Contains(v, want) {
+			t.Errorf("TERM_PROGRAM=%q: warning lacks %q:\n%s", term, want, v)
+		}
 	}
 }

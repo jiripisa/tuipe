@@ -191,7 +191,7 @@ func editor(s style.Style, v View, w, h int) []string {
 	}
 	lines = append(lines, editorBuffer(s, v, rows, w, gutter, bufferH)...)
 	lines = append(lines, editorHint(s, v, rows, w)...)
-	return append(lines, editorStatus(s, f, rows, w), editorMessage(s, f))
+	return append(lines, editorStatus(s, f, rows, w), editorMessage(s, f, v.AltHelp))
 }
 
 func lineCount(f play.Frame) int {
@@ -322,10 +322,10 @@ func ruler(f play.Frame, rows []row) string {
 }
 
 // editorMessage is the line under the status bar, where Neovim talks to you.
-func editorMessage(s style.Style, f play.Frame) string {
+func editorMessage(s style.Style, f play.Frame, altHelp string) string {
 	switch {
 	case f.AltWarning:
-		return " " + warning(s)
+		return " " + warning(s, altHelp)
 	case f.Paused:
 		return " " + plain(s, s.Warn).render("-- "+text.RoundPaused+" -- ") + pausedNote(s, f)
 	}

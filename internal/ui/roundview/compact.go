@@ -44,7 +44,7 @@ func compact(s style.Style, v View, w, h int) []string {
 		shown = append(shown, " "+ansi.Truncate(hintLine(s, f.Hint), w-2, "…"))
 	}
 	if f.AltWarning {
-		shown = append(shown, " "+warning(s))
+		shown = append(shown, " "+warning(s, v.AltHelp))
 	}
 	shown = shown[:min(len(shown), notes)]
 	lines = append(lines, make([]string, h-len(shown)-len(lines))...)

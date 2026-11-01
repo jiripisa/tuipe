@@ -271,7 +271,7 @@ func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 				1: "kubectl",     // the text and the cursor always
 				2: "SLA 99.72 %", // then the numbers
 				4: "levý Option", // then the hint
-				5: "Terminál",    // and last the warning
+				5: "Option je Alt",    // and last the warning
 			} {
 				if h >= from && !strings.Contains(s, want) {
 					t.Errorf("%s height %d: no %q:\n%s", st.ID, h, want, s)

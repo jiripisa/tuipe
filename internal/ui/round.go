@@ -31,6 +31,7 @@ const (
 	minPaceChars     = 20    // keystrokes of statistics a pace ghost needs
 	focusRepeats     = 3     // times a drill shows each of its focus characters
 	hintsOffChapter  = 12    // the chapter that tests without hints
+	codeTrendChapter = 11    // from here on rounds count as code in the trends
 	runIDLen         = 7
 	dateLayout       = "2006-01-02"
 	resumeKindLesson = "lesson"
@@ -428,6 +429,9 @@ func (r *roundScreen) View(a *App, w, h int) string {
 	v := roundview.View{
 		Frame: f, Title: r.spec.Title, Lang: r.spec.Lang, Layout: a.Layout,
 		Stars: a.Store.Profile().Stars[r.spec.LessonID], Throughput: r.samples,
+	}
+	if f.AltWarning {
+		v.AltHelp = altHelp()
 	}
 	active := r.sess.Result(r.now).Metrics.Duration
 	if r.story != nil {

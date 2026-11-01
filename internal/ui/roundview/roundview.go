@@ -46,6 +46,7 @@ type View struct {
 	Layout                         *layout.Layout
 	Stars                          int
 	Throughput                     []float64 // recent WPM samples, oldest first; may be empty
+	AltHelp                        string    // how to fix Option on this terminal, when known
 }
 
 // Render draws v to fit w × h exactly: the layout of the style, or the compact
@@ -493,4 +494,11 @@ func pausedNote(s style.Style, f play.Frame) string {
 	return plain(s, s.Dim).render(text.RoundResume)
 }
 
-func warning(s style.Style) string { return plain(s, s.Bad).render(text.RoundAltWarning) }
+// warning is the line about Option arriving as Alt: the setting of this
+// terminal when it is known, or the general advice.
+func warning(s style.Style, help string) string {
+	if help == "" {
+		help = text.RoundAltWarning
+	}
+	return plain(s, s.Bad).render(help)
+}
