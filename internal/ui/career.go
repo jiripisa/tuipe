@@ -19,7 +19,7 @@ import (
 type listMode int
 
 const (
-	listCareer          listMode = iota // play a lesson, or test a locked chapter out
+	listCareer          listMode = iota // play a lesson, or test a chapter out
 	listPracticeLesson                  // practise a lesson of an open chapter
 	listPracticeChapter                 // drill the characters of an open chapter
 )
@@ -110,8 +110,9 @@ func (c *careerScreen) reselect(a *App, want careerRow) {
 }
 
 // rows lays out the list for the current progress. An open chapter lists its
-// lessons, completed ones too, so they can be improved. A locked chapter offers
-// only its test-out. Practice lists open chapters only.
+// lessons, completed ones too, so they can be improved. Every chapter that is
+// not done offers its test-out, except onboarding, which has none. Practice
+// lists open chapters only and offers no test-out.
 func (c *careerScreen) rows(a *App) []careerRow {
 	p := a.Store.Profile()
 	var rows []careerRow
@@ -121,17 +122,28 @@ func (c *careerScreen) rows(a *App) []careerRow {
 			continue
 		}
 		rows = append(rows, careerRow{kind: rowChapter, chapter: ch, pick: c.mode == listPracticeChapter})
-		switch {
-		case c.mode == listPracticeChapter:
-		case open:
+		if c.mode == listPracticeChapter {
+			continue
+		}
+		if open {
 			for _, l := range ch.Lessons {
 				rows = append(rows, careerRow{kind: rowLesson, chapter: ch, lesson: l, pick: true})
 			}
-		default:
+		}
+		if c.mode == listCareer && ch.Number > 0 && !a.Curr.IsDone(p, ch.ID) {
 			rows = append(rows, careerRow{kind: rowTestOut, chapter: ch, pick: true})
 		}
 	}
 	return rows
+}
+
+// testOutLine is the row of a test-out. It says so when a pass would close
+// more chapters than this one.
+func testOutLine(a *App, ch content.ChapterDef) string {
+	if n := len(a.skippedBy(ch.ID)); n > 1 {
+		return text.CareerTestOutMany(n)
+	}
+	return text.CareerTestOut
 }
 
 // picked returns the row under the selection and keeps the selection in range.
@@ -258,7 +270,7 @@ func (c *careerScreen) View(a *App, w, h int) string {
 		case rowLesson:
 			plain, col = starBar(p.Stars[r.lesson.ID])+"  "+r.lesson.Title, st.Fg
 		case rowTestOut:
-			plain, col = text.CareerTestOut, st.Dim
+			plain, col = testOutLine(a, r.chapter), st.Dim
 		}
 		switch {
 		case hasCur && r.pick && r.sameAs(cur):

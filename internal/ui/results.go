@@ -203,19 +203,38 @@ func (a *App) previousBest(hash string) *store.Run {
 
 // resultsScreen shows the finished round as a diff against the previous best.
 type resultsScreen struct {
-	run  store.Run
-	prev *store.Run
-	res  play.Result
-	spec play.Spec
-	next func(*App) Screen
+	run    store.Run
+	prev   *store.Run
+	res    play.Result
+	spec   play.Spec
+	next   func(*App) Screen
+	closed []string // chapters this round closed
+	rank   string   // the promotion line, when the rank changed
 }
 
 // NewResultsScreen records the finished round with Finish and shows it. The
 // previous best attempt is read first, so the diff is against HEAD~1.
 func NewResultsScreen(a *App, r play.Result, spec play.Spec, next func(*App) Screen) Screen {
 	prev := a.previousBest(r.Text.Hash)
+	p := a.Store.Profile()
+	rank := a.Curr.RankOf(p)
+	var open []string
+	for _, ch := range a.Curr.Chapters() {
+		if !a.Curr.IsDone(p, ch.ID) {
+			open = append(open, ch.ID)
+		}
+	}
 	run, _ := a.Finish(spec, r) // Finish has shown any save error
-	return &resultsScreen{run: run, prev: prev, res: r, spec: spec, next: next}
+	s := &resultsScreen{run: run, prev: prev, res: r, spec: spec, next: next}
+	for _, id := range open {
+		if a.Curr.IsDone(p, id) {
+			s.closed = append(s.closed, id)
+		}
+	}
+	if after := a.Curr.RankOf(p); after != rank {
+		s.rank = fmt.Sprintf(text.IncidentRank, rank, after)
+	}
+	return s
 }
 
 func (s *resultsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
@@ -269,7 +288,7 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	case outcomeLost(s.res):
 		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.ResultsLost))
 	case s.spec.Kind == play.KindTestOut && s.res.Stars >= testOutStars:
-		verdict = append(verdict, st.Base().Foreground(st.OK).Render(text.TestOutPassed))
+		verdict = append(verdict, st.Base().Foreground(st.OK).Render(text.TestOutPassed(len(s.closed))))
 	case s.spec.Kind == play.KindTestOut:
 		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.TestOutFailed))
 	}
@@ -279,7 +298,14 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	if s.res.HintUsed {
 		verdict = append(verdict, dim(text.ResultsHintUsed))
 	}
-	stars := st.Base().Foreground(st.Accent).Render(s.starsLine())
+	if s.rank != "" {
+		verdict = append(verdict, st.Base().Foreground(st.Accent).Render(s.rank))
+	}
+	// Only a lesson keeps its stars, so only a lesson shows them.
+	var stars []string
+	if s.spec.LessonID != "" {
+		stars = []string{st.Base().Foreground(st.Accent).Render(s.starsLine())}
+	}
 
 	// The window may be short: drop the blank rows, then the header, the old
 	// values and the notes, but keep the commit, the new values and the stars.
@@ -303,7 +329,7 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 			full = append(full, added[i])
 		}
 		full = append(full, sep()...)
-		full = append(full, stars)
+		full = append(full, stars...)
 		full = append(full, verdict...)
 		if label != "" {
 			full = append(full, sep()...)
@@ -318,9 +344,9 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	if len(body) > rows {
 		style.Clipped("results: dropped the old values and notes")
 		body = append([]string{commit}, added...)
-		body = append(body, stars)
+		body = append(body, stars...)
 		if len(body) > rows {
-			body = []string{commit, stars}
+			body = append([]string{commit}, stars...)
 		}
 	}
 	return style.Frame(st, w, h, text.AppName, strings.Join(body, "\n"), text.HintResults)

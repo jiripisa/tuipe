@@ -1,6 +1,24 @@
 // Package text is the single home of user-facing Czech strings.
 package text
 
+import "fmt"
+
+// Plural picks the Czech form for n: one for 1, few for 2 to 4, many otherwise.
+func Plural(n int, one, few, many string) string {
+	switch {
+	case n == 1:
+		return one
+	case n >= 2 && n <= 4:
+		return few
+	}
+	return many
+}
+
+// Chapters counts chapters: "1 kapitola", "3 kapitoly", "12 kapitol".
+func Chapters(n int) string {
+	return fmt.Sprintf("%d %s", n, Plural(n, "kapitola", "kapitoly", "kapitol"))
+}
+
 // Usage is printed by `tuipe help`.
 const Usage = `tuipe - trenažér psaní všemi deseti pro programátory (česká klávesnice QWERTY)
 
@@ -131,10 +149,19 @@ const (
 	CareerLocked    = "zamčeno"
 	HintCareer      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
 	TestOutTitle    = "test-out: %s"
-	TestOutPassed   = "test-out splněn: kapitola je hotová, bez hvězd"
 	TestOutFailed   = "test-out nesplněn: nic se nezměnilo"
 	TestOutNotReady = "test-out této kapitoly nejde sestavit"
 )
+
+// CareerTestOutMany is the row of a test-out that closes n chapters, n above 1.
+func CareerTestOutMany(n int) string {
+	return fmt.Sprintf("test-out: uzavře %s naráz", Chapters(n))
+}
+
+// TestOutPassed is the verdict of a test-out that closed n chapters.
+func TestOutPassed(n int) string {
+	return fmt.Sprintf("test-out splněn: %s %s, bez hvězd", Plural(n, "uzavřena", "uzavřeny", "uzavřeno"), Chapters(n))
+}
 
 // Practice.
 const (

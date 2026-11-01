@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -40,29 +41,43 @@ func openFromHome(t *testing.T, a *ui.App, n int, want string) {
 // tall gives the app a window that shows the whole career list.
 func tall(a *ui.App) { a.Update(tea.WindowSizeMsg{Width: 100, Height: 90}) }
 
+// lessonRows counts the lessons a chapter lists: an unlocked one all of them,
+// a locked one none.
+func lessonRows(a *ui.App, ch content.ChapterDef) int {
+	if a.Curr.IsUnlocked(a.Store.Profile(), ch.ID) {
+		return len(ch.Lessons)
+	}
+	return 0
+}
+
 // rowsBefore counts the selectable rows of the career list above a chapter's
-// own rows on a fresh profile: lessons of unlocked chapters, one test-out for
-// each locked one.
+// own rows on a fresh profile: lessons of unlocked chapters and one test-out
+// for each chapter but the first.
 func rowsBefore(a *ui.App, chapterID string) int {
 	n := 0
 	for _, ch := range a.Curr.Chapters() {
 		if ch.ID == chapterID {
 			return n
 		}
-		if a.Curr.IsUnlocked(a.Store.Profile(), ch.ID) {
-			n += len(ch.Lessons)
-		} else {
+		n += lessonRows(a, ch)
+		if ch.Number > 0 {
 			n++
 		}
 	}
 	return n
 }
 
-// openTestOut opens the career list and starts the test-out of a locked chapter.
+// openTestOut opens the career list and starts the test-out of a chapter.
 func openTestOut(t *testing.T, a *ui.App, chapterID string) {
 	t.Helper()
 	openFromHome(t, a, homeCareer, "career")
-	for range rowsBefore(a, chapterID) {
+	downs := rowsBefore(a, chapterID)
+	for _, ch := range a.Curr.Chapters() {
+		if ch.ID == chapterID {
+			downs += lessonRows(a, ch)
+		}
+	}
+	for range downs {
 		a.Update(down)
 	}
 	a.Update(enter)
@@ -149,8 +164,8 @@ func TestLockedChapterOffersTestOutOnly(t *testing.T) {
 	if strings.Contains(v, chs[2].Lessons[0].Title) {
 		t.Errorf("a locked chapter lists its lessons:\n%s", v)
 	}
-	if got := strings.Count(v, text.CareerTestOut); got != len(chs)-2 {
-		t.Errorf("test-out offered %d times, want once per locked chapter (%d)", got, len(chs)-2)
+	if got := strings.Count(v, "test-out:"); got != len(chs)-1 {
+		t.Errorf("test-out offered %d times, want once per chapter but the first (%d)", got, len(chs)-1)
 	}
 
 	// Enter on the test-out of chapter 2 starts it on the test-out text.
@@ -192,6 +207,97 @@ func playAppAt(t *testing.T) (*ui.App, *store.Store, *clock, string) {
 	return a, st, clk, filepath.Join(dir, "data")
 }
 
+func TestUnlockedChapterOffersItsTestOutAfterItsLessons(t *testing.T) {
+	a, _, _ := playApp(t)
+	tall(a)
+	openFromHome(t, a, homeCareer, "career")
+	v := view(a)
+	ch := a.Curr.Chapters()[1] // unlocked, not done
+	last := strings.Index(v, ch.Lessons[len(ch.Lessons)-1].Title)
+	row := strings.Index(v, "test-out:")
+	if last < 0 || row < last || row > strings.Index(v, a.Curr.Chapters()[2].Title) {
+		t.Fatalf("no test-out between the last lesson of %s and the next chapter:\n%s", ch.ID, v)
+	}
+}
+
+func TestChapterZeroOffersNoTestOut(t *testing.T) {
+	a, _, _ := playApp(t)
+	tall(a)
+	openFromHome(t, a, homeCareer, "career")
+	v := view(a)
+	if at := strings.Index(v, "test-out:"); at < strings.Index(v, a.Curr.Chapters()[1].Title) {
+		t.Errorf("a test-out is listed before chapter 1:\n%s", v)
+	}
+}
+
+func TestDoneChapterOffersNoTestOut(t *testing.T) {
+	a, st, _ := playApp(t)
+	tall(a)
+	chs := a.Curr.Chapters()
+	a.Curr.CompleteChapter(st.Profile(), chs[1].ID)
+	openFromHome(t, a, homeCareer, "career")
+	if got, want := strings.Count(view(a), "test-out:"), len(chs)-2; got != want {
+		t.Errorf("test-out offered %d times, want %d: a done chapter has none:\n%s", got, want, view(a))
+	}
+}
+
+// Before a test-out that closes several chapters starts, its row says how many.
+func TestTestOutRowSaysHowManyChaptersItCloses(t *testing.T) {
+	a, st, _ := playApp(t)
+	tall(a)
+	chs := a.Curr.Chapters()
+	st.Profile().Stars[chs[0].Lessons[0].ID] = 1 // chapter 0 is done
+	openFromHome(t, a, homeCareer, "career")
+	v := view(a)
+	if !strings.Contains(v, text.CareerTestOut) {
+		t.Errorf("the test-out of chapter 1 closes one chapter and should say so plainly:\n%s", v)
+	}
+	for n := 2; n <= 12; n++ {
+		if !strings.Contains(v, text.CareerTestOutMany(n)) {
+			t.Errorf("no row says it closes %d chapters:\n%s", n, v)
+		}
+	}
+}
+
+func TestFailingTestOutShowsVerdictWithoutClosingAnything(t *testing.T) {
+	a, _, clk := playApp(t)
+	tall(a)
+	openTestOut(t, a, a.Curr.Chapters()[1].ID) // an unlocked chapter
+	typeWrongThenRight(a, clk)
+	wantText(t, a, text.TestOutFailed)
+}
+
+func TestTestOutOfUnlockedChapterClosesIt(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	ch := a.Curr.Chapters()[1]
+	openTestOut(t, a, ch.ID)
+	want, _ := a.Curr.TestOutText(ch.ID)
+	if got := string(ui.RoundKeys(a)); got != want {
+		t.Fatalf("round text = %q, want the test-out text %q", got, want)
+	}
+	typeKeys(a, clk, -1)
+	if !st.Profile().Completed[ch.ID] {
+		t.Errorf("the test-out of unlocked %s did not close it:\n%s", ch.ID, view(a))
+	}
+	wantText(t, a, text.TestOutPassed(2)) // onboarding and chapter 1
+}
+
+// The walk that made a fresh Intern a Principal in 33 seconds: plain words do
+// not pass any more, because the text asks for the whole keyboard.
+func TestTestOutOfEverythingAsksForTheRareKeys(t *testing.T) {
+	a, _, _ := playApp(t)
+	tall(a)
+	chs := a.Curr.Chapters()
+	openTestOut(t, a, chs[12].ID)
+	keys := string(ui.RoundKeys(a))
+	for _, r := range "{}§°ˇ¨\n" {
+		if !strings.ContainsRune(keys, r) {
+			t.Errorf("the test-out of everything does not ask for %q: %q", r, keys)
+		}
+	}
+}
+
 func TestPassingTestOutCompletesChapterWithoutStars(t *testing.T) {
 	a, st, clk, dataDir := playAppAt(t)
 	tall(a)
@@ -219,8 +325,14 @@ func TestPassingTestOutCompletesChapterWithoutStars(t *testing.T) {
 	if ui.ScreenName(a) != "results" {
 		t.Fatalf("screen = %s, want results", ui.ScreenName(a))
 	}
-	if !strings.Contains(view(a), text.TestOutPassed) {
-		t.Errorf("results do not say the test-out passed:\n%s", view(a))
+	if !strings.Contains(view(a), text.TestOutPassed(5)) {
+		t.Errorf("results do not say the test-out passed and closed 5 chapters:\n%s", view(a))
+	}
+	if strings.ContainsAny(view(a), "★☆") {
+		t.Errorf("a test-out shows stars:\n%s", view(a))
+	}
+	if !strings.Contains(view(a), fmt.Sprintf(text.IncidentRank, "Intern", "Junior")) {
+		t.Errorf("results do not name the new rank:\n%s", view(a))
 	}
 	if !p.Completed[ch.ID] {
 		t.Error("the chapter is not completed")
@@ -274,6 +386,9 @@ func TestFailingTestOutChangesNothing(t *testing.T) {
 	}
 	if !strings.Contains(view(a), text.TestOutFailed) {
 		t.Errorf("results do not say the test-out failed:\n%s", view(a))
+	}
+	if strings.ContainsAny(view(a), "★☆") {
+		t.Errorf("a failed test-out shows stars:\n%s", view(a))
 	}
 	if len(p.Completed) != 0 || len(p.Stars) != 0 || a.Curr.RankOf(p).String() != "Intern" {
 		t.Errorf("a failed test-out changed progress: completed %v stars %v", p.Completed, p.Stars)
@@ -389,7 +504,7 @@ func TestCareerKeepsSelectionAfterATestOut(t *testing.T) {
 	openTestOut(t, a, chs[4].ID)
 	typeWrongThenRight(a, clk)
 	a.Update(enter)
-	if ui.ScreenName(a) != "career" || !strings.Contains(selectedLine(a), text.CareerTestOut) {
+	if ui.ScreenName(a) != "career" || !strings.Contains(selectedLine(a), "test-out:") {
 		t.Fatalf("after a failed test-out the same test-out stays selected, got %q", selectedLine(a))
 	}
 	a.Update(enter)
@@ -461,7 +576,7 @@ func TestCareerScrollsKeepingSelectionVisible(t *testing.T) {
 			t.Fatalf("row %d: the selection is not on screen exactly once:\n%s", i, v)
 		}
 	}
-	if !strings.Contains(view(a), text.CareerTestOut) {
+	if !strings.Contains(view(a), "test-out:") {
 		t.Errorf("the last row should be a test-out:\n%s", view(a))
 	}
 	// Up again to the very first row.

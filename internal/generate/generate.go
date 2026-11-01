@@ -26,16 +26,43 @@ const (
 	strongDensity = 0.25 // share of focus characters that makes a word a strong drill word
 	vowels        = "aeiouy"
 	repeatWindow  = 12 // tokens in which a repeat is avoided
+	repeatShare   = 7  // tenths of the length that repeated coverage tokens may fill
+	shortWord     = 5  // longest word used inside a template
+	wordSample    = 16 // real words weighed for a coverage token
 )
 
 // Drill returns text of at least in.Length characters made of tokens separated
 // by single spaces, using only characters admitted by in.Allowed. It returns an
 // empty string when no character other than space is allowed.
 func Drill(lib *content.Library, in Input) string {
-	length := in.Length
-	if length <= 0 {
-		length = defaultLength
+	g := newGen(lib, in)
+	if g == nil {
+		return ""
 	}
+	return strings.Join(g.fill(nil, g.length, 0), g.sep)
+}
+
+// Cover is a drill that is sure to hold the characters of must, each at least
+// times times. A coverage loop first writes tokens that hold what is still
+// missing, then the drill fills the text up to in.Length, and the tokens are
+// shuffled. The first appearance of a character is always written, however long
+// the text gets; repeats stop leaving room for the drill. Space, newline and
+// characters in.Allowed does not admit are left out of must.
+func Cover(lib *content.Library, in Input, must []rune, times int) string {
+	g := newGen(lib, in)
+	if g == nil {
+		return ""
+	}
+	g.collectCandidates(lib)
+	limit := g.length + g.length/2
+	tokens := g.fill(g.cover(must, times), g.length, limit)
+	g.rng.Shuffle(len(tokens), func(i, j int) { tokens[i], tokens[j] = tokens[j], tokens[i] })
+	return strings.Join(tokens, g.sep)
+}
+
+// newGen prepares the generator of in. It is nil when no character other than
+// space is allowed.
+func newGen(lib *content.Library, in Input) *gen {
 	allowed := in.Allowed
 	if allowed == nil {
 		allowed = func(rune) bool { return true }
@@ -43,7 +70,11 @@ func Drill(lib *content.Library, in Input) string {
 	g := &gen{
 		rng:     rand.New(rand.NewPCG(uint64(in.Seed), uint64(in.Seed)^0x9e3779b97f4a7c15)),
 		allowed: allowed,
+		length:  in.Length,
 		sep:     "",
+	}
+	if g.length <= 0 {
+		g.length = defaultLength
 	}
 	if allowed(' ') {
 		g.sep = " "
@@ -59,12 +90,29 @@ func Drill(lib *content.Library, in Input) string {
 		}
 	}
 	if !g.collectAlphabet(lib) {
-		return ""
+		return nil
 	}
 	g.collectPools(lib)
+	return g
+}
 
-	var sb strings.Builder
+// runeLen is the length of a list of tokens once they are joined.
+func (g *gen) runeLen(tokens []string) int {
 	n := 0
+	for i, t := range tokens {
+		if i > 0 {
+			n += utf8.RuneCountInString(g.sep)
+		}
+		n += utf8.RuneCountInString(t)
+	}
+	return n
+}
+
+// fill adds drill tokens to tokens until they reach length. A positive limit
+// keeps a long token, such as a commit message, from running past it.
+func (g *gen) fill(tokens []string, length, limit int) []string {
+	n := g.runeLen(tokens)
+	sepLen := utf8.RuneCountInString(g.sep)
 	var recent []string
 	for i := 0; n < length; i++ {
 		tok := g.token(i == 0)
@@ -74,21 +122,58 @@ func Drill(lib *content.Library, in Input) string {
 		if contains(recent, tok) {
 			tok = g.pseudo()
 		}
+		if limit > 0 && n+sepLen+utf8.RuneCountInString(tok) > limit {
+			tok = g.pseudo()
+		}
 		if tok == "" {
 			continue
 		}
-		if sb.Len() > 0 {
-			sb.WriteString(g.sep)
-			n += len([]rune(g.sep))
+		if len(tokens) > 0 {
+			n += sepLen
 		}
-		sb.WriteString(tok)
+		tokens = append(tokens, tok)
 		n += utf8.RuneCountInString(tok)
 		recent = append(recent, tok)
 		if len(recent) > repeatWindow {
 			recent = recent[1:]
 		}
 	}
-	return sb.String()
+	return tokens
+}
+
+// cover is the coverage loop of Cover. Each pass writes the tokens that hold
+// what the text still lacks; only the first pass ignores the length.
+func (g *gen) cover(must []rune, times int) []string {
+	need := map[rune]int{}
+	var order []rune
+	for _, r := range must {
+		if r == ' ' || r == '\n' || !g.allowed(r) {
+			continue
+		}
+		if _, dup := need[r]; !dup {
+			order = append(order, r)
+		}
+		need[r] = max(times, 1)
+	}
+	var tokens []string
+	for pass := 0; pass < max(times, 1); pass++ {
+		for _, r := range order {
+			if need[r] < max(times, 1)-pass {
+				continue // an earlier token already held it often enough
+			}
+			if pass > 0 && g.runeLen(tokens) >= g.length*repeatShare/10 {
+				return tokens
+			}
+			tok := g.tokenWith(r, need)
+			tokens = append(tokens, tok)
+			for _, c := range tok {
+				if need[c] > 0 {
+					need[c]--
+				}
+			}
+		}
+	}
+	return tokens
 }
 
 func contains(list []string, s string) bool {
@@ -118,6 +203,7 @@ type gen struct {
 	focus   []rune
 	bigrams []string
 	sep     string
+	length  int
 
 	letters   []rune // allowed letters, sorted
 	vowels    []rune
@@ -132,6 +218,9 @@ type gen struct {
 	plain         []string   // real words without a focus requirement
 	commits       []string   // commit messages drilling a diacritic focus
 	diacritic     bool
+
+	byRune map[rune][]string // allowed real words by the characters they hold
+	short  []string          // short allowed real words, for coverage tokens
 }
 
 // collectAlphabet finds the allowed non-space characters. Allowed is a
@@ -322,6 +411,119 @@ func (g *gen) focusScore(w string) int {
 		}
 	}
 	return n
+}
+
+// collectCandidates indexes the allowed real words for coverage tokens. Upper
+// case is reached through the lower-case letter, so that a capital can come from
+// a word that exists only in lower case.
+func (g *gen) collectCandidates(lib *content.Library) {
+	g.byRune = map[rune][]string{}
+	for _, list := range [][]string{lib.WordsCS, lib.WordsEN} {
+		for _, w := range list {
+			if utf8.RuneCountInString(w) < 2 {
+				continue
+			}
+			seen := map[rune]bool{}
+			for _, r := range w {
+				if !seen[r] {
+					seen[r] = true
+					g.byRune[r] = append(g.byRune[r], w)
+				}
+			}
+			if g.within(w) && utf8.RuneCountInString(w) <= shortWord {
+				g.short = append(g.short, w)
+			}
+		}
+	}
+}
+
+// tokenWith returns a token that holds r and as many other needed characters
+// as it can for its length: a real word when r occurs in one, else a capitalised
+// word, a word in capitals, a code-like template or a word with r attached.
+func (g *gen) tokenWith(r rune, need map[rune]int) string {
+	best, bestScore := "", -1.0
+	consider := func(tok string) {
+		if tok == "" || !strings.ContainsRune(tok, r) || !g.within(tok) {
+			return
+		}
+		hit, seen := 0, map[rune]bool{}
+		for _, c := range tok {
+			if need[c] > 0 && !seen[c] {
+				seen[c] = true
+				hit++
+			}
+		}
+		if s := float64(hit) / float64(utf8.RuneCountInString(tok)); s > bestScore {
+			best, bestScore = tok, s
+		}
+	}
+	for _, w := range g.sample(g.byRune[r]) {
+		consider(w)
+	}
+	if unicode.IsUpper(r) {
+		for _, w := range g.sample(g.byRune[unicode.ToLower(r)]) {
+			if strings.HasPrefix(w, string(unicode.ToLower(r))) {
+				consider(capitalise(w))
+			}
+			consider(strings.ToUpper(w))
+		}
+	}
+	if !unicode.IsLetter(r) {
+		for _, t := range templates {
+			consider(g.fillTemplate(t, r))
+		}
+	}
+	if best == "" && len(g.short) > 0 {
+		consider(g.pick(g.short) + string(r))
+		consider(string(r) + g.pick(g.short))
+	}
+	if best == "" {
+		return g.attach(r)
+	}
+	return best
+}
+
+// sample is up to wordSample words of list, chosen at random, so that the same
+// characters do not always give the same token.
+func (g *gen) sample(list []string) []string {
+	if len(list) <= wordSample {
+		return list
+	}
+	out := make([]string, wordSample)
+	for i := range out {
+		out[i] = g.pick(list)
+	}
+	return out
+}
+
+// fillTemplate writes template t with short words, and with r for DIGIT when r
+// is a digit. It is empty when the template cannot be written.
+func (g *gen) fillTemplate(t string, r rune) string {
+	if strings.Contains(t, "WORD") && len(g.short) == 0 {
+		return ""
+	}
+	for strings.Contains(t, "WORD") {
+		t = strings.Replace(t, "WORD", g.pick(g.short), 1)
+	}
+	if strings.Contains(t, "DIGIT") {
+		if !unicode.IsDigit(r) {
+			return ""
+		}
+		t = strings.ReplaceAll(t, "DIGIT", string(r))
+	}
+	return t
+}
+
+// attach is the last resort: r beside the allowed letters, or alone.
+func (g *gen) attach(r rune) string {
+	pool := g.letters
+	if len(pool) == 0 {
+		pool = g.symbols
+	}
+	if len(pool) == 0 {
+		return string(r)
+	}
+	return string(pickRune(g.rng, pool)) + string(r)
 }
 
 // token returns the next word, commit message, pseudo-word or pattern.

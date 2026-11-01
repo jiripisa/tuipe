@@ -1,0 +1,10 @@
+# Znaky, které se píšou mrtvou klávesou nebo s Option.
+ZNACKY = {
+    "háček": "ˇ",
+    "přehláska": "¨",
+    "stupeň": "°",
+    "paragraf": "§",
+}
+
+def popis(znak):
+    return ZNACKY.get(znak, "neznámý znak")

@@ -246,3 +246,57 @@ func TestNoRepeatedTokensInWindow(t *testing.T) {
 		}
 	}
 }
+
+func count(s string, r rune) int { return strings.Count(s, string(r)) }
+
+// Rare characters have no words and few templates, so a plain drill may never
+// show them. Cover must, whatever the seed.
+func TestCoverHoldsEveryRequiredCharacter(t *testing.T) {
+	l := lib(t)
+	must := []rune("°ˇ¨§ĎŤŇÓÚŮÝ{}[]~^7")
+	for seed := int64(1); seed <= 200; seed++ {
+		s := generate.Cover(l, generate.Input{Focus: []rune("ab"), Allowed: all, Length: 40, Seed: seed}, must, 1)
+		for _, r := range must {
+			if count(s, r) == 0 {
+				t.Fatalf("seed %d: %q is missing from %q", seed, r, s)
+			}
+		}
+	}
+}
+
+func TestCoverIsDeterministicAndKeepsToAllowed(t *testing.T) {
+	l := lib(t)
+	allowed := setOf("abcdefghijklmnopqrstuvwxyz ěšč")
+	in := generate.Input{Focus: []rune("ě"), Allowed: allowed.Has, Length: 60, Seed: 5}
+	a, b := generate.Cover(l, in, []rune("šč{"), 1), generate.Cover(l, in, []rune("šč{"), 1)
+	if a != b {
+		t.Fatalf("same input gave different text:\n%q\n%q", a, b)
+	}
+	for _, r := range a {
+		if !allowed.Has(r) {
+			t.Fatalf("disallowed %q in %q", r, a)
+		}
+	}
+	if count(a, 'š') == 0 || count(a, 'č') == 0 {
+		t.Errorf("required characters missing from %q", a)
+	}
+}
+
+func TestCoverRepeatsWhenAsked(t *testing.T) {
+	s := generate.Cover(lib(t), generate.Input{Focus: []rune("a"), Allowed: all, Length: 200, Seed: 3}, []rune("§ˇ"), 3)
+	if count(s, '§') < 3 || count(s, 'ˇ') < 3 {
+		t.Errorf("§ %d times and ˇ %d times, want at least 3 each: %q", count(s, '§'), count(s, 'ˇ'), s)
+	}
+}
+
+// A drill must stay near its length: the first appearance of each character
+// is owed, but repeats and long commit messages must not overrun it.
+func TestCoverStaysNearItsLength(t *testing.T) {
+	l := lib(t)
+	for seed := int64(1); seed <= 100; seed++ {
+		s := generate.Cover(l, generate.Input{Focus: []rune("ěšč§ˇ"), Allowed: all, Length: 75, Seed: seed}, []rune("ěšč§ˇ"), 3)
+		if n := utf8.RuneCountInString(s); n < 75 || n > 112 {
+			t.Fatalf("seed %d: %d characters, want 75 to 112: %q", seed, n, s)
+		}
+	}
+}

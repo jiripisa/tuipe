@@ -6,7 +6,9 @@ package curriculum
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"strings"
+	"unicode"
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/generate"
@@ -49,7 +51,12 @@ func parseRank(name string) Rank {
 }
 
 const (
-	testOutLength = 120
+	testOutLength = 120 // the shortest test-out; coverage makes most of them longer
+	mixedLength   = 240 // the drill part of the test-out of everything
+	sampleShare   = 4   // an earlier chapter is sampled by one character in this many
+	codeChapter   = 11  // its test-out is real code
+	mixedChapter  = 12  // its test-out is symbols of all chapters
+	seedMix       = 0x9e3779b97f4a7c15
 	// Skipped characters that were typed badly enough in the test stay learning.
 	weakMinSamples = 3
 	weakErrorRate  = 0.2
@@ -219,22 +226,33 @@ func (c *Curriculum) Targets(lessonID string) score.Targets {
 	return score.Targets{Speed: c.targets[lessonID]}
 }
 
-// TestOutText returns the test-out of a chapter: drill text on what the
-// chapter introduces, fixed by the chapter's test-out seed, and the targets of
-// its last lesson. An unknown chapter gives no text.
+// TestOutText returns the test-out of a chapter, fixed by its seed, and the
+// targets of its last lesson. A pass closes the chapter and every earlier chapter
+// not done yet, so the text proves them: it holds every character the chapter
+// introduces and a sample of each earlier chapter. Chapter 11 is real code and
+// chapter 12 is mixed text rich in symbols. Text grows as far as coverage needs.
+// Chapter 0 has no test-out, and an unknown chapter gives no text.
 func (c *Curriculum) TestOutText(chapterID string) (string, score.Targets) {
 	i, ok := c.index[chapterID]
-	if !ok {
+	if !ok || c.raw[i].Number == 0 {
 		return "", score.Targets{}
 	}
 	ch := c.raw[i]
-	set := c.allowed[i]
-	text := generate.Drill(c.lib, generate.Input{
-		Focus:   []rune(ch.Introduces),
-		Allowed: func(r rune) bool { return set[r] && c.CanType(r) },
-		Length:  testOutLength,
-		Seed:    ch.TestOutSeed,
-	})
+	var text string
+	switch ch.Number {
+	case codeChapter:
+		text = c.codeTestOut(i)
+	case mixedChapter:
+		text = c.mixedTestOut(i)
+	default:
+		must := c.keys(ch.Introduces)
+		for _, e := range c.raw[:i] {
+			must = append(must, sample(c.keys(e.Introduces))...)
+		}
+		text = generate.Cover(c.lib, generate.Input{
+			Focus: []rune(ch.Introduces), Allowed: c.typableAt(i), Length: testOutLength, Seed: ch.TestOutSeed,
+		}, must, 1)
+	}
 	// Targets come from the last lesson, or from the nearest earlier chapter
 	// that has lessons.
 	for j := i; j >= 0; j-- {
@@ -243,6 +261,164 @@ func (c *Curriculum) TestOutText(chapterID string) (string, score.Targets) {
 		}
 	}
 	return text, score.Targets{}
+}
+
+// typableAt admits what is unlocked at the end of chapter i and the layout has.
+func (c *Curriculum) typableAt(i int) func(rune) bool {
+	return func(r rune) bool { return c.allowed[i][r] && c.CanType(r) }
+}
+
+// keys lists the distinct characters of s that can be asked for in a drill:
+// typable, and neither space nor newline.
+func (c *Curriculum) keys(s string) []rune {
+	var out []rune
+	seen := map[rune]bool{}
+	for _, r := range s {
+		if r != ' ' && r != '\n' && !seen[r] && c.CanType(r) {
+			seen[r] = true
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// sample is an evenly spread quarter of chars, at least one of them.
+func sample(chars []rune) []rune {
+	if len(chars) == 0 {
+		return nil
+	}
+	n := max(len(chars)/sampleShare, 1)
+	out := make([]rune, n)
+	for i := range out {
+		out[i] = chars[i*len(chars)/n]
+	}
+	return out
+}
+
+// snippetsAt lists the snippets chapter i can type, in an order set by seed.
+func (c *Curriculum) snippetsAt(i int, seed int64) []content.Snippet {
+	allowed := c.typableAt(i)
+	var list []content.Snippet
+	for _, sn := range c.lib.Snippets {
+		ok := true
+		for _, r := range sn.Text {
+			ok = ok && (r == '\n' || allowed(r))
+		}
+		if ok {
+			list = append(list, sn)
+		}
+	}
+	rng := rand.New(rand.NewPCG(uint64(seed), uint64(seed)^seedMix))
+	rng.Shuffle(len(list), func(a, b int) { list[a], list[b] = list[b], list[a] })
+	return list
+}
+
+// codeTestOut joins real snippets until each earlier chapter is sampled as far
+// as code can sample it: a coverage loop that adds the snippet which proves the
+// most, until no snippet proves anything new.
+func (c *Curriculum) codeTestOut(i int) string {
+	type goal struct {
+		chars map[rune]bool
+		left  int
+	}
+	var goals []*goal
+	for _, e := range c.raw[:i] {
+		if keys := c.keys(e.Introduces); len(keys) > 0 {
+			g := &goal{chars: map[rune]bool{}, left: len(sample(keys))}
+			for _, r := range keys {
+				g.chars[r] = true
+			}
+			goals = append(goals, g)
+		}
+	}
+	gain := func(sn content.Snippet, apply bool) int {
+		total := 0
+		for _, g := range goals {
+			found := map[rune]bool{}
+			for _, r := range sn.Text {
+				if g.chars[r] {
+					found[r] = true
+				}
+			}
+			got := min(len(found), g.left)
+			total += got
+			if apply {
+				g.left -= got
+				for r := range found {
+					delete(g.chars, r)
+				}
+			}
+		}
+		return total
+	}
+	list := c.snippetsAt(i, c.raw[i].TestOutSeed)
+	var parts []string
+	for {
+		best, bestGain := -1, 0
+		for j, sn := range list {
+			if g := gain(sn, false); g > bestGain {
+				best, bestGain = j, g
+			}
+		}
+		if best < 0 {
+			return strings.Join(parts, "\n")
+		}
+		gain(list[best], true)
+		parts = append(parts, list[best].Text)
+		list = append(list[:best], list[best+1:]...)
+	}
+}
+
+// mixedTestOut is a drill on the symbols of all chapters, with every symbol in
+// it and a sample of the rest, then the real snippet richest in symbols, whose
+// lines prove Enter.
+func (c *Curriculum) mixedTestOut(i int) string {
+	var focus, must []rune
+	for _, e := range c.raw[:i] {
+		keys := c.keys(e.Introduces)
+		for _, r := range keys {
+			if isSymbol(r) {
+				focus = append(focus, r)
+			}
+		}
+		must = append(must, sample(keys)...)
+	}
+	must = append(must, focus...)
+	seed := c.raw[i].TestOutSeed
+	text := generate.Cover(c.lib, generate.Input{
+		Focus: focus, Allowed: c.typableAt(i), Length: mixedLength, Seed: seed,
+	}, must, 1)
+	best, bestShare := "", 0.0
+	for _, sn := range c.snippetsAt(i, seed) {
+		if share := symbolShare(sn.Text); share > bestShare {
+			best, bestShare = sn.Text, share
+		}
+	}
+	if text != "" && best != "" {
+		return text + "\n" + best
+	}
+	return text
+}
+
+// isSymbol reports a character that is neither a cased letter nor a digit. ˇ is
+// a modifier letter to Unicode, but a symbol on the keyboard.
+func isSymbol(r rune) bool {
+	return !unicode.IsUpper(r) && !unicode.IsLower(r) && !unicode.IsDigit(r)
+}
+
+// symbolShare is the share of symbols among the characters of s that are typed.
+func symbolShare(s string) float64 {
+	symbols, all := 0, 0
+	for _, r := range s {
+		if r == ' ' || r == '\n' {
+			continue
+		}
+		all++
+		if isSymbol(r) {
+			symbols++
+		}
+	}
+	return float64(symbols) / float64(max(all, 1))
 }
 
 // IncidentDef returns the incident that ends a chapter. It is false for a

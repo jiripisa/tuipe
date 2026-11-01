@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/jiripisa/tuipe/internal/content"
@@ -646,7 +647,7 @@ func TestWalkWithIncidents(t *testing.T) {
 
 func TestTestOutWorksForEveryChapter(t *testing.T) {
 	c := curr(t)
-	for _, ch := range c.Chapters() {
+	for _, ch := range c.Chapters()[1:] {
 		text, tg := c.TestOutText(ch.ID)
 		if text == "" || tg == (score.Targets{}) {
 			t.Errorf("%s: test-out %q targets %v", ch.ID, text, tg)
@@ -696,5 +697,119 @@ func TestIsDoneFollowsCompletion(t *testing.T) {
 	p.Stars[other.Lessons[n-1].ID] = 3
 	if c.IsDone(p, other.ID) {
 		t.Error("a star on the last lesson does not finish a chapter whose incident is owed")
+	}
+}
+
+// runesOf is the set of characters of s.
+func runesOf(s string) map[rune]bool {
+	set := map[rune]bool{}
+	for _, r := range s {
+		set[r] = true
+	}
+	return set
+}
+
+// distinctOf counts the characters of chars that occur in seen.
+func distinctOf(chars string, seen map[rune]bool) int {
+	n := 0
+	for r := range runesOf(chars) {
+		if seen[r] {
+			n++
+		}
+	}
+	return n
+}
+
+func TestChapterZeroHasNoTestOut(t *testing.T) {
+	text, tg := curr(t).TestOutText("ch00")
+	if text != "" || tg != (score.Targets{}) {
+		t.Errorf("chapter 0 has a test-out: %q %v", text, tg)
+	}
+}
+
+// A pass proves what it closes: the text holds every character the chapter
+// introduces and a fair sample of every chapter before it.
+func TestTestOutProvesItsChapterAndEveryEarlierOne(t *testing.T) {
+	c := curr(t)
+	chs := c.Chapters()
+	for i, ch := range chs {
+		if ch.Number == 0 {
+			continue
+		}
+		text, _ := c.TestOutText(ch.ID)
+		seen := runesOf(text)
+		for _, r := range ch.Introduces {
+			if !seen[r] {
+				t.Errorf("%s: test-out lacks %q, which the chapter introduces", ch.ID, r)
+			}
+		}
+		for _, e := range chs[:i] {
+			n := len([]rune(e.Introduces))
+			if n == 0 {
+				continue
+			}
+			if got, want := distinctOf(e.Introduces, seen), max(n/4, 1); got < want {
+				t.Errorf("%s: only %d of the %d characters of %s, want at least %d", ch.ID, got, n, e.ID, want)
+			}
+		}
+	}
+}
+
+func TestChapterElevenTestOutIsRealSnippets(t *testing.T) {
+	c := curr(t)
+	text, _ := c.TestOutText("ch11")
+	langs := map[string]bool{}
+	rest := text
+	for rest != "" {
+		found := false
+		for _, sn := range loadLib(t).Snippets {
+			if strings.HasPrefix(rest, sn.Text) {
+				rest = strings.TrimPrefix(strings.TrimPrefix(rest, sn.Text), "\n")
+				langs[sn.Lang] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("not made of snippets from: %q", rest)
+		}
+	}
+	if len(langs) < 2 {
+		t.Errorf("test-out uses only %v, want more than one language", langs)
+	}
+}
+
+func TestChapterTwelveTestOutIsSymbolRichAcrossAllChapters(t *testing.T) {
+	c := curr(t)
+	text, _ := c.TestOutText("ch12")
+	seen := runesOf(text)
+	symbols, all := 0, 0
+	for _, r := range text {
+		if r == ' ' || r == '\n' {
+			continue
+		}
+		all++
+		if !unicode.IsUpper(r) && !unicode.IsLower(r) && !unicode.IsDigit(r) {
+			symbols++
+		}
+	}
+	if symbols*5 < all {
+		t.Errorf("%d symbols among %d characters, want at least a fifth: %q", symbols, all, text)
+	}
+	for _, ch := range c.Chapters()[7:11] {
+		for _, r := range ch.Introduces {
+			if !seen[r] {
+				t.Errorf("the test-out of everything lacks %q of %s", r, ch.ID)
+			}
+		}
+	}
+}
+
+func TestTestOutOnALayoutWithoutACharacterLeavesItOut(t *testing.T) {
+	lib := loadLib(t)
+	c := curriculum.New(lib, stubLayout(t))
+	text, _ := c.TestOutText("ch03")
+	if bad := stubLayout(t).Unresolved(text); len(bad) > 0 {
+		t.Errorf("untypable %q in %q", string(bad), text)
 	}
 }

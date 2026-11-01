@@ -1,0 +1,7 @@
+var hlasky = map[string]string{
+    "teplota": "Čidlo hlásí přehřátí: 95 °C.",
+    "smlouva": "Viz § 12 odst. 3 smlouvy.",
+    "ulozeno": "Změny jsou uložené, díky!",
+    "sit":     "Síť je nedostupná, zkuste to později.",
+    "ucet":    "Účet vyprší za 30 dní.",
+}
