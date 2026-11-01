@@ -426,3 +426,19 @@ func TestNilStatsEntriesAreDropped(t *testing.T) {
 		t.Fatalf("stats = %v", s.Profile().Stats)
 	}
 }
+
+func TestCorruptedProfileNoticeSaysWhatHappenedAndWhere(t *testing.T) {
+	cfg, data := dirs(t)
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "profile.json"), []byte("garbage{{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := open(t, cfg, data)
+	defer s.Close()
+	n := s.Notices()
+	if len(n) != 1 || !strings.Contains(n[0], "Profil byl poškozený") || !strings.Contains(n[0], filepath.Join(data, "profile.json.corrupt-1")) {
+		t.Errorf("notices = %q", n)
+	}
+}

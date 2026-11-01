@@ -835,3 +835,14 @@ func TestUnlockedAtListsTheDrillableKeys(t *testing.T) {
 		t.Error("an unknown chapter unlocks nothing")
 	}
 }
+
+func TestSkippedCountsWhatTheLayoutCannotType(t *testing.T) {
+	lessons, incidents := curr(t).Skipped()
+	if lessons != 0 || incidents != 0 {
+		t.Errorf("the built-in layout skips %d lessons and %d incidents", lessons, incidents)
+	}
+	lessons, incidents = curriculum.New(loadLib(t), stubLayout(t)).Skipped()
+	if lessons == 0 || incidents == 0 {
+		t.Errorf("a letters-only layout skips %d lessons and %d incidents", lessons, incidents)
+	}
+}

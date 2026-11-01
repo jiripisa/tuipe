@@ -65,6 +65,7 @@ type homeScreen struct {
 // the lesson to continue when a round was left unfinished.
 func NewHomeScreen(a *App) Screen {
 	a.chain = nil
+	a.fillBanner()
 	// A Sprint left on an earlier day ends with a Retro on the part that was done.
 	if r := a.Store.Profile().Resume; sprintResume(r) && r.Day != a.today() {
 		return a.endSprint(r.Sprint)
@@ -95,6 +96,7 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	if !ok {
 		return h, nil
 	}
+	a.Banner = nil
 	count := len(a.Entries) + 1
 	switch k.String() {
 	case "up", "k":
@@ -158,6 +160,10 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 	}
 	// Keep the selection on screen: scroll the body when the window is short.
 	rows := hgt - 3
+	banner := a.bannerLines(w, rows)
+	if len(banner) > 0 {
+		rows -= len(banner) + 1 // a blank row under it
+	}
 	notice := ""
 	if a.UpdateNotice != "" { // the quiet one-line notice keeps its row under the menu
 		notice = dim(ansi.Truncate(a.UpdateNotice, max(w-3, 1), "…"))
@@ -166,10 +172,26 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 	if rows > 0 && selLine >= rows {
 		lines = lines[selLine-rows+1:]
 	}
+	lines = lines[:min(len(lines), max(rows, 0))]
 	if notice != "" {
-		lines = append(lines[:min(len(lines), max(rows, 0))], notice)
+		lines = append(lines, notice)
+	}
+	if len(banner) > 0 {
+		lines = append(append(banner, ""), lines...)
 	}
 	return style.Frame(st, w, hgt, text.AppName, strings.Join(lines, "\n"), text.HintHome)
+}
+
+// bannerLines wraps the banner to the window and paints it. It takes at most
+// half of the rows; a path has no spaces, so it is broken where it must be.
+func (a *App) bannerLines(w, rows int) []string {
+	var out []string
+	for _, b := range a.Banner {
+		for _, l := range strings.Split(ansi.Wrap(b, max(w-4, 10), ""), "\n") {
+			out = append(out, a.Style.Base().Foreground(a.Style.Bad).Render(l))
+		}
+	}
+	return out[:min(len(out), max(rows/2, 1))]
 }
 
 // uptimeText reads like a server uptime: "up 1 day", "up 23 days".

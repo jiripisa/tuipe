@@ -74,6 +74,7 @@ type Curriculum struct {
 	errs     map[string]error     // lesson id to why it has no text
 	targets  map[string][3]float64
 	incident map[string]content.Incident // chapter id to a typable incident
+	dropped  int                         // chapter incidents the layout cannot type
 }
 
 // New resolves the curriculum of lib against l. A lesson whose text cannot be
@@ -128,8 +129,12 @@ func New(lib *content.Library, l *layout.Layout) *Curriculum {
 		}
 		c.chapters = append(c.chapters, out)
 
-		if inc, ok := incidents[ch.IncidentID]; ok && c.typable(incidentText(inc)) {
-			c.incident[ch.ID] = inc
+		if inc, ok := incidents[ch.IncidentID]; ok {
+			if c.typable(incidentText(inc)) {
+				c.incident[ch.ID] = inc
+			} else {
+				c.dropped++
+			}
 		}
 	}
 	return c
@@ -191,6 +196,10 @@ func (c *Curriculum) lessonText(ls content.LessonDef, known map[rune]bool, snipp
 	}
 	return text, nil
 }
+
+// Skipped counts what was left out because it cannot be built or typed on this
+// layout: lessons and chapter incidents.
+func (c *Curriculum) Skipped() (lessons, incidents int) { return len(c.errs), c.dropped }
 
 // Chapters returns the chapters in order, with the lessons that cannot be
 // built or typed removed.

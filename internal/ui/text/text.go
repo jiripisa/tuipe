@@ -1,7 +1,10 @@
 // Package text is the single home of user-facing Czech strings.
 package text
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Plural picks the Czech form for n: one for 1, few for 2 to 4, many otherwise.
 func Plural(n int, one, few, many string) string {
@@ -19,6 +22,22 @@ func Chapters(n int) string {
 	return fmt.Sprintf("%d %s", n, Plural(n, "kapitola", "kapitoly", "kapitol"))
 }
 
+// SkippedContent is the note about what a layout cannot type, told once. It is
+// empty when nothing is skipped.
+func SkippedContent(layout string, lessons, incidents int) string {
+	var parts []string
+	if lessons > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", lessons, Plural(lessons, "lekce", "lekce", "lekcí")))
+	}
+	if incidents > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", incidents, Plural(incidents, "incident", "incidenty", "incidentů")))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Rozložení %s neumí některé znaky. Přeskočeno: %s.", layout, strings.Join(parts, " a "))
+}
+
 // Usage is printed by `tuipe help`.
 const Usage = `tuipe - trenažér psaní všemi deseti pro programátory (česká klávesnice QWERTY)
 
@@ -33,8 +52,11 @@ Použití:
 // UnknownCommand is the format of the error for an unknown subcommand (%q is the command).
 const UnknownCommand = "tuipe: neznámý příkaz %q\nNápovědu zobrazíte příkazem: tuipe help\n"
 
-// StoreCorruptSetAside is the notice for a damaged data file (%s is the file, then the new name).
-const StoreCorruptSetAside = "Soubor %s byl poškozený a byl odložen jako %s."
+// StoreCorruptSetAside is the notice for a damaged data file (%s is the file, then where it went).
+const StoreCorruptSetAside = "Soubor %s byl poškozený a je odložený jako %s."
+
+// StoreProfileSetAside is the notice for a damaged profile (%s is where it went).
+const StoreProfileSetAside = "Profil byl poškozený, začínáte s prázdným. Původní soubor je odložený jako %s."
 
 // AppName is the name shown in the window.
 const AppName = "tuipe"

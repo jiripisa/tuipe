@@ -56,6 +56,12 @@ type App struct {
 	// UpdateNotice is the quiet line about a newer version, shown on the home
 	// screen when it is not empty.
 	UpdateNotice string
+
+	// Banner holds what the user must be told: a file set aside, a layout that
+	// is gone, content that was skipped. The home screen shows it in an area of
+	// its own until a key is pressed there, and no save touches it.
+	Banner      []string
+	noticesRead int // store notices already taken into the banner
 }
 
 // initer is implemented by a screen that needs a command when it appears,
@@ -116,7 +122,9 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 	for _, o := range opts {
 		o(a)
 	}
-	a.saveWarn = notice
+	if notice != "" {
+		a.Banner = append(a.Banner, notice)
+	}
 	a.Entries = defaultEntries()
 	a.RegisterEntry(EntryStandup, openStandup)
 	a.RegisterEntry(EntrySprint, openSprint)
@@ -130,6 +138,22 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 		a.screen = NewFirstRunScreen(a)
 	}
 	return a, nil
+}
+
+// fillBanner takes in what has come up since the last look: new store notices,
+// such as a ghost found damaged during play, and once per layout the note about
+// skipped content.
+func (a *App) fillBanner() {
+	notices := a.Store.Notices()
+	a.Banner = append(a.Banner, notices[a.noticesRead:]...)
+	a.noticesRead = len(notices)
+	p := a.Store.Profile()
+	lessons, incidents := a.Curr.Skipped()
+	if note := text.SkippedContent(a.Layout.Name, lessons, incidents); note != "" && !p.SkipNoted[a.Layout.ID] {
+		a.Banner = append(a.Banner, note)
+		p.SkipNoted[a.Layout.ID] = true
+		a.SaveErr(a.Store.SaveProfile())
+	}
 }
 
 // Init implements tea.Model.

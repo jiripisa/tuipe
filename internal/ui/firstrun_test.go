@@ -571,6 +571,9 @@ func TestUnknownLayoutInTheConfigFallsBackWithANotice(t *testing.T) {
 		t.Fatal(err)
 	}
 	st.Profile().FirstRunDone = true
+	if err := st.SaveProfile(); err != nil {
+		t.Fatal(err)
+	}
 	b, _ := reopen(t, st)
 	_ = a
 	if b.Layout.ID != "macos-czech-qwerty" {

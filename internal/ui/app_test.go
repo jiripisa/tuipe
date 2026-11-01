@@ -182,3 +182,168 @@ func TestNewReadsTheInjectedClockFromTheFirstScreen(t *testing.T) {
 		t.Errorf("default clock is off by %v", d)
 	}
 }
+
+// startWith opens an app on data prepared by prepare, on a wide window.
+func startWith(t *testing.T, prepare func(cfgDir, dataDir string)) (*ui.App, *store.Store, string) {
+	t.Helper()
+	dir := t.TempDir()
+	cfg, data := filepath.Join(dir, "cfg"), filepath.Join(dir, "data")
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prepare(cfg, data)
+	st, err := store.Open(cfg, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Profile().FirstRunDone = true
+	a, err := ui.New(st, lib, ui.WithClock(newClock().now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Update(tea.WindowSizeMsg{Width: 200, Height: 30})
+	return a, st, data
+}
+
+func corruptProfile(t *testing.T) func(cfg, data string) {
+	return func(_, data string) {
+		if err := os.WriteFile(filepath.Join(data, "profile.json"), []byte("garbage{{"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCorruptedProfileIsToldOnHomeWithThePathOfTheFile(t *testing.T) {
+	a, _, data := startWith(t, corruptProfile(t))
+	wantScreen(t, a, "home")
+	wantText(t, a, "Profil byl poškozený")
+	wantText(t, a, filepath.Join(data, "profile.json.corrupt-1"))
+}
+
+func TestBannerStaysThroughASaveAndGoesWithAKey(t *testing.T) {
+	a, _, _ := startWith(t, corruptProfile(t))
+	a.SaveErr(nil) // a save that succeeds clears the warning line, not the banner
+	wantText(t, a, "Profil byl poškozený")
+	a.SaveErr(os.ErrPermission) // and a failed one has its own line
+	wantText(t, a, "Profil byl poškozený")
+	wantText(t, a, "Uložení se nepovedlo")
+	a.SaveErr(nil)
+	a.Update(down)
+	if strings.Contains(screen(a), "Profil byl poškozený") {
+		t.Errorf("the banner stayed after a key:\n%s", screen(a))
+	}
+}
+
+func TestBannerGoesWhenLeavingHome(t *testing.T) {
+	a, _, _ := startWith(t, corruptProfile(t))
+	a.Update(enter)
+	wantScreen(t, a, "round")
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	if strings.Contains(screen(a), "Profil byl poškozený") {
+		t.Errorf("the banner came back:\n%s", screen(a))
+	}
+}
+
+func TestUnknownLayoutNoticeSurvivesASave(t *testing.T) {
+	a, _, _ := startWith(t, func(cfg, _ string) {
+		if err := os.WriteFile(filepath.Join(cfg, "config.toml"), []byte("layout = \"gone\"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	})
+	a.SaveErr(nil)
+	wantText(t, a, "Rozložení „gone“")
+}
+
+// A corrupted ghost is found during play, long after the start.
+func TestNoticeThatArrivesLaterIsToldOnTheNextHome(t *testing.T) {
+	a, st, _ := startWith(t, func(string, string) {})
+	if strings.Contains(screen(a), "poškozený") {
+		t.Fatalf("no notice yet:\n%s", screen(a))
+	}
+	path := filepath.Join(filepath.Dir(st.ConfigDir()), "data", "ghosts", "abc.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("garbage{{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if g, err := st.Ghost("abc"); g != nil || err != nil {
+		t.Fatalf("ghost %v err %v", g, err)
+	}
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	wantText(t, a, "abc.json.corrupt-1")
+	a.Update(down)
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	if strings.Contains(screen(a), "abc.json.corrupt-1") {
+		t.Errorf("the same notice was told twice:\n%s", screen(a))
+	}
+}
+
+// withoutBraces is the Czech layout's file without { and §.
+func withoutBraces(t *testing.T) string {
+	t.Helper()
+	var keep []string
+	drop := false
+	for _, l := range strings.Split(czechCopy(t), "\n") {
+		if strings.HasPrefix(l, "[[") {
+			drop = false
+		}
+		if strings.HasPrefix(l, `c = "`) && (strings.Contains(l, `"{"`) || strings.Contains(l, `"§"`)) {
+			drop = true
+			keep = keep[:len(keep)-1] // the [[char]] line above
+		}
+		if !drop {
+			keep = append(keep, l)
+		}
+	}
+	return strings.Join(keep, "\n")
+}
+
+func TestSkippedContentIsToldOnce(t *testing.T) {
+	prepare := func(cfg, _ string) {
+		if err := os.MkdirAll(filepath.Join(cfg, "layouts"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(cfg, "layouts", "user.toml"), []byte(withoutBraces(t)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(cfg, "config.toml"), []byte("layout = \"user-test\"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, st, _ := startWith(t, prepare)
+	if a.Layout.ID != "user-test" {
+		t.Fatalf("layout = %s", a.Layout.ID)
+	}
+	wantText(t, a, "Rozložení Testovací rozložení neumí některé znaky")
+	wantText(t, a, "Přeskočeno:")
+	if !st.Profile().SkipNoted["user-test"] {
+		t.Error("the note is not remembered")
+	}
+	a.Update(down)
+	b, _ := reopen(t, st)
+	b.Update(tea.WindowSizeMsg{Width: 200, Height: 30})
+	if strings.Contains(screen(b), "neumí některé znaky") {
+		t.Errorf("told twice:\n%s", screen(b))
+	}
+}
+
+func TestBannerFitsTheSmallestWindow(t *testing.T) {
+	a, _, _ := startWith(t, corruptProfile(t))
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	if n := len(strings.Split(ui.RawView(a), "\n")); n > 18 {
+		t.Errorf("home has %d rows with a banner:\n%s", n, screen(a))
+	}
+	wantText(t, a, "Profil byl poškozený")
+	if !strings.Contains(screen(a), "> ") {
+		t.Errorf("the selection is off screen:\n%s", screen(a))
+	}
+}

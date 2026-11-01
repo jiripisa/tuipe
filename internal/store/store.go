@@ -103,6 +103,7 @@ type Profile struct {
 	LastUpdateCheck string
 	LatestSeen      string
 	Resume          *Resume
+	SkipNoted       map[string]bool // by layout id: told about the content it cannot type
 }
 
 func newProfile() *Profile {
@@ -132,6 +133,9 @@ func (p *Profile) fillMaps() {
 	}
 	if p.IncidentBest == nil {
 		p.IncidentBest = map[string]string{}
+	}
+	if p.SkipNoted == nil {
+		p.SkipNoted = map[string]bool{}
 	}
 }
 
@@ -202,11 +206,13 @@ func (s *Store) Close() error { return s.lock.Unlock() }
 // Notices lists things the user should be told, such as a file set aside.
 func (s *Store) Notices() []string { return append([]string(nil), s.notices...) }
 
-func (s *Store) profilePath() string { return filepath.Join(s.dataDir, "profile.json") }
+const profileFile = "profile.json"
+
+func (s *Store) profilePath() string { return filepath.Join(s.dataDir, profileFile) }
 
 func (s *Store) loadProfile() error {
 	var p Profile
-	found, err := s.readJSON(s.profilePath(), "profile.json", &p)
+	found, err := s.readJSON(s.profilePath(), profileFile, &p)
 	if err != nil {
 		return err
 	}
@@ -379,7 +385,11 @@ func (s *Store) setAside(path, name string) error {
 		if err := os.Rename(path, target); err != nil {
 			return err
 		}
-		s.notices = append(s.notices, fmt.Sprintf(text.StoreCorruptSetAside, name, filepath.Base(target)))
+		if name == profileFile {
+			s.notices = append(s.notices, fmt.Sprintf(text.StoreProfileSetAside, target))
+		} else {
+			s.notices = append(s.notices, fmt.Sprintf(text.StoreCorruptSetAside, name, target))
+		}
 		return nil
 	}
 }
