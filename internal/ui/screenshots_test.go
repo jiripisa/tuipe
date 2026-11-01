@@ -229,9 +229,9 @@ func (s *session) start(pick recommend.Pick) {
 	s.a.Update(ui.TickMsg(s.a))
 }
 
-// shootRound is a Go snippet in the middle of a round against its replay ghost.
+// shootRound is a Go lesson in the middle of a round against its replay ghost.
 func (s *session) shootRound() {
-	s.start(recommend.Pick{Kind: recommend.Code, SnippetID: "go-1"})
+	s.start(recommend.Pick{Kind: recommend.Lesson, LessonID: "ch11-01"})
 	s.typeUpTo("return 0, fmt.Errorf")
 	s.a.Update(ui.TickMsg(s.a))
 	for _, st := range []style.ID{style.Editor, style.Fosfor, style.Velin} {

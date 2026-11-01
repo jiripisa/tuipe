@@ -113,10 +113,10 @@
 <p>Kontrolu přeskočíte klávesou <kbd>Esc</kbd>, jiné rozložení vyberete klávesou <kbd>Tab</kbd>.</p>
 
 <h3>Kde začínáte?</h3>
-<p>Dvě možnosti. <strong>Začínám od nuly</strong> ukáže domovskou pozici rukou a pustí vás na úvodní obrazovku. <strong>Vstupní pohovor</strong> trvá asi 3 minuty a přeskočí, co už umíte.</p>
+<p>Dvě možnosti. <strong>Začínám od nuly</strong> ukáže domovskou pozici rukou a pustí vás na úvodní obrazovku. <strong>Vstupní pohovor</strong> trvá asi 4 minuty a přeskočí, co už umíte.</p>
 
 <h3>Vstupní pohovor</h3>
-<p>Pohovor má šest fází. V každé napíšete krátký text, bez nápovědy. Fáze je splněná při přesnosti aspoň 90 % a rychlosti z tabulky. Nesplněná fáze pohovor ukončí a nic zlého se neděje.</p>
+<p>Pohovor má šest fází. V každé napíšete krátký text, bez nápovědy. Text ukáže celou skupinu: všechna malá písmena s diakritikou, všechny číslice a všechny symboly se Shiftem i s Option, včetně <code>° ˇ ¨ §</code>, a k tomu pět velkých písmen. Fáze kódu jsou dva řádky skutečného kódu. Fáze je splněná při přesnosti aspoň 90 % a rychlosti z tabulky. Nesplněná fáze pohovor ukončí a nic zlého se neděje.</p>
 <div class="scroll">
 <table>
 <thead><tr><th>Fáze</th><th>Rychlost</th><th>Splnění dokončí kapitoly</th><th>Hodnost</th></tr></thead>
@@ -131,7 +131,7 @@
 </table>
 </div>
 <p>Fáze skončí i předčasně, když po nejméně 20 stiscích tvoří chyby přes čtvrtinu. Pohovor ukončíte sami klávesou <kbd>Esc</kbd> před každou fází.</p>
-<p>Výsledek dostanete jako pracovní nabídku: hodnost a kapitolu, kde začínáte. Přeskočené kapitoly jsou hotové, ale bez hvězd, a jejich lekce zůstávají otevřené. Znaky z nich začínají jako <a href="#napoveda">jisté</a>, nebo jako rozpracované, pokud vám v pohovoru dělaly potíže.</p>
+<p>Výsledek dostanete jako pracovní nabídku: hodnost a kapitolu, kde začínáte. Přeskočené kapitoly jsou hotové, ale bez hvězd, a jejich lekce zůstávají otevřené. Znaky z nich začínají jako <a href="#napoveda">jisté</a>, nebo jako rozpracované, pokud vám v pohovoru dělaly potíže. Co jste ještě nenapsali, zařadí drilly přednostně. Symboly můžete cvičit hned, nabídka odkazuje na Trénink › Vybrané znaky.</p>
 <figure><img src="assets/offer.png" width="1488" height="904" loading="lazy" alt="Pracovní nabídka: na základě pohovoru Vám nabízíme pozici Medior, začínáte v kapitole 8."></figure>
 <p>Pohovor můžete zopakovat v Nastavení položkou Znovu vstupní pohovor. Hodnost nikdy nesníží.</p>
 
@@ -165,7 +165,7 @@
 </tbody>
 </table>
 </div>
-<p>Od stavu rozpracovaný výš se nápověda ukáže i při druhé chybě na stejném místě, nikdy při první. Jeden překlep vás tak stojí přesnost, ale ne třetí hvězdu. Výš se znak posune, jen když chybovost nepřesáhne 12 %. Může se i zhoršit: o stupeň klesne, když chybovost přeroste 12 % nebo když znak dva týdny nepíšete.</p>
+<p>Od stavu rozpracovaný výš se nápověda ukáže i při druhé chybě na stejném místě, nikdy při první. Jeden překlep vás tak stojí přesnost, ale ne třetí hvězdu. Výš se znak posune, jen když chybovost nepřesáhne 12 %. Může se i zhoršit: klesne, když chybovost přeroste 12 %, ale nejvýš o stupeň za kolo, a jeden překlep na znaku, který píšete poprvé, ho neshodí. Znak, který jste dva týdny nepsali, se pro nápovědu čte o stupeň níž, za každé další dva týdny o další.</p>
 <p>Mapa klávesnice a panel Další znak jsou také nápověda a řídí se stejnými pravidly. Mimo nápovědu jsou tyto plochy prázdné nebo ukazují neutrální přehled, takže neprozradí, co přijde.</p>
 
 <h3>Hvězdy</h3>
@@ -180,7 +180,7 @@
 </tbody>
 </table>
 </div>
-<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. Například „Prostředníky“ chtějí 10, 15 a 20 WPM, „Velká písmena v tempu“ 25, 35 a 45 WPM. Každá ukázaná nápověda se počítá jako použitá a na výsledku to tuipe napíše: <code>nápověda použita: třetí hvězda není možná</code>. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte.</p>
+<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. Například „Prostředníky“ chtějí 10, 15 a 20 WPM, „Velká písmena v tempu“ 20, 28 a 36 WPM. Každá ukázaná nápověda se počítá jako použitá a na výsledku to tuipe napíše: <code>nápověda použita: třetí hvězda není možná</code>. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte. Hvězdy mají jen lekce: drill, kód, test-out ani incident je neukazují, protože by je nikdo nedržel.</p>
 
 <h3>Výsledek a skóre</h3>
 <p>Po kole vidíte výsledek jako <code>git diff</code> proti nejlepšímu předchozímu pokusu na stejném textu. U textu, který píšete poprvé, je místo <code>HEAD~1</code> nahoře <code>/dev/null</code>.</p>
@@ -201,7 +201,7 @@
 <p>Jsou dva druhy:</p>
 <ul>
 <li><strong>Záznam.</strong> Lekce, úryvky kódu a incidenty mají pevný text, takže duch přesně přehrává váš nejlepší pokus na tomto textu.</li>
-<li><strong>Duch tempa.</strong> Generované drilly nemají starší pokus. Duch se proto spočítá z vaší průměrné rychlosti na jednotlivých znacích a je o 3 % rychlejší, aby vás popoháněl. U znaků, kde žádná data nejsou, počítá s 400 ms na znak.</li>
+<li><strong>Duch tempa.</strong> Generované drilly nemají starší pokus. Duch se proto spočítá z vaší průměrné rychlosti na jednotlivých znacích a je o 3 % rychlejší, aby vás popoháněl. U znaků, kde žádná data nejsou, počítá s 400 ms na znak. Dokud nemáte napsaných aspoň 20 znaků, duch tempa se nezobrazí, protože by závodil s odhadem.</li>
 </ul>
 <p>Nový pokus ducha nahradí, jen když má vyšší skóre, takže rychlé a odbyté kolo se duchem nestane. Nestane se jím ani kolo s pauzou nebo prohraný incident. Když na textu žádného ducha nemáte, závod se nezobrazí. Vstupní pohovor a test-out ducha nemají.</p>
 
@@ -209,17 +209,18 @@
 <figure><img src="assets/home.png" width="1488" height="904" loading="lazy" alt="Úvodní obrazovka: hodnost, uptime, vybraná Rychlovka a pod ní nabídka Denní standup, Sprint, Kariéra, Trénink, Incident v produkci, Statistiky a Nastavení."></figure>
 
 <h3>Rychlovka</h3>
-<p>První položka úvodní obrazovky a to, co spustíte klávesou Enter hned po startu. tuipe vybere nejužitečnější kolo. Zhruba v 60 % případů je to další lekce kariéry, jinak drill na vaše slabá místa. Od kapitoly 11 se přidává i skutečný kód. Každé osmé kolo je incident, pokud je nějaký k dispozici. Když máte v kapitole všechny lekce s hvězdou a čeká vás závěrečný incident, Rychlovka nabídne ten.</p>
+<p>První položka úvodní obrazovky a to, co spustíte klávesou Enter hned po startu. tuipe vybere nejužitečnější kolo. Zhruba v 60 % případů je to další lekce kariéry, jinak drill na vaše slabá místa. Dokud o nich nic neví, je to vždycky lekce. Od kapitoly 11 se přidává i skutečný kód. Každé osmé kolo je incident, pokud je nějaký k dispozici. Když máte v kapitole všechny lekce s hvězdou a čeká vás závěrečný incident, Rychlovka nabídne ten a jmenuje ho. Po prohře přijde jeden drill na nejslabší znaky a pak incident znovu.</p>
+<p>Každý drill trvá při vašem tempu asi minutu a ze svých pěti hlavních znaků dva vyhrazuje těm, které jste nejdéle nepsali. Znaky, které jste ještě nepsali vůbec, jdou první. Vzácné symboly se tak z tréninku neztratí. Slabé dvojice znaků se do drillu dostanou taky.</p>
 <p>Na obrazovce výsledku Enter spustí další kolo. Krátká pauza a dlouhé sezení tak mají stejný průběh.</p>
 
 <h3>Denní standup</h3>
-<p>Pět drillů za sebou na vaše nejslabší znaky, podle rychlosti to zabere několik minut. Průběh vidíte jako <code>Standup 2/5</code>. Po dokončení má položka v nabídce poznámku <code>(hotovo)</code>. Znovu ho spustit můžete, ale cíl na dnešek je splněný.</p>
+<p>Pět drillů za sebou na vaše nejslabší a nejdéle nepsané znaky, každý zhruba minutu, dohromady asi pět minut. Průběh vidíte jako <code>Standup 2/5</code>. Po dokončení má položka v nabídce poznámku <code>(hotovo)</code>. Znovu ho spustit můžete, ale cíl na dnešek je splněný.</p>
 
 <h3>Sprint a Retro</h3>
-<p>Plánované sezení na 10, 20 nebo 30 minut. Začíná rozehřátím na slabých znacích, pokračuje nedokončenými lekcemi, od kapitoly 11 i kódem, pak přijde další drill a na závěr incident. Minuty se počítají jen z aktivního psaní, takže pauza Sprint prodlouží. Průběh vidíte jako <code>Sprint 3:12 / 20:00</code>. Když čas vyprší, další kolo je rovnou závěrečné.</p>
-<p>Ze Sprintu můžete kdykoli odejít. Ještě týž den u něj v nabídce najdete <code>(pokračovat)</code> a naváže se tam, kde jste skončili. Další den se Sprint uzavře a ukáže Retro z toho, co jste stihli.</p>
+<p>Plánované sezení na 10, 20 nebo 30 minut. Začíná rozehřátím na slabých znacích, pokračuje nedokončenými lekcemi, od kapitoly 11 i kódem, pak přijde další drill a na závěr incident. Minuty se počítají jen z aktivního psaní, takže pauza Sprint prodlouží. Průběh vidíte jako <code>Sprint 3:12 / 20:00</code>. Když naplánovaná kola skončí dřív, pokračují další drilly na slabá místa, dokud minuty nevyprší. Když čas vyprší, další kolo je rovnou závěrečné.</p>
+<p>Ze Sprintu můžete kdykoli odejít. Ještě týž den u něj v nabídce najdete <code>(pokračovat)</code> a naváže se tam, kde jste skončili. Řádek <code>Ukončit sprint</code> pod ním Sprint rovnou uzavře a ukáže Retro z toho, co jste stihli. Další den se Sprint uzavře sám.</p>
 <p>Retro porovná průměrnou rychlost a přesnost se sedmi dny před Sprintem a vypíše až tři znaky, které se nejvíc zlepšily a zhoršily. Počítají se změny chybovosti aspoň o 2 procentní body.</p>
-<figure><img src="assets/retro.png" width="1488" height="904" loading="lazy" alt="Retro po Sprintu: osm kol, rychlost a přesnost se změnou proti minulému týdnu a seznamy zlepšených a zhoršených znaků."></figure>
+<figure><img src="assets/retro.png" width="1488" height="904" loading="lazy" alt="Retro po Sprintu: 13 kol, rychlost a přesnost se změnou proti minulému týdnu a seznamy zlepšených a zhoršených znaků."></figure>
 
 <h3>Incident v produkci</h3>
 <p>Časovaný scénář o několika krocích: diagnostikujte v shellu, opravte kód, nasaďte. Nad textem běží příběh a kroky se oddělují klávesou Enter. Incidentů je 18. Dvanáct uzavírá kapitoly 1 až 12, šest je navíc k volnému hraní. V nabídce vidíte všechny z odemčených kapitol a u každého nejtěžší závažnost, kterou jste vyhráli, třeba <code>[SEV2]</code>.</p>
@@ -229,7 +230,7 @@
 <img class="velin" src="assets/incident-velin.png" width="1488" height="904" loading="lazy" alt="Incident ve stylu Velín: velký panel SLA vlevo nahoře.">
 </figure>
 <p>SLA začíná na 100 % a hranice SLO je 99 %. Hoří s časem a každá chyba ubere další kus, v krátkém incidentu 5 % rozpočtu, v dlouhém méně. Když SLA klesne na SLO, je to výpadek a incident je prohraný. Na začátku každého dalšího kroku měřidlo chvíli počká, abyste si přečetli zadání. Čekání ukončí první stisk.</p>
-<p>Závažnost nastavuje, jak rychle hoří. Vychází z vašeho základního tempa, což je medián posledních 20 kol, nejméně 15 WPM. Když píšete přesně tempem závažnosti, spálíte 60 % rozpočtu.</p>
+<p>Závažnost nastavuje, jak rychle hoří. Vychází z vašeho základního tempa, což je medián posledních 20 kol, nejméně 15 WPM. Když píšete přesně tempem závažnosti, spálíte polovinu rozpočtu. Druhou polovinu si berou chyby, takže při běžném tempu a přesnosti 92 %, tedy na jednu hvězdu, přežijete na SEV3 i nejdelší incident, jen tak tak.</p>
 <div class="scroll">
 <table>
 <thead><tr><th>Závažnost</th><th>Požadované tempo</th><th>Situace</th></tr></thead>
@@ -244,7 +245,7 @@
 <figure><img src="assets/postmortem.png" width="1488" height="904" loading="lazy" alt="Postmortem incidentu INC-1008: souhrn, seznam znaků, které selhaly, s nápovědou, příčina a opatření."></figure>
 
 <h3>Kariéra</h3>
-<p>Mapa celé cesty: 13 kapitol, 100 lekcí a šest hodností. Hodnost získáte dokončením kapitoly a nikdy o ni nepřijdete.</p>
+<p>Mapa celé cesty: 13 kapitol, 102 lekcí a šest hodností. Hodnost získáte dokončením kapitoly a nikdy o ni nepřijdete.</p>
 <div class="scroll">
 <table>
 <thead><tr><th>Kapitola</th><th>Co trénuje</th><th>Hodnost</th></tr></thead>
@@ -265,9 +266,10 @@
 </tbody>
 </table>
 </div>
-<p>Kapitola je hotová, když mají všechny její lekce aspoň jednu hvězdu a vyhrajete její závěrečný incident na libovolnou závažnost. Výjimkou je kapitola 0, ta žádný incident nemá. V seznamu Kariéry incidenty nejsou: závěrečný vám nabídne Rychlovka, nebo si ho spustíte z nabídky Incident v produkci. Výhra před dokončením lekcí se zapíše, ale kapitolu uzavře až hvězda u poslední z nich.</p>
-<figure><img src="assets/career.png" width="1488" height="904" loading="lazy" alt="Obrazovka Kariéra: kapitoly s lekcemi a hvězdami, u dokončených kapitol poznámka hotovo."></figure>
-<p>Enter na lekci ji spustí a po kole se vrátíte do seznamu, takže chybějící hvězdu můžete dohánět, jak dlouho chcete. Zamčená kapitola nabízí jen <code>test-out: přeskočit kapitolu</code>: jedno kolo bez nápovědy, které musíte zvládnout aspoň na ★★. Úspěch dokončí tuto kapitolu i všechny nedokončené před ní, bez hvězd. Neúspěch nic nezmění.</p>
+<p>Kapitola je hotová, když mají všechny její lekce aspoň jednu hvězdu a vyhrajete její závěrečný incident na libovolnou závažnost. Výjimkou je kapitola 0, ta žádný incident nemá. Když má kapitola všechny lekce s hvězdou, objeví se v seznamu Kariéry pod nimi řádek s dlužným incidentem. Nabídne ho i Rychlovka a najdete ho také v nabídce Incident v produkci. Výhra před dokončením lekcí se zapíše a kapitolu uzavře hvězda u poslední z nich, výsledek to oznámí.</p>
+<figure><img src="assets/career.png" width="1488" height="904" loading="lazy" alt="Obrazovka Kariéra: lekce s hvězdami, kapitola 12 a pod jejími lekcemi řádek test-out."></figure>
+<p>Enter na lekci ji spustí a po kole se vrátíte do seznamu, takže chybějící hvězdu můžete dohánět, jak dlouho chcete. Zamčená kapitola ukazuje jen test-out, odemčená ho má pod lekcemi. Kapitola 0 a hotové kapitoly test-out nemají.</p>
+<p>Test-out je jedno kolo bez nápovědy, které musíte zvládnout aspoň na ★★. Text obsahuje všechny znaky kapitoly a vzorek z každé kapitoly před ní, takže čím dál v kariéře, tím je delší. Test-out kapitoly 11 je skutečný kód, test-out kapitoly 12 je směs plná symbolů ze všech kapitol. Úspěch dokončí tuto kapitolu i všechny nedokončené před ní, bez hvězd. Když by test-out uzavřel víc kapitol, řádek to řekne předem, třeba <code>test-out: uzavře 5 kapitol naráz</code>, a výsledek napíše, kolik jich uzavřel. Neúspěch nic nezmění.</p>
 
 <h3>Trénink</h3>
 <p>Když chcete trénovat něco konkrétního, vyberte si sami:</p>
@@ -290,7 +292,7 @@
 <figure><img src="assets/heatmap.png" width="1488" height="904" loading="lazy" alt="Záložka heatmap: klávesnice v odstínech červené, nejslabší prst a seznam nejslabších znaků s nápovědou."></figure>
 
 <h3>trendy</h3>
-<p>Rychlost a přesnost v čase jako malé grafy, jeden sloupek za aktivní den, nejvýš za posledních 30 aktivních dní. Za každý den se bere medián. Řádek <code>celkem</code> obsahuje všechna kola kromě vstupního pohovoru a prohrané incidenty se nepočítají do rychlosti. Skupiny <code>písmena</code>, <code>diakritika</code>, <code>čísla</code>, <code>Shift</code> a <code>Option</code> se počítají z lekcí, podle kapitoly, do které lekce patří. Číslo vpravo je poslední hodnota.</p>
+<p>Rychlost a přesnost v čase jako malé grafy, jeden sloupek za aktivní den, nejvýš za posledních 30 aktivních dní. Za každý den se bere medián. Řádek <code>celkem</code> obsahuje všechna kola kromě vstupního pohovoru a prohrané incidenty se nepočítají do rychlosti. Skupiny <code>písmena</code>, <code>diakritika</code>, <code>čísla</code>, <code>Shift</code>, <code>Option</code> a <code>kód</code> se počítají z lekcí, podle kapitoly, do které lekce patří. Do skupiny <code>kód</code> patří kapitoly 11 a 12. Číslo vpravo je poslední hodnota.</p>
 <figure><img src="assets/trends.png" width="1488" height="904" loading="lazy" alt="Záložka trendy: sloupcové grafy rychlosti a přesnosti pro skupiny znaků."></figure>
 
 <h3>rekordy</h3>
@@ -472,7 +474,7 @@
 <pre class="block"><code>style = "editor"
 layout = "macos-czech-qwerty"
 update_check = true</code></pre>
-<p><code>style</code> může být <code>fosfor</code>, <code>editor</code> nebo <code>velin</code>. Statistiky se vedou zvlášť pro každé rozložení. Poškozený soubor aplikaci neshodí: tuipe ho odloží s koncovkou <code>.corrupt-1</code> a začne bez něj.</p>
+<p><code>style</code> může být <code>fosfor</code>, <code>editor</code> nebo <code>velin</code>. Statistiky se vedou zvlášť pro každé rozložení. Poškozený soubor aplikaci neshodí: tuipe ho odloží s koncovkou <code>.corrupt-1</code>, začne bez něj a na úvodní obrazovce řekne, co se stalo a kde odložený soubor leží. Hlášení zmizí po prvním stisku klávesy.</p>
 
 <h2 id="aktualizace">Aktualizace</h2>
 <pre class="block"><code>tuipe upgrade</code></pre>
@@ -493,7 +495,7 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <h2 id="potize">Časté potíže</h2>
 <dl class="faq">
 <dt>Nejde napsat { ani jiné znaky s Option</dt>
-<dd>Když tuipe během kola napíše <code>Terminál bere Option jako Alt. V nastavení to změňte.</code>, terminál posílá Alt místo znaku. Pomůže <a href="#option">nastavení Option</a>. Po změně terminál restartujte.</dd>
+<dd>Když tuipe během kola napíše <code>Option je Alt</code> a volbu vašeho terminálu, třeba <code>Option je Alt, nastavte: macos-option-as-alt = false</code>, terminál posílá Alt místo znaku. Pomůže <a href="#option">nastavení Option</a>. Po změně terminál restartujte.</dd>
 
 <dt>Místo { se píše něco jiného</dt>
 <dd>Zkontrolujte, že je v macOS aktivní vstupní zdroj <code>Czech – QWERTY</code> (v českém systému zřejmě <code>Česká – QWERTY</code>), ne varianta bez QWERTY, která je QWERTZ. tuipe vstupní zdroj nepřepíná a v základu zná jen rozložení Czech QWERTY.</dd>
