@@ -325,3 +325,31 @@ func TestIncidentsPerChapter(t *testing.T) {
 		}
 	}
 }
+
+func lessonByID(t *testing.T, id string) content.LessonDef {
+	t.Helper()
+	for _, ch := range load(t).Chapters {
+		for _, l := range ch.Lessons {
+			if l.ID == id {
+				return l
+			}
+		}
+	}
+	t.Fatalf("no lesson %s", id)
+	return content.LessonDef{}
+}
+
+// The last lesson of chapter 4 once asked for 45 WPM, more than any lesson up
+// to the code chapters, right after lessons at 28.
+func TestChapterFourEndsWithoutASpeedSpike(t *testing.T) {
+	if got, want := lessonByID(t, "ch04-09").Speed, [3]float64{20, 28, 36}; got != want {
+		t.Errorf("ch04-09 speeds = %v, want %v", got, want)
+	}
+}
+
+// b is a left-index key, see the layout's finger map.
+func TestLessonOnBNamesTheRightHand(t *testing.T) {
+	if title := lessonByID(t, "ch03-04").Title; !strings.Contains(title, "levým") {
+		t.Errorf("ch03-04 is titled %q, but b is typed with the left index finger", title)
+	}
+}

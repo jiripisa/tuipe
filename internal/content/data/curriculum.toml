@@ -72,7 +72,7 @@ lesson = [
   { id = "ch03-01", title = "V a M", focus = "vm", seed = 301, length = 120, speed = [14, 20, 26] },
   { id = "ch03-02", title = "C a N", focus = "cn", seed = 302, length = 120, speed = [14, 20, 26] },
   { id = "ch03-03", title = "X a Z", focus = "xz", seed = 303, length = 126, speed = [15, 21, 27] },
-  { id = "ch03-04", title = "B pravým ukazovákem", focus = "b", seed = 304, length = 126, speed = [15, 21, 27] },
+  { id = "ch03-04", title = "B levým ukazovákem", focus = "b", seed = 304, length = 126, speed = [15, 21, 27] },
   { id = "ch03-05", title = "Čárka a tečka", focus = ",.", seed = 305, length = 126, speed = [15, 21, 27] },
   { id = "ch03-06", title = "Dolní řada celá", focus = "zxcvbnm,.", seed = 306, length = 138, speed = [16, 23, 30] },
   { id = "ch03-07", title = "Celá abeceda", focus = "zxcvbnmqwertyuiop", seed = 307, length = 150, speed = [18, 25, 32] },
@@ -96,7 +96,7 @@ lesson = [
   { id = "ch04-06", title = "Vykřičník", focus = "!", seed = 406, length = 108, speed = [13, 18, 24] },
   { id = "ch04-07", title = "Věty s velkými písmeny", focus = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", seed = 407, length = 168, speed = [20, 28, 36] },
   { id = "ch04-08", title = "Interpunkce v praxi", focus = "-_:?!", seed = 408, length = 126, speed = [15, 21, 28] },
-  { id = "ch04-09", title = "Velká písmena v tempu", focus = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", seed = 409, length = 210, speed = [25, 35, 45] },
+  { id = "ch04-09", title = "Velká písmena v tempu", focus = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", seed = 409, length = 168, speed = [20, 28, 36] },
 ]
 
 [[chapter]]
