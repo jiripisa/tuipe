@@ -117,7 +117,8 @@ func TestCodeStageIsTwoLinesOfCode(t *testing.T) {
 	c, lib := setup(t)
 	for seed := int64(1); seed <= 100; seed++ {
 		text := placement.Stages(c, lib, seed)[5].Text
-		if strings.Count(text, "\n") != 1 || strings.HasPrefix(text, "//") {
+		first, second, _ := strings.Cut(text, "\n")
+		if strings.TrimSpace(first) == "" || strings.TrimSpace(second) == "" || strings.HasPrefix(text, "//") {
 			t.Fatalf("seed %d: code stage %q", seed, text)
 		}
 	}

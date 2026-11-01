@@ -250,7 +250,8 @@ func TestSkipCompletesWithoutStars(t *testing.T) {
 	s.Chars["a"] = &stats.Entry{Samples: 3, ErrorRate: 0.3} // weak evidence
 	s.Chars["s"] = &stats.Entry{Samples: 4, ErrorRate: 0.05}
 	s.Chars["d"] = &stats.Entry{Samples: 40, ErrorRate: 0.01, Mastery: stats.Automatic}
-	s.Chars["q"] = &stats.Entry{Samples: 2, ErrorRate: 0.9} // too few samples to judge
+	s.Chars["q"] = &stats.Entry{Samples: 2, ErrorRate: 0.9}   // too few samples to judge
+	s.Chars["j"] = &stats.Entry{Samples: 3, ErrorRate: 0.186} // wrong, wrong, right
 
 	c.ApplySkip(p, s, []string{"ch01", "ch02", "ch03"})
 
@@ -263,7 +264,7 @@ func TestSkipCompletesWithoutStars(t *testing.T) {
 		t.Errorf("skip granted stars: %v", p.Stars)
 	}
 	want := map[rune]stats.Mastery{
-		'a': stats.Learning, 's': stats.Solid, 'd': stats.Automatic, 'q': stats.Solid,
+		'a': stats.Learning, 'j': stats.Learning, 's': stats.Solid, 'd': stats.Automatic, 'q': stats.Solid,
 		'z': stats.Solid, 'ů': stats.Solid, ' ': stats.Solid,
 		'A': stats.NewChar, '1': stats.NewChar, // not in a skipped chapter
 	}

@@ -272,12 +272,13 @@ func turn(list []rune, n int) []rune {
 	return out
 }
 
-// snippets are the code snippets whose characters are all unlocked.
+// snippets are the code snippets whose characters are all unlocked and on the
+// layout.
 func (s State) snippets(chapterID string) []content.Snippet {
 	allowed := s.Curr.AllowedAt(chapterID)
 	var out []content.Snippet
 	for _, sn := range s.Lib.Snippets {
-		if !slices.ContainsFunc([]rune(sn.Text), func(r rune) bool { return !allowed(r) }) {
+		if !slices.ContainsFunc([]rune(sn.Text), func(r rune) bool { return !allowed(r) }) && s.canType(sn.Text) {
 			out = append(out, sn)
 		}
 	}
@@ -316,11 +317,17 @@ func (s State) incident() (Pick, bool) {
 // typable reports whether the layout can type every step of inc.
 func (s State) typable(inc content.Incident) bool {
 	for _, st := range inc.Steps {
-		if slices.ContainsFunc([]rune(st.Text), func(r rune) bool { return r != '\n' && !s.Curr.CanType(r) }) {
+		if !s.canType(st.Text) {
 			return false
 		}
 	}
 	return true
+}
+
+// canType reports whether the layout has every character of text. A newline is
+// Enter, which every layout has.
+func (s State) canType(text string) bool {
+	return !slices.ContainsFunc([]rune(text), func(r rune) bool { return r != '\n' && !s.Curr.CanType(r) })
 }
 
 // owedIncident is the incident of the current chapter once its lessons are

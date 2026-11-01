@@ -114,6 +114,11 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return h, nil
 	}
 	a.Banner = nil
+	// Midnight passed on this screen: the left Sprint is over and its menu row
+	// is gone, so the selection no longer means what is on the screen.
+	if r := a.Store.Profile().Resume; sprintResume(r) && r.Day != a.today() {
+		return NewHomeScreen(a), nil
+	}
 	entries := a.entries()
 	count := len(entries) + 1
 	switch k.String() {

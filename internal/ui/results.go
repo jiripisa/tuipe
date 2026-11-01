@@ -319,7 +319,12 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	}
 
 	// The window may be short: drop the blank rows, then the header, the old
-	// values and the notes, but keep the commit, the new values and the stars.
+	// values and the notes, but keep the commit, the new values and the outcome,
+	// which is the stars or, for a round without them, the first verdict line.
+	outcome := stars
+	if len(outcome) == 0 {
+		outcome = verdict[:min(1, len(verdict))]
+	}
 	rows := h - 3
 	label := ""
 	if l := a.chain.label(0); l != "" {
@@ -355,9 +360,9 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	if len(body) > rows {
 		style.Clipped("results: dropped the old values and notes")
 		body = append([]string{commit}, added...)
-		body = append(body, stars...)
+		body = append(body, outcome...)
 		if len(body) > rows {
-			body = append([]string{commit}, stars...)
+			body = append([]string{commit}, outcome...)
 		}
 	}
 	return style.Frame(st, w, h, text.AppName, strings.Join(body, "\n"), text.HintResults)

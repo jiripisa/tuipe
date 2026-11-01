@@ -180,7 +180,7 @@
 </tbody>
 </table>
 </div>
-<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. Například „Prostředníky“ chtějí 10, 15 a 20 WPM, „Velká písmena v tempu“ 20, 28 a 36 WPM. Každá ukázaná nápověda se počítá jako použitá a na výsledku to tuipe napíše: <code>nápověda použita: třetí hvězda není možná</code>. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte. Hvězdy mají jen lekce: drill, kód, test-out ani incident je neukazují, protože by je nikdo nedržel.</p>
+<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. Například „Prostředníky“ chtějí 10, 15 a 20 WPM, „Velká písmena v tempu“ 20, 28 a 36 WPM. Každá ukázaná nápověda se počítá jako použitá a na výsledku to tuipe napíše: <code>nápověda použita: třetí hvězda není možná</code>. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte. Na výsledku kola ukazují hvězdy jen lekce. Po drillu, kódu, test-outu ani incidentu je neuvidíte, protože by je nikdo nedržel. Jen <code>git log</code> ukazuje u každého kola, jak dopadlo.</p>
 
 <h3>Výsledek a skóre</h3>
 <p>Po kole vidíte výsledek jako <code>git diff</code> proti nejlepšímu předchozímu pokusu na stejném textu. U textu, který píšete poprvé, je místo <code>HEAD~1</code> nahoře <code>/dev/null</code>.</p>
@@ -269,7 +269,7 @@
 <p>Kapitola je hotová, když mají všechny její lekce aspoň jednu hvězdu a vyhrajete její závěrečný incident na libovolnou závažnost. Výjimkou je kapitola 0, ta žádný incident nemá. Když má kapitola všechny lekce s hvězdou, objeví se v seznamu Kariéry pod nimi řádek s dlužným incidentem. Nabídne ho i Rychlovka a najdete ho také v nabídce Incident v produkci. Výhra před dokončením lekcí se zapíše a kapitolu uzavře hvězda u poslední z nich, výsledek to oznámí.</p>
 <figure><img src="assets/career.png" width="1488" height="904" loading="lazy" alt="Obrazovka Kariéra: lekce s hvězdami, kapitola 12 a pod jejími lekcemi řádek test-out."></figure>
 <p>Enter na lekci ji spustí a po kole se vrátíte do seznamu, takže chybějící hvězdu můžete dohánět, jak dlouho chcete. Zamčená kapitola ukazuje jen test-out, odemčená ho má pod lekcemi. Kapitola 0 a hotové kapitoly test-out nemají.</p>
-<p>Test-out je jedno kolo bez nápovědy, které musíte zvládnout aspoň na ★★. Text obsahuje všechny znaky kapitoly a vzorek z každé kapitoly před ní, takže čím dál v kariéře, tím je delší. Test-out kapitoly 11 je skutečný kód, test-out kapitoly 12 je směs plná symbolů ze všech kapitol. Úspěch dokončí tuto kapitolu i všechny nedokončené před ní, bez hvězd. Když by test-out uzavřel víc kapitol, řádek to řekne předem, třeba <code>test-out: uzavře 5 kapitol naráz</code>, a výsledek napíše, kolik jich uzavřel. Neúspěch nic nezmění.</p>
+<p>Test-out je jedno kolo bez nápovědy, které musíte zvládnout aspoň na ★★. Text obsahuje všechny znaky kapitoly a vzorek z každé kapitoly před ní. Test-out kapitoly 11 je skutečný kód, test-out kapitoly 12 je směs plná symbolů ze všech kapitol. Tyhle dva jsou delší než ostatní. Úspěch dokončí tuto kapitolu i všechny nedokončené před ní, bez hvězd. Když by test-out uzavřel víc kapitol, řádek to řekne předem, třeba <code>test-out: uzavře 5 kapitol naráz</code>, a výsledek napíše, kolik jich uzavřel. Neúspěch nic nezmění.</p>
 
 <h3>Trénink</h3>
 <p>Když chcete trénovat něco konkrétního, vyberte si sami:</p>

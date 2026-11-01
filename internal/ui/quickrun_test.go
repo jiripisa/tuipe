@@ -3,6 +3,7 @@ package ui_test
 import (
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,6 +20,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/score"
+	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -1052,5 +1054,35 @@ func TestDrillOnALayoutThatLacksACharacterNeverAsksForIt(t *testing.T) {
 		if bad := b.Layout.Unresolved(spec.Text); len(bad) > 0 {
 			t.Fatalf("the drill asks for %q: %q", string(bad), spec.Text)
 		}
+	}
+}
+
+func TestCodeRoundOnALayoutThatLacksACharacterNeverAsksForIt(t *testing.T) {
+	_, st, _ := playApp(t)
+	writeUserLayout(t, st, withoutBraces(t))
+	b, _ := reopenFirstRunDone(t, st)
+	for _, ch := range b.Curr.Chapters() {
+		b.Curr.CompleteChapter(b.Store.Profile(), ch.ID)
+	}
+	snippets := map[string]string{}
+	for _, sn := range b.Lib.Snippets {
+		snippets[sn.ID] = sn.Text
+	}
+	code := 0
+	for i := range 4000 {
+		p := recommend.Next(recommend.State{
+			Curr: b.Curr, Lib: b.Lib, Profile: b.Store.Profile(), Stats: stats.New(),
+			RunCount: i, Rand: rand.New(rand.NewPCG(uint64(i), 1)), Now: b.Now(),
+		})
+		if p.Kind != recommend.Code {
+			continue
+		}
+		code++
+		if bad := b.Layout.Unresolved(strings.ReplaceAll(snippets[p.SnippetID], "\n", "")); len(bad) > 0 {
+			t.Fatalf("snippet %s asks for %q", p.SnippetID, string(bad))
+		}
+	}
+	if code == 0 {
+		t.Fatal("no code round was picked")
 	}
 }

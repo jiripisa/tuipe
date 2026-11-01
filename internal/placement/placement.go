@@ -130,8 +130,8 @@ func required(group []rune, seed int64) []rune {
 
 // codeText is the first two lines of a typable Go snippet: Enter is what the
 // code group adds, so one line would prove nothing. Snippets that open with a
-// comment or whose two lines run over 70 characters are passed over while
-// others are left.
+// comment, have a blank second line or whose two lines run over 70 characters
+// are passed over while others are left.
 func codeText(lib *content.Library, allowed func(rune) bool, seed int64) string {
 	var fits, typable []string
 	for _, sn := range lib.Snippets {
@@ -141,7 +141,8 @@ func codeText(lib *content.Library, allowed func(rune) bool, seed int64) string 
 		lines := strings.SplitN(sn.Text, "\n", 3)
 		text := strings.Join(lines[:min(2, len(lines))], "\n")
 		typable = append(typable, text)
-		if len([]rune(text)) <= codeMaxChars && !strings.HasPrefix(text, "//") {
+		twoLines := len(lines) > 1 && strings.TrimSpace(lines[1]) != ""
+		if twoLines && len([]rune(text)) <= codeMaxChars && !strings.HasPrefix(text, "//") {
 			fits = append(fits, text)
 		}
 	}

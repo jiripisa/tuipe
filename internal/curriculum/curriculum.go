@@ -59,7 +59,7 @@ const (
 	seedMix       = 0x9e3779b97f4a7c15
 	// Skipped characters that were typed badly enough in the test stay learning.
 	weakMinSamples = 3
-	weakErrorRate  = 0.2
+	weakErrorRate  = 0.15
 )
 
 // Curriculum is the chapter list resolved against a layout.

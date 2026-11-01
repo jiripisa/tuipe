@@ -866,3 +866,12 @@ func TestEntriesAfterTheEndSprintRowStillOpen(t *testing.T) {
 	openEntry(a, homeCareer+1) // one row lower with the extra row
 	wantScreen(t, a, "career")
 }
+
+func TestSprintLeftOverMidnightEndsOnTheNextKeyOnHome(t *testing.T) {
+	a, st, clk := playApp(t)
+	leaveSprintAfterOneRound(t, a, st, clk)
+	a.Update(up) // the last row, which is gone once the extra row is
+	clk.advance(24 * time.Hour)
+	a.Update(enter)
+	wantScreen(t, a, "retro")
+}

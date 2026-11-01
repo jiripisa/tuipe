@@ -870,3 +870,16 @@ func view(a *ui.App) string {
 	}
 	return strings.Join(out, "\n")
 }
+
+func TestTestOutVerdictStaysInAShortWindow(t *testing.T) {
+	a, _, clk, _ := playAppAt(t)
+	tall(a)
+	openTestOut(t, a, a.Curr.Chapters()[1].ID)
+	typeKeys(a, clk, -1)
+	for _, h := range []int{8, 9} {
+		a.Update(tea.WindowSizeMsg{Width: 60, Height: h})
+		if !strings.Contains(view(a), text.TestOutPassed(2)) {
+			t.Errorf("height %d shows no verdict:\n%s", h, view(a))
+		}
+	}
+}
