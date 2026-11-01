@@ -29,17 +29,17 @@ func expectedSecs(wpm, mult float64, chars int) float64 {
 }
 
 func TestPaceMultipliers(t *testing.T) {
-	// Finishing exactly at the required pace with no errors burns 60 % of the budget.
+	// Finishing exactly at the required pace with no errors burns half of the budget.
 	for sev, mult := range map[incident.Severity]float64{incident.SEV3: 1.00, incident.SEV2: 1.05, incident.SEV1: 1.15} {
 		p := incident.NewParams(sev, 40, 200)
 		used := p.BurnPerSec * expectedSecs(40, mult, 200)
-		near(t, used, 0.6*(p.Start-p.SLO))
+		near(t, used, 0.5*(p.Start-p.SLO))
 	}
 }
 
 func TestErrorsBurnBudget(t *testing.T) {
-	// Up to 150 characters the budget is 20 errors.
-	for _, chars := range []int{50, 150} {
+	// Up to 120 characters the budget is 20 errors.
+	for _, chars := range []int{50, 120} {
 		m := incident.NewMeter(incident.NewParams(incident.SEV3, 40, chars))
 		for i := 0; i < 19; i++ {
 			m.Error()
@@ -48,9 +48,9 @@ func TestErrorsBurnBudget(t *testing.T) {
 		m.Error()
 		require(t, m.Breached())
 	}
-	// A longer incident forgives proportionally more: 40 errors at 300 characters.
+	// A longer incident forgives proportionally more: 50 errors at 300 characters.
 	m := incident.NewMeter(incident.NewParams(incident.SEV3, 40, 300))
-	for i := 0; i < 39; i++ {
+	for i := 0; i < 49; i++ {
 		m.Error()
 	}
 	require(t, !m.Breached())
@@ -58,32 +58,47 @@ func TestErrorsBurnBudget(t *testing.T) {
 	require(t, m.Breached())
 }
 
-// The longest incident, at the player's pace and 95 % accuracy, can be won.
-func TestLongestIncidentIsWinnableAtNinetyFivePercent(t *testing.T) {
+func longestIncident(t *testing.T) int {
+	t.Helper()
 	lib, err := content.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
+	longest := 0
 	for _, inc := range lib.Incidents {
-		if inc.ID != "INC-1012" {
-			continue
-		}
 		var parts []string
 		for _, s := range inc.Steps {
 			parts = append(parts, s.Text)
 		}
-		chars := len([]rune(strings.Join(parts, "\n")))
-		p := incident.NewParams(incident.SEV3, 40, chars)
-		m := incident.NewMeter(p)
-		m.Advance(time.Duration(expectedSecs(40, 1.0, chars) * float64(time.Second)))
-		wrong := int(float64(chars) * 0.05 / 0.95) // 5 % of all key presses
-		for i := 0; i < wrong; i++ {
-			m.Error()
-		}
-		require(t, !m.Breached())
-		return
+		longest = max(longest, len([]rune(strings.Join(parts, "\n"))))
 	}
-	t.Fatal("INC-1012 not found")
+	return longest
+}
+
+// meterAfter is the meter of a typist at the usual pace who gets the given
+// share of the characters wrong once.
+func meterAfter(chars int, miss float64) *incident.Meter {
+	m := incident.NewMeter(incident.NewParams(incident.SEV3, 40, chars))
+	m.Advance(time.Duration(expectedSecs(40, 1.0, chars) * float64(time.Second)))
+	for range int(float64(chars) * miss) {
+		m.Error()
+	}
+	return m
+}
+
+// The accuracy of one star is the line: a 92 % typist at the usual pace survives
+// the longest incident, narrowly, and a 90 % one does not.
+func TestLongestIncidentIsWinnableAtTheAccuracyOfOneStar(t *testing.T) {
+	chars := longestIncident(t)
+	if chars < 200 {
+		t.Fatalf("the longest incident has %d characters", chars)
+	}
+	m := meterAfter(chars, 0.08)
+	require(t, !m.Breached())
+	if left := m.SLA() - m.SLO(); left > 0.1 {
+		t.Errorf("%.2f of the budget left at 92 %%, want a narrow win", left)
+	}
+	require(t, meterAfter(chars, 0.10).Breached())
 }
 
 func TestSlowPlayerBreachesAtTwiceTheTime(t *testing.T) {
@@ -91,7 +106,7 @@ func TestSlowPlayerBreachesAtTwiceTheTime(t *testing.T) {
 	secs := expectedSecs(40, 1.0, 200)
 
 	m := incident.NewMeter(p)
-	m.Advance(time.Duration(secs * float64(time.Second)))
+	m.Advance(time.Duration(1.9 * secs * float64(time.Second)))
 	require(t, !m.Breached())
 
 	m = incident.NewMeter(p)

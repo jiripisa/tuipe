@@ -860,3 +860,56 @@ func TestLongPromptIsNotCutAtSixtyByEighteen(t *testing.T) {
 		})
 	}
 }
+
+func TestLostBossLeadsToADrillThenTheBossAgain(t *testing.T) {
+	a, st, clk := playApp(t)
+	boss, inc := bossChapter(t, a)
+	readyForBoss(a, st, boss)
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	a.Update(enter)
+	wantScreen(t, a, "severity")
+	a.Update(enter)
+	wantScreen(t, a, "round")
+	typeKeys(a, clk, 3)
+	breachByErrors(a)
+	wantScreen(t, a, "incident-results")
+	clk.advance(time.Second)
+	a.Update(enter)
+	wantScreen(t, a, "round")
+	if k := ui.RoundSpec(a).Kind; k != play.KindDrill {
+		t.Fatalf("after the loss: round kind %v, want a drill on the weakest characters", k)
+	}
+	typeKeys(a, clk, -1)
+	wantScreen(t, a, "results")
+	a.Update(enter)
+	wantScreen(t, a, "severity")
+	wantText(t, a, inc.ID)
+}
+
+// The typist the tuning is for: 92 %, the accuracy of one star, at the usual
+// pace, on the longest boss.
+func TestTypistAtTheOneStarAccuracyWinsTheLongestBoss(t *testing.T) {
+	a, st, clk := typist(t, 40, 12)
+	_, inc := bossAt(t, a, 12)
+	startIncident(t, a, inc, incident.SEV3)
+	keys := ui.RoundKeys(a)
+	gap := time.Duration(12.0 / 40 * float64(time.Second))
+	misses := 0
+	for i, r := range keys {
+		clk.advance(gap)
+		if i%25 == 12 || i%25 == 24 { // 2 keys in 25 are wrong first: 92 %
+			misses++
+			a.Update(wrongFor(r))
+		}
+		a.Update(key(r))
+	}
+	wantScreen(t, a, "incident-results")
+	runs, _ := st.Runs()
+	last := runs[len(runs)-1]
+	if last.Incident == nil || !last.Incident.Won {
+		t.Fatalf("%d misses in %d keys lost the incident: %+v", misses, len(keys), last.Incident)
+	}
+	if last.Accuracy > 0.93 {
+		t.Errorf("accuracy = %.3f, the test is about 92 %%", last.Accuracy)
+	}
+}

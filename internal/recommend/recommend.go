@@ -48,6 +48,7 @@ type State struct {
 	Rand     *rand.Rand
 	Now      time.Time // ages the characters; a Sprint passes the time it began
 	WPM      float64   // the player's pace for drill length, see PaceWPM; a Sprint passes the one it began with
+	LostBoss bool      // the last run was a lost incident
 }
 
 const (
@@ -75,12 +76,16 @@ const (
 // is unlocked. Otherwise it is mostly the next lesson, then drills on weak
 // characters, then code from chapter 11 on. A lesson that is due wins over a
 // drill while nothing is known to drill. When the current chapter's lessons are
-// done and its incident is owed, that incident is the only way forward.
+// done and its incident is owed, that incident is the only way forward, with a
+// drill on the weakest characters after each loss.
 func Next(s State) Pick {
 	cur := s.Curr.CurrentChapter(s.Profile)
 	lesson, hasLesson := s.Curr.NextLesson(s.Profile)
 	if !hasLesson {
 		if p, ok := s.owedIncident(); ok {
+			if s.LostBoss { // the way off a losing streak: train, then try again
+				return s.drill(cur.ID)
+			}
 			return p
 		}
 	}

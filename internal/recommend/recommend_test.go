@@ -537,3 +537,32 @@ func TestWithNoLessonLeftADrillComesEvenWithoutData(t *testing.T) {
 	}
 	eq(t, seen[recommend.Drill], true)
 }
+
+func TestAfterALostBossOneDrillThenTheBossAgain(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(2)
+	f.weak("qw")
+	ch := f.curr.Chapters()[2]
+	for _, l := range ch.Lessons {
+		f.prof.Stars[l.ID] = 1
+	}
+	boss, _ := f.curr.IncidentDef(ch.ID)
+	for seed := uint64(1); seed < 20; seed++ {
+		s := f.state(int(seed), seed)
+		s.LostBoss = true
+		p := recommend.Next(s)
+		eq(t, p.Kind, recommend.Drill)
+		eq(t, slices.Contains(p.Focus, 'q') && slices.Contains(p.Focus, 'w'), true)
+		s.LostBoss = false
+		p = recommend.Next(s)
+		eq(t, p.Kind, recommend.Incident)
+		eq(t, p.IncidentID, boss.ID)
+	}
+}
+
+func TestLostBossLeavesARoundWithALessonDueAlone(t *testing.T) {
+	f := newFixture(t) // a lesson is due: nothing is owed, so nothing changes
+	s := f.state(0, 3)
+	s.LostBoss = true
+	eq(t, recommend.Next(s).Kind, recommend.Lesson)
+}

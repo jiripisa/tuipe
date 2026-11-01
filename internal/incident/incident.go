@@ -40,9 +40,9 @@ func (s Severity) paceMultiplier() float64 {
 const (
 	startSLA       = 100.0
 	sloSLA         = 99.0
-	paceBudgetUse  = 0.6  // share of the budget burnt by finishing exactly at pace
+	paceBudgetUse  = 0.5  // share of the budget burnt by finishing exactly at pace
 	errorBudgetUse = 0.05 // share of the budget burnt by one error in a short incident
-	errorsPerText  = 7.5  // one error burns at most 7.5 / chars of the budget, so a long text allows more errors
+	errorsPerText  = 6.0  // one error burns at most 6 / chars of the budget, so that 92 % at pace survives any length
 	minBaseWPM     = 15.0
 	charsPerWord   = 5.0
 	epsilon        = 1e-9

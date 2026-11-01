@@ -86,6 +86,7 @@ func (a *App) liveState(rng *rand.Rand) recommend.State {
 	return recommend.State{
 		Curr: a.Curr, Lib: a.Lib, Profile: a.Store.Profile(), Stats: a.stats(),
 		RunCount: a.runCadence(), Rand: rng, Now: a.Now(), WPM: recommend.PaceWPM(runs),
+		LostBoss: len(runs) > 0 && lostIncident(runs[len(runs)-1]),
 	}
 }
 
