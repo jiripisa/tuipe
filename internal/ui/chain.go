@@ -62,7 +62,7 @@ func NewChain(a *App, kind string, picks []recommend.Pick, minutes int) Screen {
 	switch kind {
 	case kindStandup:
 		if c.picks == nil {
-			c.picks = recommend.Standup(a.planState(a.Store.Profile(), a.stats(), seededRand(a.Now().UnixNano())))
+			c.picks = recommend.Standup(a.planState(a.Store.Profile(), a.stats(), seededRand(a.Now().UnixNano()), a.Now()))
 		}
 	case kindSprint:
 		c.state = a.newSprintState(minutes)
@@ -79,8 +79,8 @@ func NewChain(a *App, kind string, picks []recommend.Pick, minutes int) Screen {
 	return c.screen(a)
 }
 
-func (a *App) planState(p *store.Profile, st *stats.Stats, rng *rand.Rand) recommend.State {
-	return recommend.State{Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: st, RunCount: a.runCadence(), Rand: rng}
+func (a *App) planState(p *store.Profile, st *stats.Stats, rng *rand.Rand, now time.Time) recommend.State {
+	return recommend.State{Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: st, RunCount: a.runCadence(), Rand: rng, Now: now}
 }
 
 // newSprintState snapshots what the plan and the Retro need: the character
@@ -109,7 +109,8 @@ func (a *App) sprintPlan(s *store.SprintState) []recommend.Pick {
 		st.Chars[k] = &e
 	}
 	prof := &store.Profile{Stars: s.Stars, Completed: s.Completed, IncidentBest: s.IncidentBest}
-	return recommend.Sprint(a.planState(prof, st, seededRand(s.Seed)), s.Minutes)
+	started, _ := time.Parse(time.RFC3339Nano, s.Started) // the start, not today: the plan must not move
+	return recommend.Sprint(a.planState(prof, st, seededRand(s.Seed), started), s.Minutes)
 }
 
 // current is the index of the round to play. Once the budget of a Sprint is

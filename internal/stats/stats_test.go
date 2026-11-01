@@ -204,3 +204,46 @@ func TestAfterPauseKeystrokeGivesNoLatencySample(t *testing.T) {
 	eq(t, e.Samples, 4) // the error sample is kept
 	eq(t, e.LatencyMs, 100.0)
 }
+
+func TestStalestCharsOldestFirstNeverSeenFirstOfAll(t *testing.T) {
+	s := stats.New()
+	s.Chars["a"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-time.Hour)}
+	s.Chars["b"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-30 * 24 * time.Hour)}
+	s.Chars["c"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-48 * time.Hour)}
+	s.SetMastery('d', stats.Solid) // skipped by placement, never typed
+	got := s.StalestChars(5, []rune("abcde"), now)
+	if string(got) != "debca" {
+		t.Errorf("order = %q, want the never typed d and e, then b, c, a", string(got))
+	}
+	if got := s.StalestChars(2, []rune("abcde"), now); string(got) != "de" {
+		t.Errorf("first two = %q", string(got))
+	}
+	if got := s.StalestChars(2, []rune("ac"), now); string(got) != "ca" {
+		t.Errorf("only allowed characters count, got %q", string(got))
+	}
+	eq(t, len(s.StalestChars(0, []rune("abc"), now)), 0)
+}
+
+func TestStalestCharsTreatsAFutureDateAsJustSeen(t *testing.T) {
+	s := stats.New()
+	s.Chars["a"] = &stats.Entry{Samples: 50, LastSeen: now.Add(24 * time.Hour)} // the clock was wrong
+	s.Chars["b"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-time.Hour)}
+	eq(t, string(s.StalestChars(2, []rune("ab"), now)), "ba")
+}
+
+func TestMasteryAtDecaysWhileUnseen(t *testing.T) {
+	text, log := fastClean(strings.Repeat("a", 100))
+	s := stats.New()
+	s.Record(text, log, now)
+	eq(t, s.MasteryAt('a', now.Add(14*24*time.Hour)), stats.Automatic)
+	eq(t, s.MasteryAt('a', now.Add(14*24*time.Hour+time.Minute)), stats.Solid)
+	eq(t, s.MasteryAt('a', now.Add(29*24*time.Hour)), stats.Learning)
+	eq(t, s.MasteryOf('a'), stats.Automatic) // reading changes nothing
+	eq(t, s.MasteryAt('z', now), stats.NewChar)
+}
+
+func TestMasteryAtKeepsASkippedCharacterThatWasNeverTyped(t *testing.T) {
+	s := stats.New()
+	s.SetMastery('x', stats.Solid)
+	eq(t, s.MasteryAt('x', now.Add(365*24*time.Hour)), stats.Solid)
+}

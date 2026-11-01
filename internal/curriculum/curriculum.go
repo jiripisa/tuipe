@@ -210,6 +210,21 @@ func (c *Curriculum) AllowedAt(chapterID string) func(rune) bool {
 	return func(r rune) bool { return set[r] }
 }
 
+// UnlockedAt lists the keys a drill can ask for at the end of a chapter, in the
+// order the chapters teach them: unlocked, typable, neither space nor Enter. An
+// unknown chapter unlocks nothing.
+func (c *Curriculum) UnlockedAt(chapterID string) []rune {
+	i, ok := c.index[chapterID]
+	if !ok {
+		return nil
+	}
+	var sb strings.Builder
+	for _, ch := range c.raw[:i+1] {
+		sb.WriteString(ch.Introduces + ch.Allowed)
+	}
+	return c.keys(sb.String())
+}
+
 // LessonText returns the fixed text of a lesson.
 func (c *Curriculum) LessonText(lessonID string) (string, error) {
 	if text, ok := c.texts[lessonID]; ok {

@@ -3,6 +3,8 @@
 package stats
 
 import (
+	"cmp"
+	"slices"
 	"sort"
 	"time"
 	"unicode/utf8"
@@ -167,6 +169,26 @@ func (s *Stats) MasteryOf(r rune) Mastery {
 	return NewChar
 }
 
+// MasteryAt is the mastery of r as it reads at now: one level lower for every
+// 14 days the character has not been typed, so hints come back while it fades.
+// It only reads. A character that was never typed, such as one skipped by the
+// placement test, has nothing to fade from and keeps its level.
+func (s *Stats) MasteryAt(r rune, now time.Time) Mastery {
+	e := s.Chars[string(r)]
+	if e == nil {
+		return NewChar
+	}
+	if e.LastSeen.IsZero() {
+		return e.Mastery
+	}
+	age := now.Sub(e.LastSeen)
+	if age <= staleAfter {
+		return e.Mastery
+	}
+	levels := int((age - 1) / staleAfter)
+	return max(e.Mastery-Mastery(levels), NewChar)
+}
+
 // SetMastery overrides the mastery of r.
 func (s *Stats) SetMastery(r rune, m Mastery) {
 	entry(&s.Chars, string(r)).Mastery = m
@@ -216,6 +238,35 @@ func (s *Stats) WeakestChars(n int, allowed func(rune) bool) []rune {
 		out[i], _ = utf8.DecodeRuneInString(k)
 	}
 	return out
+}
+
+// StalestChars returns up to n characters of allowed, the longest unseen first.
+// Characters that were never typed come first of all, in the order of allowed.
+// A last-seen date after now, from a clock that was wrong, counts as now.
+func (s *Stats) StalestChars(n int, allowed []rune, now time.Time) []rune {
+	if n <= 0 {
+		return nil
+	}
+	out := slices.Clone(allowed)
+	age := func(r rune) (never bool, d time.Duration) {
+		e := s.Chars[string(r)]
+		if e == nil || e.LastSeen.IsZero() {
+			return true, 0
+		}
+		return false, max(now.Sub(e.LastSeen), 0)
+	}
+	slices.SortStableFunc(out, func(a, b rune) int {
+		neverA, ageA := age(a)
+		neverB, ageB := age(b)
+		switch {
+		case neverA != neverB && neverA:
+			return -1
+		case neverA != neverB:
+			return 1
+		}
+		return cmp.Compare(ageB, ageA)
+	})
+	return out[:min(n, len(out))]
 }
 
 // WeakestBigrams returns up to n bigrams whose both characters are allowed, weakest first.

@@ -4,7 +4,9 @@ import (
 	"math"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/curriculum"
@@ -72,13 +74,15 @@ func (f *fixture) completeBefore(number int) {
 func (f *fixture) state(runCount int, seed uint64) recommend.State {
 	return recommend.State{
 		Curr: f.curr, Lib: f.lib, Profile: f.prof, Stats: f.st,
-		RunCount: runCount, Rand: rand.New(rand.NewPCG(seed, 1)),
+		RunCount: runCount, Rand: rand.New(rand.NewPCG(seed, 1)), Now: fixtureNow,
 	}
 }
 
+var fixtureNow = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+
 func (f *fixture) weak(chars string) {
 	for _, r := range chars {
-		f.st.Chars[string(r)] = &stats.Entry{Samples: 20, ErrorRate: 0.4, LatencyMs: 600}
+		f.st.Chars[string(r)] = &stats.Entry{Samples: 20, ErrorRate: 0.4, LatencyMs: 600, LastSeen: fixtureNow}
 	}
 }
 
@@ -221,7 +225,9 @@ func TestDrillFocusIsWeakAllowedChars(t *testing.T) {
 	s := f.state(0, 2)
 	for i := 0; i < 200; i++ {
 		if p := recommend.Next(s); p.Kind == recommend.Drill {
-			eq(t, slices.Equal(p.Focus, []rune{'j'}), true)
+			eq(t, slices.Contains(p.Focus, 'j'), true)
+			eq(t, slices.Contains(p.Focus, 'ž'), false)
+			eq(t, len(p.Focus) <= 5, true)
 			return
 		}
 	}
@@ -260,12 +266,14 @@ func TestStandupFiveRoundsOnWeakChars(t *testing.T) {
 	seeds := map[int64]bool{}
 	for _, p := range picks {
 		eq(t, p.Kind, recommend.Drill)
-		if len(p.Focus) == 0 {
-			t.Fatal("empty focus")
-		}
+		eq(t, len(p.Focus), 5)
+		weak := 0
 		for _, r := range p.Focus {
-			eq(t, r == 'j' || r == 'f' || r == 'k', true)
+			if r == 'j' || r == 'f' || r == 'k' {
+				weak++
+			}
 		}
+		eq(t, weak, 3) // the two other slots belong to the stalest characters
 		seeds[p.Seed] = true
 	}
 	eq(t, len(seeds), 5)
@@ -365,5 +373,78 @@ func TestEmptyProfileDoesNotPanic(t *testing.T) {
 		picks := recommend.Sprint(s, minutes)
 		eq(t, picks[0].Kind, recommend.Drill)
 		eq(t, picks[len(picks)-1].Kind, recommend.Drill) // an empty profile owes no incident yet
+	}
+}
+
+// seen marks every character as typed long ago, except that chars are older.
+func (f *fixture) seen(unlocked []rune, at time.Time) {
+	for _, r := range unlocked {
+		f.st.Chars[string(r)] = &stats.Entry{Samples: 50, ErrorRate: 0.01, LatencyMs: 200, LastSeen: at}
+	}
+}
+
+func TestDrillReservesSlotsForTheStalestCharacters(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(99)
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	f.seen(f.curr.UnlockedAt("ch12"), now.Add(-time.Hour))
+	f.weak("qwertyu") // more weak characters than a drill has room for
+	for _, r := range "qwertyu" {
+		f.st.Chars[string(r)].LastSeen = now.Add(-time.Minute)
+	}
+	f.st.Chars["§"].LastSeen = now.Add(-40 * 24 * time.Hour)
+	f.st.Chars["ˇ"].LastSeen = now.Add(-30 * 24 * time.Hour)
+	s := f.state(0, 2)
+	s.Now = now
+	picks := recommend.Standup(s)
+	first := picks[0].Focus
+	eq(t, len(first), 5)
+	eq(t, slices.Contains(first, '§') && slices.Contains(first, 'ˇ'), true)
+	weak := 0
+	for _, r := range first {
+		if strings.ContainsRune("qwertyu", r) {
+			weak++
+		}
+	}
+	eq(t, weak, 3)
+}
+
+// The statistics do not move while a plan is made, so without rotation every
+// drill of a Standup would reserve the same two characters.
+func TestPlannedDrillsTakeTurnsWithTheStalest(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(99)
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	s := f.state(0, 2)
+	s.Now = now
+	covered := map[rune]bool{}
+	for _, p := range recommend.Standup(s) {
+		for _, r := range p.Focus {
+			if covered[r] {
+				t.Fatalf("%q is drilled twice in one Standup", r)
+			}
+			covered[r] = true
+		}
+	}
+	eq(t, len(covered) >= 10, true)
+	plan := recommend.Sprint(s, 30)
+	sprint := map[rune]bool{}
+	for _, p := range plan {
+		for _, r := range p.Focus {
+			sprint[r] = true
+		}
+	}
+	eq(t, len(sprint) >= 10, true)
+}
+
+func TestDrillFocusNeverHoldsSpaceOrEnter(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(99)
+	f.weak(" \nab")
+	for i := range 20 {
+		s := f.state(0, uint64(i))
+		for _, p := range recommend.Standup(s) {
+			eq(t, slices.Contains(p.Focus, ' ') || slices.Contains(p.Focus, '\n'), false)
+		}
 	}
 }

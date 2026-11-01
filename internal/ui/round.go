@@ -29,6 +29,7 @@ const (
 	sampleEvery      = time.Second // throughput sample spacing, in active time
 	maxSamples       = 30
 	paceFallbackMs   = 400.0 // pace ghost speed for characters without samples
+	focusRepeats     = 3     // times a drill shows each of its focus characters
 	hintsOffChapter  = 12    // the chapter that tests without hints
 	runIDLen         = 7
 	dateLayout       = "2006-01-02"
@@ -117,9 +118,9 @@ func (a *App) codeSpec(id string) (play.Spec, error) {
 // drillSpec generates the text and races a pace ghost computed from the user's timing.
 func (a *App) drillSpec(p recommend.Pick) play.Spec {
 	cur := a.Curr.CurrentChapter(a.Store.Profile())
-	txt := generate.Drill(a.Lib, generate.Input{
+	txt := generate.Cover(a.Lib, generate.Input{
 		Focus: p.Focus, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed,
-	})
+	}, p.Focus, focusRepeats)
 	return play.Spec{
 		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,
 		Targets:     a.chapterTargets(),
@@ -156,7 +157,7 @@ func (a *App) recommended() recommend.Pick {
 	seed := uint64(a.Now().UnixNano())
 	return recommend.Next(recommend.State{
 		Curr: a.Curr, Lib: a.Lib, Profile: a.Store.Profile(), Stats: a.stats(),
-		RunCount: a.runCadence(), Rand: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)),
+		RunCount: a.runCadence(), Rand: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)), Now: a.Now(),
 	})
 }
 

@@ -813,3 +813,25 @@ func TestTestOutOnALayoutWithoutACharacterLeavesItOut(t *testing.T) {
 		t.Errorf("untypable %q in %q", string(bad), text)
 	}
 }
+
+func TestUnlockedAtListsTheDrillableKeys(t *testing.T) {
+	c := curr(t)
+	if got := string(c.UnlockedAt("ch00")); got != "fj" {
+		t.Errorf("ch00 = %q", got)
+	}
+	got := string(c.UnlockedAt("ch12"))
+	for _, r := range "aZěŮ7{§ˇ" {
+		if !strings.ContainsRune(got, r) {
+			t.Errorf("ch12 lacks %q", r)
+		}
+	}
+	if strings.ContainsAny(got, " \n") {
+		t.Errorf("space or Enter is no drill key: %q", got)
+	}
+	if strings.ContainsRune(string(c.UnlockedAt("ch04")), 'ě') {
+		t.Error("ě is not unlocked in ch04")
+	}
+	if c.UnlockedAt("nope") != nil {
+		t.Error("an unknown chapter unlocks nothing")
+	}
+}

@@ -705,3 +705,23 @@ func TestFirstKeyEndsTheGraceWindow(t *testing.T) {
 	s.Tick(at(7000)) // 5.8 s after the key: the normal idle rule applies again
 	eq(t, s.Frame(at(7000)).Paused, true)
 }
+
+func TestHintsReadMasteryDecayedByTheClock(t *testing.T) {
+	automatic := func(lastSeen time.Time) *stats.Stats {
+		s := stats.New()
+		s.Chars["a"] = &stats.Entry{Mastery: stats.Automatic, Samples: 100, LastSeen: lastSeen}
+		return s
+	}
+	hintAfterHesitating := func(st *stats.Stats) *play.HintInfo {
+		s := play.New(play.Spec{Kind: play.KindDrill, Text: "aa"}, czech(t), st, true)
+		s.Tick(at(0))
+		s.Tick(at(2100))
+		return s.Frame(at(2100)).Hint
+	}
+	if h := hintAfterHesitating(automatic(t0.Add(-13 * 24 * time.Hour))); h != nil {
+		t.Errorf("a fresh Automatic character shows no hint on hesitation, got %+v", h)
+	}
+	if h := hintAfterHesitating(automatic(t0.Add(-15 * 24 * time.Hour))); h == nil {
+		t.Error("an Automatic character unseen for 15 days reads as Solid and hints after 2 s")
+	}
+}

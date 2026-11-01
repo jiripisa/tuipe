@@ -587,3 +587,54 @@ func TestEveryHomeEntryOpensAScreen(t *testing.T) {
 		}
 	}
 }
+
+// ownerSymbols is the list the owner gave in section 1 of the spec.
+const ownerSymbols = "><+@#$~^&*{}°=%'ˇ/[()]\";§!`¨-_.:,?\\|"
+
+// playQuickRuns plays n rounds of the quick run from the home screen, typing
+// cleanly, and counts the keys it was asked for.
+func playQuickRuns(t *testing.T, a *ui.App, clk *clock, n int, typed map[rune]int) {
+	t.Helper()
+	for played := 0; played < n; {
+		switch ui.ScreenName(a) {
+		case "home", "severity", "results":
+			a.Update(enter)
+		case "incident-results":
+			clk.advance(time.Second)
+			a.Update(enter)
+		case "round":
+			for _, r := range ui.RoundKeys(a) {
+				typed[r]++
+				clk.advance(150 * time.Millisecond)
+				a.Update(key(r))
+			}
+			played++
+		default:
+			t.Fatalf("stuck on %s:\n%s", ui.ScreenName(a), screen(a))
+		}
+	}
+}
+
+// A user past the end of the curriculum plays a few quick runs a day for three
+// months. Rare symbols must keep coming back, however good the rest gets.
+func TestNinetyDaysKeepEveryUnlockedSymbolInTraining(t *testing.T) {
+	a, st, clk := playApp(t)
+	p := st.Profile()
+	var all []string
+	for _, ch := range a.Curr.Chapters() {
+		all = append(all, ch.ID)
+	}
+	a.Curr.ApplySkip(p, ui.StatsOf(a), all)
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	typed := map[rune]int{}
+	for range 90 {
+		playQuickRuns(t, a, clk, 4, typed)
+		ui.SetScreen(a, ui.NewHomeScreen(a))
+		clk.advance(24 * time.Hour)
+	}
+	for _, r := range ownerSymbols {
+		if typed[r] < 8 {
+			t.Errorf("%q was typed %d times in 90 days, want it to keep coming back", r, typed[r])
+		}
+	}
+}

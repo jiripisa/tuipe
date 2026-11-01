@@ -7,6 +7,7 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/recommend"
+	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 )
 
@@ -154,3 +155,6 @@ func (e menuEntry) Label() string { return e.label }
 
 // Centre places a block of text in the middle of a w × h area.
 func Centre(s string, w, h int) string { return centre(s, w, h) }
+
+// StatsOf returns the character statistics of the active layout.
+func StatsOf(a *App) *stats.Stats { return a.stats() }

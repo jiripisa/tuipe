@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"sort"
+	"time"
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/curriculum"
@@ -43,12 +44,14 @@ type State struct {
 	Stats    *stats.Stats
 	RunCount int // finished rounds so far
 	Rand     *rand.Rand
+	Now      time.Time // ages the characters; a Sprint passes the time it began
 }
 
 const (
 	incidentEvery  = 8  // every 8th run is an incident
 	codeChapter    = 11 // code is recommended from this chapter on
-	focusChars     = 5  // weak characters a drill focuses on
+	focusChars     = 5  // characters a drill focuses on
+	staleSlots     = 2  // of those, kept for the characters unseen the longest
 	roundSeconds   = 75 // budget of one round in a Sprint
 	standupRounds  = 5
 	baseWPMWindow  = 20
@@ -97,12 +100,12 @@ func Next(s State) Pick {
 }
 
 // Standup returns the 5 rounds of the daily standup: drills on the weakest
-// characters, each with its own text.
+// characters and the stalest ones, each with its own text.
 func Standup(s State) []Pick {
 	cur := s.Curr.CurrentChapter(s.Profile)
 	picks := make([]Pick, standupRounds)
 	for i := range picks {
-		picks[i] = s.drill(cur.ID)
+		picks[i] = s.drillAt(cur.ID, i)
 	}
 	return picks
 }
@@ -127,8 +130,13 @@ func Sprint(s State, minutes int) []Pick {
 	warm += rounds - warm - cool - code - 1 - nLessons
 
 	var picks []Pick
+	drills := 0
+	drill := func() Pick {
+		drills++
+		return s.drillAt(cur.ID, drills-1)
+	}
 	for i := 0; i < warm; i++ {
-		picks = append(picks, s.drill(cur.ID))
+		picks = append(picks, drill())
 	}
 	for _, id := range lessons[:nLessons] {
 		picks = append(picks, Pick{Kind: Lesson, LessonID: id, Seed: s.seed()})
@@ -137,14 +145,14 @@ func Sprint(s State, minutes int) []Pick {
 		picks = append(picks, s.code(cur.ID))
 	}
 	for i := 0; i < cool; i++ {
-		picks = append(picks, s.drill(cur.ID))
+		picks = append(picks, drill())
 	}
 	finale, ok := s.owedIncident()
 	if !ok {
 		finale, ok = s.incident()
 	}
 	if !ok {
-		finale = s.drill(cur.ID)
+		finale = drill()
 	}
 	return append(picks, finale)
 }
@@ -175,13 +183,37 @@ func BaseWPM(runs []store.Run) float64 {
 
 func (s State) seed() int64 { return s.Rand.Int64() }
 
-// drill is a drill on the weakest characters allowed in the chapter.
-func (s State) drill(chapterID string) Pick {
+// drill is a drill on the weakest and the stalest characters of the chapter.
+func (s State) drill(chapterID string) Pick { return s.drillAt(chapterID, 0) }
+
+// drillAt is the n-th drill of a plan. The statistics do not move while a plan
+// is made, so each drill takes the next of the stalest characters. Those slots
+// keep rare characters in training, which weakness alone would never pick: it
+// ignores what has not been typed lately. The other slots go to the weakest.
+func (s State) drillAt(chapterID string, n int) Pick {
 	p := Pick{Kind: Drill, Seed: s.seed()}
-	if s.Stats != nil {
-		p.Focus = s.Stats.WeakestChars(focusChars, s.Curr.AllowedAt(chapterID))
+	if s.Stats == nil {
+		return p
 	}
+	unlocked := s.Curr.UnlockedAt(chapterID)
+	stale := turn(s.Stats.StalestChars(len(unlocked), unlocked, s.Now), n)
+	p.Focus = append(p.Focus, s.Stats.WeakestChars(focusChars-len(stale), func(r rune) bool {
+		return slices.Contains(unlocked, r) && !slices.Contains(stale, r)
+	})...)
+	p.Focus = append(p.Focus, stale...)
 	return p
+}
+
+// turn is the n-th group of staleSlots characters, going round the list.
+func turn(list []rune, n int) []rune {
+	if len(list) <= staleSlots {
+		return list
+	}
+	out := make([]rune, staleSlots)
+	for i := range out {
+		out[i] = list[(n*staleSlots+i)%len(list)]
+	}
+	return out
 }
 
 // snippets are the code snippets whose characters are all unlocked.

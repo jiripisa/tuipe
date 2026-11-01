@@ -108,7 +108,7 @@ func (s *Session) hintAt(at time.Time) *HintInfo {
 	}
 	r := s.round.Text().Cells[s.round.Pos()].R
 	if !hint.Show(hint.Input{
-		Mastery:    s.stats.MasteryOf(r),
+		Mastery:    s.stats.MasteryAt(r, at),
 		Hesitation: s.hesitation(at),
 		WrongAtPos: s.round.WrongAtPos(),
 		Disabled:   s.spec.HintsOff,
