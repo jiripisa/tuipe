@@ -119,8 +119,8 @@ func TestCurriculumDataIsWellFormed(t *testing.T) {
 				t.Errorf("%s: bad or repeated incident id %q", ch.ID, ch.IncidentID)
 			}
 			incidentIDs[ch.IncidentID] = true
-			if n := len(ch.Lessons); n < 6 || n > 9 {
-				t.Errorf("%s: %d lessons, want 6 to 9", ch.ID, n)
+			if n := len(ch.Lessons); n < 6 || n > 9 && ch.Number != 11 || n > 11 {
+				t.Errorf("%s: %d lessons, want 6 to 9, and up to 11 in chapter 11", ch.ID, n)
 			}
 		}
 		if ch.TestOutSeed == 0 && ch.Number > 0 {

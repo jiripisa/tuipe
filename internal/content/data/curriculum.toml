@@ -232,7 +232,9 @@ lesson = [
   { id = "ch11-06", title = "Shell: roury a smyčky", snippets = ["sh-1"], speed = [14, 20, 28] },
   { id = "ch11-07", title = "SQL: dotazy", snippets = ["sql-1"], speed = [14, 20, 28] },
   { id = "ch11-08", title = "Regulární výrazy", snippets = ["re-1"], speed = [12, 18, 25] },
-  { id = "ch11-09", title = "Code review: mix jazyků", snippets = ["go-3", "py-2", "js-2"], speed = [14, 20, 28] },
+  { id = "ch11-09", title = "Go: zámky a mapy", snippets = ["go-3"], speed = [14, 20, 28] },
+  { id = "ch11-10", title = "Python: datové třídy", snippets = ["py-2"], speed = [14, 20, 28] },
+  { id = "ch11-11", title = "JavaScript: fetch a šablony", snippets = ["js-2"], speed = [14, 20, 28] },
 ]
 
 [[chapter]]

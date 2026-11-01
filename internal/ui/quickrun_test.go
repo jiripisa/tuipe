@@ -928,3 +928,34 @@ func TestPracticeDrillRacesNoGhostWithoutData(t *testing.T) {
 		t.Error("a practice drill races a ghost with no data")
 	}
 }
+
+func TestCodeLessonsCarryTheLanguageOfTheirSnippet(t *testing.T) {
+	a, _, _ := playApp(t)
+	byLesson := map[string]string{
+		"ch11-01": "go", "ch11-03": "python", "ch11-04": "js", "ch11-05": "ts",
+		"ch11-06": "shell", "ch11-07": "sql", "ch11-08": "regex",
+		"ch11-09": "go", "ch11-10": "python", "ch11-11": "js",
+	}
+	for id, lang := range byLesson {
+		spec, err := a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: id})
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		if spec.Lang != lang {
+			t.Errorf("%s: Lang = %q, want %q", id, spec.Lang, lang)
+		}
+	}
+	spec, err := a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: "ch02-01"})
+	if err != nil || spec.Lang != "" {
+		t.Errorf("a drill lesson has no language: %q %v", spec.Lang, err)
+	}
+}
+
+func TestCodeLessonInEditorShowsItsFileNotProse(t *testing.T) {
+	a, _, _ := playApp(t)
+	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: "ch11-09"}, nil))
+	a.Update(ui.TickMsg(a))
+	if v := screen(a); strings.Contains(v, text.RoundProseFile) || !strings.Contains(v, "main.go") {
+		t.Errorf("the Go lesson does not read as Go:\n%s", v)
+	}
+}

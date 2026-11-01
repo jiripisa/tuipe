@@ -227,8 +227,8 @@ func TestSnippetLessonsResolve(t *testing.T) {
 			found = len(ch.Lessons)
 		}
 	}
-	if found < 6 || found > 9 {
-		t.Errorf("chapter 11 has %d resolvable lessons, want 6 to 9", found)
+	if found != 11 {
+		t.Errorf("chapter 11 has %d resolvable lessons, want 11", found)
 	}
 }
 
@@ -844,5 +844,28 @@ func TestSkippedCountsWhatTheLayoutCannotType(t *testing.T) {
 	lessons, incidents = curriculum.New(loadLib(t), stubLayout(t)).Skipped()
 	if lessons == 0 || incidents == 0 {
 		t.Errorf("a letters-only layout skips %d lessons and %d incidents", lessons, incidents)
+	}
+}
+
+func TestCodeLessonsAreOneSnippetEach(t *testing.T) {
+	c := curr(t)
+	seen := map[string]bool{}
+	for _, l := range c.Chapters()[11].Lessons {
+		if len(l.Snippets) != 1 {
+			t.Errorf("%s has %d snippets, want one language per lesson", l.ID, len(l.Snippets))
+		}
+		seen[l.ID] = true
+		text, err := c.LessonText(l.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if secs := float64(utf8.RuneCountInString(text)) / (l.Speed[1] * 5 / 60); secs > 180 {
+			t.Errorf("%s takes %.0f s at its target", l.ID, secs)
+		}
+	}
+	for _, id := range []string{"ch11-09", "ch11-10", "ch11-11"} {
+		if !seen[id] {
+			t.Errorf("%s is missing", id)
+		}
 	}
 }

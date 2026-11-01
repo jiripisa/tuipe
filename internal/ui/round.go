@@ -92,7 +92,7 @@ func (a *App) lessonSpec(id string) (play.Spec, error) {
 				return play.Spec{}, err
 			}
 			spec := play.Spec{
-				Kind: play.KindLesson, Title: l.Title, LessonID: id, Text: txt,
+				Kind: play.KindLesson, Title: l.Title, LessonID: id, Text: txt, Lang: a.lessonLang(l),
 				Targets:  a.Curr.Targets(id),
 				HintsOff: ch.Number == hintsOffChapter,
 			}
@@ -100,6 +100,18 @@ func (a *App) lessonSpec(id string) (play.Spec, error) {
 		}
 	}
 	return play.Spec{}, fmt.Errorf("unknown lesson %q", id)
+}
+
+// lessonLang is the language of a lesson made of a snippet; a drill has none.
+func (a *App) lessonLang(l content.LessonDef) string {
+	if len(l.Snippets) == 0 {
+		return ""
+	}
+	i := slices.IndexFunc(a.Lib.Snippets, func(s content.Snippet) bool { return s.ID == l.Snippets[0] })
+	if i < 0 {
+		return ""
+	}
+	return a.Lib.Snippets[i].Lang
 }
 
 func (a *App) codeSpec(id string) (play.Spec, error) {
