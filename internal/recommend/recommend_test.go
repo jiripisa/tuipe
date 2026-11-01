@@ -89,6 +89,7 @@ func (f *fixture) weak(chars string) {
 func TestRecommenderMix(t *testing.T) {
 	f := newFixture(t)
 	f.completeBefore(11) // mid-curriculum: chapter 11 is current, code is open
+	f.weak("asdf")
 	const calls = 20000
 	counts := map[recommend.Kind]int{}
 	s := f.state(0, 7)
@@ -131,7 +132,11 @@ func TestNoIncidentBeforeAnyChapterIsCompleted(t *testing.T) {
 	f.completeBefore(1) // only onboarding is done: no boss may be offered early
 	for seed := uint64(1); seed < 20; seed++ {
 		p := recommend.Next(f.state(7, seed))
-		eq(t, p.Kind, recommend.Drill) // the 8th run falls back to a drill
+		eq(t, p.Kind, recommend.Lesson) // the 8th run falls back to the next lesson
+	}
+	f.weak("fj")
+	for seed := uint64(1); seed < 20; seed++ {
+		eq(t, recommend.Next(f.state(7, seed)).Kind, recommend.Drill) // or a drill, with data
 	}
 	picks := recommend.Sprint(f.state(0, 3), 10)
 	eq(t, picks[len(picks)-1].Kind, recommend.Drill)
@@ -497,4 +502,38 @@ func TestDrillCarriesTheWeakestBigrams(t *testing.T) {
 		eq(t, slices.Contains(p.Bigrams, "1a"), false)
 		eq(t, slices.Contains(p.Bigrams, "a "), false)
 	}
+}
+
+// Nothing is known yet: a drill would be a guess, and the lesson that teaches
+// hand position has not even been played.
+func TestBeginnerGetsLessonsNotDrills(t *testing.T) {
+	f := newFixture(t)
+	want, _ := f.curr.NextLesson(f.prof)
+	for seed := uint64(1); seed < 300; seed++ {
+		p := recommend.Next(f.state(int(seed), seed))
+		eq(t, p.Kind, recommend.Lesson)
+		eq(t, p.LessonID, want.ID)
+	}
+}
+
+func TestDrillsComeOnceThereIsDataOnAWeakness(t *testing.T) {
+	f := newFixture(t)
+	f.weak("fj")
+	drills := 0
+	for seed := uint64(1); seed < 300; seed++ {
+		if recommend.Next(f.state(0, seed)).Kind == recommend.Drill {
+			drills++
+		}
+	}
+	eq(t, drills > 0, true)
+}
+
+func TestWithNoLessonLeftADrillComesEvenWithoutData(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(99)
+	seen := map[recommend.Kind]bool{}
+	for seed := uint64(1); seed < 100; seed++ {
+		seen[recommend.Next(f.state(0, seed)).Kind] = true
+	}
+	eq(t, seen[recommend.Drill], true)
 }

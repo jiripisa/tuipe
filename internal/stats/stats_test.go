@@ -296,3 +296,13 @@ func TestMasteryAtKeepsASkippedCharacterThatWasNeverTyped(t *testing.T) {
 	s.SetMastery('x', stats.Solid)
 	eq(t, s.MasteryAt('x', now.Add(365*24*time.Hour)), stats.Solid)
 }
+
+func TestTypedCountsSamplesOfCharacters(t *testing.T) {
+	s := stats.New()
+	eq(t, s.Typed(), 0)
+	s.SetMastery('x', stats.Solid) // placed, never typed
+	eq(t, s.Typed(), 0)
+	text, log := fastClean("abab")
+	s.Record(text, log, now)
+	eq(t, s.Typed(), 4)
+}

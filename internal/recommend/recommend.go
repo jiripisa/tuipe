@@ -73,8 +73,9 @@ const (
 
 // Next picks the round for a quick run. Every 8th run is an incident when one
 // is unlocked. Otherwise it is mostly the next lesson, then drills on weak
-// characters, then code from chapter 11 on. When the current chapter's lessons
-// are done and its incident is owed, that incident is the only way forward.
+// characters, then code from chapter 11 on. A lesson that is due wins over a
+// drill while nothing is known to drill. When the current chapter's lessons are
+// done and its incident is owed, that incident is the only way forward.
 func Next(s State) Pick {
 	cur := s.Curr.CurrentChapter(s.Profile)
 	lesson, hasLesson := s.Curr.NextLesson(s.Profile)
@@ -87,7 +88,7 @@ func Next(s State) Pick {
 		if p, ok := s.incident(); ok {
 			return p
 		}
-		return s.drill(cur.ID)
+		return s.drillOrLesson(cur.ID, lesson, hasLesson)
 	}
 	wLesson, wDrill, wCode := weightLesson, weightDrill, weightCode
 	if !hasLesson {
@@ -102,9 +103,26 @@ func Next(s State) Pick {
 	case n < wLesson:
 		return Pick{Kind: Lesson, LessonID: lesson.ID, Seed: s.seed()}
 	case n < wLesson+wDrill:
-		return s.drill(cur.ID)
+		return s.drillOrLesson(cur.ID, lesson, hasLesson)
 	}
 	return s.code(cur.ID)
+}
+
+// drillOrLesson is a drill, or the lesson when one is due and nothing is known
+// yet to drill: no unlocked character has enough samples to be weak.
+func (s State) drillOrLesson(chapterID string, lesson content.LessonDef, due bool) Pick {
+	if due && !s.hasWeakness(chapterID) {
+		return Pick{Kind: Lesson, LessonID: lesson.ID, Seed: s.seed()}
+	}
+	return s.drill(chapterID)
+}
+
+func (s State) hasWeakness(chapterID string) bool {
+	if s.Stats == nil {
+		return false
+	}
+	unlocked := s.Curr.UnlockedAt(chapterID)
+	return len(s.Stats.WeakestChars(1, func(r rune) bool { return slices.Contains(unlocked, r) })) > 0
 }
 
 // Standup returns the 5 rounds of the daily standup: drills on the weakest

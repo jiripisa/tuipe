@@ -28,6 +28,7 @@ const (
 	sampleEvery      = time.Second // throughput sample spacing, in active time
 	maxSamples       = 30
 	paceFallbackMs   = 400.0 // pace ghost speed for characters without samples
+	minPaceChars     = 20    // keystrokes of statistics a pace ghost needs
 	focusRepeats     = 3     // times a drill shows each of its focus characters
 	hintsOffChapter  = 12    // the chapter that tests without hints
 	runIDLen         = 7
@@ -127,9 +128,19 @@ func (a *App) drillSpec(p recommend.Pick) play.Spec {
 	return play.Spec{
 		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,
 		Targets:     a.chapterTargets(),
-		Ghost:       ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs),
+		Ghost:       a.paceGhost(txt),
 		GhostIsPace: true,
 	}
+}
+
+// paceGhost races generated text at the user's own timing. Without enough
+// characters behind it, it would race a guess: then there is no ghost, and no
+// race on screen.
+func (a *App) paceGhost(txt string) *ghost.Ghost {
+	if a.stats().Typed() < minPaceChars {
+		return nil
+	}
+	return ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs)
 }
 
 // drillLength is about a minute of typing at the player's recent pace.

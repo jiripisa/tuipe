@@ -10,9 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/generate"
-	"github.com/jiripisa/tuipe/internal/ghost"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -161,7 +159,7 @@ func (a *App) generatedSpec(title string, focus []rune, allowed func(rune) bool,
 	}, focus, focusRepeats)
 	return play.Spec{
 		Kind: play.KindDrill, Title: title, Text: txt, Targets: targets,
-		Ghost:       ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs),
+		Ghost:       a.paceGhost(txt),
 		GhostIsPace: true,
 	}
 }

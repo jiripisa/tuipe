@@ -297,6 +297,15 @@ func (s *Stats) WeakestBigrams(n int, allowed func(rune) bool) []string {
 	})
 }
 
+// Typed is how many keystrokes the character statistics rest on.
+func (s *Stats) Typed() int {
+	n := 0
+	for _, e := range s.Chars {
+		n += e.Samples
+	}
+	return n
+}
+
 // AverageLatencyMs is the sample-weighted mean latency over characters that have one.
 func (s *Stats) AverageLatencyMs() float64 {
 	var sum, n float64

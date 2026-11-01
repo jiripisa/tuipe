@@ -21,6 +21,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
+	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 type clock struct{ t time.Time }
@@ -795,8 +796,8 @@ func TestSpecFor(t *testing.T) {
 		t.Errorf("first lesson: err %v hintsOff %v ghost %v", err, spec.HintsOff, spec.Ghost)
 	}
 	drill, err := a.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1})
-	if err != nil || !drill.GhostIsPace || drill.Ghost == nil || drill.Kind != play.KindDrill {
-		t.Errorf("drill: err %v pace %v ghost %v", err, drill.GhostIsPace, drill.Ghost)
+	if err != nil || !drill.GhostIsPace || drill.Ghost != nil || drill.Kind != play.KindDrill {
+		t.Errorf("drill without data: err %v pace %v ghost %v", err, drill.GhostIsPace, drill.Ghost)
 	}
 	if _, err := a.SpecFor(recommend.Pick{Kind: recommend.Incident, Seed: 1}); err == nil {
 		t.Error("an incident pick without an id must be an error, not a drill")
@@ -810,6 +811,10 @@ func TestSpecFor(t *testing.T) {
 	spec, _ = a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: id})
 	if spec.Ghost == nil || spec.GhostIsPace {
 		t.Errorf("after a run the lesson must carry a replay ghost: %v pace %v", spec.Ghost, spec.GhostIsPace)
+	}
+	drill, _ = a.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1})
+	if drill.Ghost == nil || !drill.GhostIsPace {
+		t.Errorf("after a run a drill races a pace ghost: %v pace %v", drill.Ghost, drill.GhostIsPace)
 	}
 }
 
@@ -856,5 +861,70 @@ func TestRegisteredEntryOpens(t *testing.T) {
 	a.Update(enter)
 	if !opened {
 		t.Error("the registered entry was not opened")
+	}
+}
+
+func TestFirstRoundOfABeginnerIsTheFirstLesson(t *testing.T) {
+	a, _, _ := playApp(t)
+	_, title := firstLesson(t, a)
+	for range 50 { // the recommender rolls dice: Home must never offer a drill
+		ui.SetScreen(a, ui.NewHomeScreen(a))
+		if v := screen(a); !strings.Contains(v, title) {
+			t.Fatalf("home does not offer %q:\n%s", title, v)
+		}
+	}
+}
+
+func TestDrillRacesNoGhostWithoutData(t *testing.T) {
+	a, st, clk := playApp(t)
+	pick := recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1}
+	spec, err := a.SpecFor(pick)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Ghost != nil {
+		t.Error("no characters typed yet, but the drill races a ghost")
+	}
+	ui.SetScreen(a, ui.NewRoundScreen(a, pick, nil))
+	a.Update(ui.TickMsg(a))
+	if v := screen(a); strings.Contains(v, text.RoundGhost) {
+		t.Errorf("the race is shown without a ghost:\n%s", v)
+	}
+
+	// 19 characters are not enough, 20 are.
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	startLesson(t, a)
+	typeKeys(a, clk, 19)
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter)
+	wantScreen(t, a, "home")
+	if n := st.Profile().Stats[a.Layout.ID].Typed(); n != 19 {
+		t.Fatalf("typed = %d", n)
+	}
+	if spec, _ := a.SpecFor(pick); spec.Ghost != nil {
+		t.Error("19 characters must not make a ghost")
+	}
+	startLesson(t, a)
+	typeKeys(a, clk, 1)
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter)
+	spec, _ = a.SpecFor(pick)
+	if spec.Ghost == nil || !spec.GhostIsPace {
+		t.Errorf("with 20 characters the drill races a pace ghost: %+v", spec.Ghost)
+	}
+}
+
+func TestPracticeDrillRacesNoGhostWithoutData(t *testing.T) {
+	a, _, _ := playApp(t)
+	openPractice(t, a, practiceChars)
+	typeText(a, "{}")
+	a.Update(enter)
+	wantScreen(t, a, "round")
+	if ui.RoundSpec(a).Ghost != nil {
+		t.Error("a practice drill races a ghost with no data")
 	}
 }
