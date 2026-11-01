@@ -1033,3 +1033,24 @@ func TestGhostFromANewerVersionIsToldInCzech(t *testing.T) {
 		t.Errorf("the warning is not Czech:\n%s", v)
 	}
 }
+
+func TestDrillOnALayoutThatLacksACharacterNeverAsksForIt(t *testing.T) {
+	_, st, _ := playApp(t)
+	writeUserLayout(t, st, withoutBraces(t))
+	b, _ := reopenFirstRunDone(t, st)
+	if b.Layout.ID != "user-test" {
+		t.Fatalf("layout = %s", b.Layout.ID)
+	}
+	for _, ch := range b.Curr.Chapters() {
+		b.Curr.CompleteChapter(b.Store.Profile(), ch.ID)
+	}
+	for seed := range int64(20) {
+		spec, err := b.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("a}"), Seed: seed + 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bad := b.Layout.Unresolved(spec.Text); len(bad) > 0 {
+			t.Fatalf("the drill asks for %q: %q", string(bad), spec.Text)
+		}
+	}
+}

@@ -776,3 +776,18 @@ func TestJobOfferPointsToSelectedCharacters(t *testing.T) {
 	a.Update(esc) // give up: the offer of a beginner
 	showsAll(t, a, text.PracticeChars)
 }
+
+// reopenFirstRunDone restarts on the saved data with the user layout chosen.
+func reopenFirstRunDone(t *testing.T, st *store.Store) (*ui.App, *store.Store) {
+	t.Helper()
+	st.Profile().FirstRunDone = true
+	if err := st.SaveProfile(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := st.Config()
+	cfg.Layout = "user-test"
+	if err := st.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	return reopen(t, st)
+}

@@ -130,13 +130,14 @@ func (a *App) codeSpec(id string) (play.Spec, error) {
 
 // drillSpec generates the text and races a pace ghost computed from the user's timing.
 func (a *App) drillSpec(p recommend.Pick) play.Spec {
-	cur := a.Curr.CurrentChapter(a.Store.Profile())
+	unlocked := a.Curr.AllowedAt(a.Curr.CurrentChapter(a.Store.Profile()).ID)
 	length := p.Length
 	if length == 0 {
 		length = a.drillLength()
 	}
 	txt := generate.Cover(a.Lib, generate.Input{
-		Focus: p.Focus, Bigrams: p.Bigrams, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed, Length: length,
+		Focus: p.Focus, Bigrams: p.Bigrams, Seed: p.Seed, Length: length,
+		Allowed: func(r rune) bool { return unlocked(r) && a.Curr.CanType(r) },
 	}, p.Focus, focusRepeats)
 	return play.Spec{
 		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,
