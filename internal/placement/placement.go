@@ -121,8 +121,9 @@ func required(group []rune, seed int64) []rune {
 		return must
 	}
 	from := int(uint64(seed) % uint64(len(capitals)))
-	for i := range min(minCapitals, len(capitals)) {
-		must = append(must, capitals[(from+i*len(capitals)/minCapitals)%len(capitals)])
+	n := min(minCapitals, len(capitals))
+	for i := range n {
+		must = append(must, capitals[(from+i*len(capitals)/n)%len(capitals)])
 	}
 	return must
 }

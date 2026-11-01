@@ -174,3 +174,23 @@ func TestAbortEarly(t *testing.T) {
 	eq(t, placement.AbortEarly(20, 5), false)  // exactly 25 % is not over it
 	eq(t, placement.AbortEarly(20, 6), true)
 }
+
+// A group with fewer capitals than a stage asks for shows all of them.
+func TestStageWithFewCapitalsShowsThemAll(t *testing.T) {
+	_, lib := setup(t)
+	lib.Chapters[5].Introduces = "ěĚŠČ"
+	all, err := layout.Builtin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lay *layout.Layout
+	for _, l := range all {
+		if l.ID == "macos-czech-qwerty" {
+			lay = l
+		}
+	}
+	c := curriculum.New(lib, lay)
+	for seed := int64(1); seed <= 20; seed++ {
+		holdsAll(t, seed, "diacritics", placement.Stages(c, lib, seed)[1].Text, "ĚŠČ")
+	}
+}
