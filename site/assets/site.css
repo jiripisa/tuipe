@@ -1,0 +1,346 @@
+/* The page takes its colours from the app's own styles (internal/ui/style),
+   and from the mockup colours of the round screens. Only --muted is new: the
+   app's dim colours are too dark for reading text on a web page. */
+:root {
+  color-scheme: dark;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", "DejaVu Sans Mono", Consolas, monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+
+  --bg: #1a1b26;
+  --fg: #a9b1d6;
+  --ink: #c0caf5;
+  --muted: #8089b3;
+  --accent: #e0af68;
+  --ok: #9ece6a;
+  --bad: #f7768e;
+  --ghost: #3d2f5c;
+  --bar: #16161e;
+  --bar-hi: #292e42;
+  --line: #3b4261;
+  --mode: #7aa2f7;
+  --mode-fg: #15161e;
+}
+
+html[data-style="fosfor"] {
+  --bg: #050805;
+  --fg: #3fae55;
+  --ink: #9dffb0;
+  --muted: #54855f;
+  --accent: #9dffb0;
+  --ok: #9dffb0;
+  --bad: #ff5a4a;
+  --ghost: #143f20;
+  --bar: #0a120b;
+  --bar-hi: #143f20;
+  --line: #1e5a2c;
+  --mode: #3fae55;
+  --mode-fg: #050805;
+}
+
+html[data-style="velin"] {
+  --bg: #0b0d10;
+  --fg: #c9d1d9;
+  --ink: #e6edf3;
+  --muted: #768390;
+  --accent: #e0823d;
+  --ok: #57ab5a;
+  --bad: #e5534b;
+  --ghost: #3a2a55;
+  --bar: #14171c;
+  --bar-hi: #2d333b;
+  --line: #2d333b;
+  --mode: #e0823d;
+  --mode-fg: #0b0d10;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  scroll-padding-top: 1rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 1.125rem/1.62 var(--serif);
+  overflow-wrap: break-word;
+}
+
+a { color: var(--accent); text-underline-offset: 0.18em; }
+a:hover { color: var(--ink); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+h1, h2, h3 { font-family: var(--mono); color: var(--ink); line-height: 1.2; }
+h2 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.75rem; }
+h3 { font-size: 1.1rem; font-weight: 700; margin: 2.25rem 0 0.5rem; }
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.4rem; }
+li { margin-bottom: 0.35rem; }
+
+code, kbd, pre { font-family: var(--mono); font-size: 0.86em; }
+code { color: var(--ink); }
+pre { margin: 0 0 1rem; }
+
+kbd {
+  background: var(--bar-hi);
+  color: var(--ink);
+  padding: 0.05em 0.4em;
+  white-space: nowrap;
+}
+
+/* The tab line of the Editor style, as the page's navigation. */
+.tabline {
+  display: flex;
+  align-items: stretch;
+  background: var(--bar);
+  font: 400 0.875rem/1 var(--mono);
+}
+.tabline a {
+  color: var(--muted);
+  padding: 0.6rem 0.9rem;
+  text-decoration: none;
+}
+.tabline a:hover { color: var(--ink); }
+.tabline a[aria-current="page"] { background: var(--bg); color: var(--ink); }
+.tabline .right { margin-left: auto; }
+
+/* The status line, with the style switch where the app keeps its mode. */
+.statusline {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  background: var(--bar);
+  font: 400 0.8125rem/1 var(--mono);
+}
+.statusline .mode {
+  background: var(--mode);
+  color: var(--mode-fg);
+  font-weight: 700;
+  padding: 0.5rem 0.7rem;
+}
+.statusline button {
+  border: 0;
+  background: var(--bar-hi);
+  color: var(--fg);
+  font: inherit;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+}
+.statusline button[aria-pressed="true"] { background: var(--bg); color: var(--accent); font-weight: 700; }
+.statusline button:focus-visible { outline-offset: -2px; }
+.statusline .note { margin-left: auto; color: var(--muted); padding: 0.5rem 0.7rem; }
+
+.page {
+  max-width: 76rem;
+  padding: 0 clamp(1rem, 5vw, 4.5rem);
+}
+
+/* Hero: the headline is a round being typed. */
+.hero { padding: clamp(2.5rem, 8vh, 5.5rem) 0 2.5rem; max-width: 50rem; }
+.hero h1 {
+  margin: 0;
+  color: var(--ok);
+  font-size: clamp(2.1rem, 6.8vw, 4.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.14;
+}
+.js .hero h1:not(.typed) { color: var(--muted); }
+.hero h1 .c { color: var(--muted); }
+.hero h1 .c.done { color: var(--ok); }
+.hero h1 .c.ghost { background: var(--ghost); }
+.hero h1 .c.cursor { background: var(--accent); color: var(--bg); }
+.hero h1 .c.wrong { color: var(--bad); text-decoration: underline; text-decoration-skip-ink: none; text-decoration-thickness: 0.06em; text-underline-offset: 0.12em; }
+.hero h1 .c.cursor.wrong { background: var(--bad); color: var(--bg); }
+
+.hint-line {
+  margin: 1rem 0 2rem;
+  font: 400 1.05rem/1.4 var(--mono);
+  color: var(--muted);
+}
+.js .hint-line:not(.shown) { visibility: hidden; }
+.hint-line .cap { background: var(--accent); color: var(--bg); font-weight: 700; padding: 0 0.3em; }
+.hint-line .chord { color: var(--accent); }
+
+.pitch { font-size: 1.3rem; line-height: 1.5; max-width: 40rem; }
+
+/* Install commands. */
+.install { margin: 2rem 0 1rem; max-width: 50rem; }
+.tabs { display: flex; gap: 0; }
+.tabs button {
+  border: 0;
+  background: var(--bar);
+  color: var(--muted);
+  font: 400 0.9375rem/1 var(--mono);
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--bar-hi); color: var(--ink); }
+.tabs button:focus-visible { outline-offset: -2px; }
+
+.command {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--bar-hi);
+  padding: 0.9rem 1rem;
+}
+.command pre { flex: 1; min-width: 0; margin: 0; font-size: 0.9375rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.command code::before { content: "$ "; color: var(--muted); }
+.command.ps code::before { content: "> "; }
+.copy {
+  flex: none;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--accent);
+  font: 400 0.8125rem/1 var(--mono);
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+}
+.copy:hover { color: var(--ink); }
+.copy.copied { color: var(--ok); border-color: var(--ok); }
+
+.small { color: var(--muted); font-size: 1rem; }
+.small code { color: var(--fg); }
+.also { margin-top: 1rem; }
+.also .command { background: transparent; border: 1px solid var(--bar-hi); }
+
+/* Sections of the front page: text at the left, the screen at the right. */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 3rem 0;
+}
+.split > div { max-width: 40rem; }
+figure { margin: 0; min-width: 0; }
+figure img, .shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  background: var(--bar);
+}
+figcaption { margin-top: 0.5rem; color: var(--muted); font-size: 0.95rem; line-height: 1.4; }
+
+@media (min-width: 62rem) {
+  .split { grid-template-columns: minmax(0, 23rem) minmax(0, 1fr); gap: 3rem; align-items: start; }
+}
+
+.by-style img { display: none; }
+html:not([data-style="fosfor"]):not([data-style="velin"]) .by-style img.editor,
+html[data-style="fosfor"] .by-style img.fosfor,
+html[data-style="velin"] .by-style img.velin { display: block; }
+
+.styles { list-style: none; margin: 1rem 0; padding: 0; }
+.styles li { margin: 0; }
+.styles button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-left: 3px solid var(--bar-hi);
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  padding: 0.45rem 0 0.55rem 0.8rem;
+  cursor: pointer;
+}
+.styles button:hover { border-left-color: var(--line); }
+.styles button[aria-pressed="true"] { border-left-color: var(--accent); }
+.styles b { display: block; font: 700 1rem/1.3 var(--mono); color: var(--ink); }
+.styles span { display: block; font-size: 1rem; line-height: 1.4; color: var(--muted); }
+
+/* Routes: the characters that hurt. */
+.routes {
+  margin: 1rem 0 0;
+  font: 400 0.95rem/1.75 var(--mono);
+}
+.routes div { display: flex; gap: 0.6rem; }
+.routes .cap {
+  flex: none;
+  width: 1.7em;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+  text-align: center;
+  height: 1.5em;
+  line-height: 1.5em;
+  margin-top: 0.12em;
+}
+.routes dd { margin: 0; color: var(--fg); }
+.routes dt { margin: 0; }
+
+.endnote { padding: 2.5rem 0 3rem; max-width: 42rem; }
+.endnote .links { font: 400 1rem/1.8 var(--mono); }
+.endnote .links a { margin-right: 1.5rem; white-space: nowrap; }
+
+/* Manual */
+.manual {
+  max-width: 76rem;
+  padding: 0 clamp(1rem, 5vw, 4.5rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+.manual main { min-width: 0; max-width: 44rem; padding: 2rem 0 3rem; }
+.manual h1 { font-size: clamp(1.9rem, 5vw, 2.8rem); margin: 0 0 0.75rem; letter-spacing: -0.02em; }
+.manual h2 { margin-top: 3.5rem; padding-top: 0.5rem; }
+.manual h2:first-of-type { margin-top: 2.5rem; }
+.manual figure { margin: 1.25rem 0 1.5rem; }
+.lead { font-size: 1.3rem; line-height: 1.5; }
+
+.toc { font: 400 0.9rem/1.35 var(--mono); padding-top: 1.25rem; }
+.toc summary { cursor: pointer; color: var(--ink); padding: 0.25rem 0; }
+.toc ol { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.toc li { margin: 0; }
+.toc a { display: block; color: var(--fg); padding: 0.28rem 0; text-decoration: none; }
+.toc a:hover { color: var(--accent); }
+
+@media (min-width: 62rem) {
+  .manual { grid-template-columns: 15rem minmax(0, 44rem); gap: 3.5rem; }
+  .toc { position: sticky; top: 0; align-self: start; max-height: calc(100vh - 2.5rem); overflow-y: auto; padding-top: 2rem; }
+  .toc summary { display: none; }
+}
+
+table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 1rem; line-height: 1.4; }
+th, td { text-align: left; vertical-align: top; padding: 0.45rem 0.75rem 0.45rem 0; border-bottom: 1px solid var(--bar-hi); }
+th { color: var(--ink); font: 700 0.875rem/1.3 var(--mono); }
+td code, td kbd { white-space: nowrap; }
+td code.wrap { white-space: normal; overflow-wrap: anywhere; }
+.scroll { overflow-x: auto; }
+
+.symbols td:first-child { width: 2.6rem; }
+.symbols td:first-child code { font-size: 1.05rem; color: var(--accent); font-weight: 700; }
+.symbols td { font-family: var(--mono); font-size: 0.875rem; }
+
+.block { background: var(--bar-hi); padding: 0.8rem 1rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+
+.callout {
+  border-left: 3px solid var(--accent);
+  padding: 0.1rem 0 0.1rem 0.9rem;
+  margin: 1.25rem 0;
+}
+
+dl.faq dt { font-family: var(--mono); font-weight: 700; font-size: 1rem; color: var(--ink); margin-top: 1.5rem; line-height: 1.35; }
+dl.faq dd { margin: 0.35rem 0 0; }
+
+@media (max-width: 34rem) {
+  body { font-size: 1.0625rem; }
+  .pitch, .lead { font-size: 1.1875rem; }
+  .statusline .note { display: none; }
+  .hint-line { font-size: 0.9375rem; }
+  .command { flex-direction: column; align-items: stretch; }
+  .copy { align-self: flex-start; padding: 0.6rem 0.8rem; }
+  td code { white-space: normal; overflow-wrap: anywhere; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

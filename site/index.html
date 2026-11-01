@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="cs" data-style="editor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tuipe</title>
+<meta name="description" content="Terminálový trenažér psaní všemi deseti pro programátory na české klávesnici QWERTY.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1b26'/%3E%3Ctext x='16' y='24' font-family='monospace' font-size='24' font-weight='700' text-anchor='middle' fill='%23e0af68'%3E%7B%3C/text%3E%3C/svg%3E">
+<script>
+  document.documentElement.classList.add("js");
+  try {
+    var s = localStorage.getItem("tuipe-style");
+    if (s === "fosfor" || s === "editor" || s === "velin") document.documentElement.setAttribute("data-style", s);
+  } catch (e) {}
+</script>
+<noscript><style>.by-style img { display: block; margin-bottom: 1rem; } .statusline { display: none; }</style></noscript>
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/site.js" defer></script>
+</head>
+<body>
+
+<nav class="tabline" aria-label="Stránky">
+  <a href="index.html" aria-current="page">index.html</a>
+  <a href="manual.html">manual.html</a>
+  <a class="right" href="https://github.com/jiripisa/tuipe">GitHub</a>
+</nav>
+
+<div class="page">
+
+<header class="hero">
+  <h1 data-typed aria-label="Všemi deseti, včetně { a }.">Všemi deseti,<br>včetně { a }.</h1>
+  <p class="hint-line" data-typed-hint><span class="cap">{</span> → <span class="chord">levý Option + í</span> (pravý prsteník)</p>
+  <p class="pitch">Většina trenažérů psaní skončí u písmen. Na české klávesnici ale práce teprve začíná: číslice jsou za Shiftem, závorky za Option a ď se píše na dva stisky. tuipe to trénuje přímo v terminálu, od domovské řady až po skutečný kód.</p>
+
+  <section class="install" aria-label="Instalace">
+    <div class="tabs" role="tablist" aria-label="Operační systém">
+      <button type="button" role="tab" id="tab-unix" aria-controls="panel-unix" aria-selected="true">macOS a Linux</button>
+      <button type="button" role="tab" id="tab-win" aria-controls="panel-win" aria-selected="false">Windows</button>
+    </div>
+    <div role="tabpanel" id="panel-unix" aria-labelledby="tab-unix">
+      <div class="command">
+        <pre><code id="cmd-unix">curl -fsSL https://raw.githubusercontent.com/<wbr>jiripisa/<wbr>tuipe/<wbr>main/<wbr>install.sh | sh</code></pre>
+        <button type="button" class="copy" data-copy="cmd-unix">Kopírovat</button>
+      </div>
+    </div>
+    <div role="tabpanel" id="panel-win" aria-labelledby="tab-win">
+      <div class="command ps">
+        <pre><code id="cmd-win">irm https://raw.githubusercontent.com/<wbr>jiripisa/<wbr>tuipe/<wbr>main/<wbr>install.ps1 | iex</code></pre>
+        <button type="button" class="copy" data-copy="cmd-win">Kopírovat</button>
+      </div>
+    </div>
+    <p class="small also">Vložte do terminálu a spusťte <code>tuipe</code>. Skript ověří kontrolní součet a nepotřebuje <code>sudo</code>.</p>
+    <p class="small">Vyladěno pro macOS. Pro Linux a Windows jsou binárky hotové, ale vlastní rozložení klávesnice zatím nemají. Aplikace to řekne, poradí, jak přidat vlastní, a nechá vás pokračovat s rozložením z macOS.</p>
+    <div class="also">
+      <p class="small">Máte Go?</p>
+      <div class="command">
+        <pre><code id="cmd-go">go install github.com/<wbr>jiripisa/<wbr>tuipe/<wbr>cmd/<wbr>tuipe@latest</code></pre>
+        <button type="button" class="copy" data-copy="cmd-go">Kopírovat</button>
+      </div>
+    </div>
+  </section>
+</header>
+
+<section class="split" id="kolo">
+  <div>
+    <h2>Kde co je</h2>
+    <p>Terminál vidí jen výsledný znak, ne klávesu. tuipe proto zná vaše rozložení a umí říct přesně, co zmáčknout a kterým prstem. Nápověda se objeví, když zaváháte. Jak se znak učíte, chodí později a nakonec jen po druhé chybě na stejném místě.</p>
+    <dl class="routes">
+      <div><dt class="cap">@</dt><dd>pravý Option + ě</dd></div>
+      <div><dt class="cap">~</dt><dd>pravý Option + ř</dd></div>
+      <div><dt class="cap">|</dt><dd>pravý Shift + \</dd></div>
+      <div><dt class="cap">ď</dt><dd>levý Shift + ´, pak d</dd></div>
+      <div><dt class="cap">°</dt><dd>levý Option + =, pak mezera</dd></div>
+    </dl>
+  </div>
+  <figure class="by-style">
+    <img class="editor" src="assets/hint-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor: kurzor stojí na znaku {, pod textem je nápověda „levý Option + í (pravý prsteník)“ a mapa klávesnice se zvýrazněnými klávesami.">
+    <img class="fosfor" src="assets/hint-fosfor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Fosfor: po zaváhání na znaku { se dole objeví nápověda a mapa klávesnice.">
+    <img class="velin" src="assets/hint-velin.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Velín: panel Klávesnice ukazuje zvýrazněné klávesy a panel Další znak popisuje, jak napsat {.">
+    <figcaption>Dvě sekundy váhání nad <code>{</code>. Tahle nápověda stojí třetí hvězdu.</figcaption>
+  </figure>
+</section>
+
+<section class="split" id="styly">
+  <div>
+    <h2>Tři styly</h2>
+    <p>Stejné kolo, tři obrazovky. V aplikaci je přepnete klávesou <kbd>Ctrl+T</kbd>, i uprostřed psaní. Tady klikněte a poslechne celá stránka.</p>
+    <ul class="styles">
+      <li><button type="button" data-set-style="fosfor" aria-pressed="false"><b>Fosfor</b><span>Zelená obrazovka, text a závod s duchem. Nic jiného.</span></button></li>
+      <li><button type="button" data-set-style="editor" aria-pressed="true"><b>Editor</b><span>Skoro Neovim: zvýraznění syntaxe, čísla řádků, stavový řádek.</span></button></li>
+      <li><button type="button" data-set-style="velin" aria-pressed="false"><b>Velín</b><span>Hustý dashboard jako v htopu: propustnost, náskok, SLA.</span></button></li>
+    </ul>
+  </div>
+  <figure class="by-style">
+    <img class="editor" src="assets/round-editor.png" width="1488" height="904" loading="lazy" alt="Styl Editor: kód v Go se zvýrazněnou syntaxí, čísla řádků a stavový řádek s rychlostí, přesností a náskokem před duchem.">
+    <img class="fosfor" src="assets/round-fosfor.png" width="1488" height="904" loading="lazy" alt="Styl Fosfor: zelený text na černém pozadí a pod ním dva pruhy závodu s duchem HEAD~1.">
+    <img class="velin" src="assets/round-velin.png" width="1488" height="904" loading="lazy" alt="Styl Velín: panely s postupem, propustností a náskokem nad textem, přehled a nejslabší znaky pod ním.">
+    <figcaption>Skutečný výstup aplikace při 80 × 24. Rychlovka na úryvku <code>go-1</code>.</figcaption>
+  </figure>
+</section>
+
+<section class="split" id="duch">
+  <div>
+    <h2>Duch HEAD~1</h2>
+    <p>Druhý kurzor v textu je váš dosavadní nejlepší pokus. Běží naživo a vy pořád vidíte, o kolik sekund vedete. U generovaných drillů, kde žádný starý pokus není, vás honí duch tempa, o 3 % rychlejší než váš průměr.</p>
+    <p>Ducha nahradí jen pokus s vyšším skóre, a skóre je <code>WPM × přesnost⁴</code>. Rychlé a odbyté kolo tedy nepomůže. Výsledek pak čtete jako <code>git diff</code>.</p>
+  </div>
+  <figure>
+    <img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek kola jako git diff proti HEAD~1: červeně staré hodnoty, zeleně nové, dvě hvězdy a poznámka, že kvůli nápovědě není třetí hvězda možná.">
+  </figure>
+</section>
+
+<section class="split" id="incident">
+  <div>
+    <h2>Incident v produkci</h2>
+    <p>Diagnóza v shellu, oprava v kódu, nasazení. SLA začíná na 100 %, hoří s časem a každá chyba ukousne kus. Když klesne na 99 %, je výpadek a incident je prohraný. Tempo se měří podle vás, takže to bude napínavé i za tři měsíce.</p>
+    <p>Prohra končí postmortemem bez hledání viníka. Cituji: <q>Příčina: prsty, ne lidé. Nikdo nebude potrestán.</q></p>
+  </div>
+  <figure class="by-style">
+    <img class="editor" src="assets/incident-editor.png" width="1488" height="904" loading="lazy" alt="Incident INC-1011 ve stylu Editor: příběh nad textem a ve stavovém řádku SLA 99,57 % a ztráta 0,3 sekundy na ducha.">
+    <img class="fosfor" src="assets/incident-fosfor.png" width="1488" height="904" loading="lazy" alt="Incident INC-1011 ve stylu Fosfor: závod s duchem a pod ním SLA 99,57 % s klesajícím měřidlem.">
+    <img class="velin" src="assets/incident-velin.png" width="1488" height="904" loading="lazy" alt="Incident INC-1011 ve stylu Velín: velký panel SLA, propustnost, ztráta na ducha a text s krokem opravy v Go.">
+    <figcaption>INC-1011: auth handler vrací 500. Krok 3 z 5, SLA se tenčí.</figcaption>
+  </figure>
+</section>
+
+<section class="split" id="historie">
+  <div>
+    <h2>git log</h2>
+    <p>Každé kolo je commit: hash, rychlost, přesnost, hvězdy a rozdíl proti duchovi. Vedle toho heatmapa klávesnice, trendy a rekordy. Série dnů se jmenuje <code>uptime</code> a jeden vynechaný den za týden odpustí rozpočet chyb.</p>
+    <p>Kariéra má 13 kapitol a šest hodností od Interna po Principala. Hodnost nikdy neklesne. Když umíte víc, Vstupní pohovor vás posadí, kam patříte.</p>
+  </div>
+  <figure>
+    <img src="assets/gitlog.png" width="1488" height="904" loading="lazy" alt="Obrazovka Statistiky, záložka git log: kola po dnech s hashem, rychlostí, přesností, hvězdami a náskokem, jeden incident je označený jako prohraný.">
+  </figure>
+</section>
+
+<section class="endnote">
+  <h2>Co v tom není</h2>
+  <p>Účty, telemetrie, žebříčky ani konfety. Data leží u vás na disku v obyčejných souborech. Na síť jde jen <code>tuipe upgrade</code> a nejvýš jednou denně kontrola nové verze, kterou lze v nastavení vypnout.</p>
+  <p class="links"><a href="manual.html">Manuál</a><a href="https://github.com/jiripisa/tuipe">GitHub</a><a href="https://github.com/jiripisa/tuipe/blob/main/docs/layouts.md">Vlastní rozložení</a></p>
+</section>
+
+</div>
+
+<div class="statusline" role="group" aria-label="Styl stránky">
+  <span class="mode">styl</span>
+  <button type="button" data-set-style="fosfor" aria-pressed="false">Fosfor</button>
+  <button type="button" data-set-style="editor" aria-pressed="true">Editor</button>
+  <button type="button" data-set-style="velin" aria-pressed="false">Velín</button>
+  <span class="note">v aplikaci Ctrl+T</span>
+</div>
+
+</body>
+</html>
