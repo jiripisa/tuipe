@@ -3,6 +3,7 @@ package generate
 
 import (
 	"math/rand/v2"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -27,7 +28,8 @@ const (
 	vowels        = "aeiouy"
 	repeatWindow  = 12 // tokens in which a repeat is avoided
 	repeatShare   = 7  // tenths of the length that repeated coverage tokens may fill
-	shortWord     = 5  // longest word used inside a template
+	shortWord     = 5  // longest word used inside a coverage token
+	tinyWord      = 3  // the same when there are enough such words
 	wordSample    = 16 // real words weighed for a coverage token
 )
 
@@ -435,6 +437,13 @@ func (g *gen) collectCandidates(lib *content.Library) {
 			}
 		}
 	}
+	// The shortest words keep coverage tokens cheap, when there are enough of them.
+	tiny := slices.DeleteFunc(slices.Clone(g.short), func(w string) bool {
+		return utf8.RuneCountInString(w) > tinyWord
+	})
+	if len(tiny) >= minRealWords {
+		g.short = tiny
+	}
 }
 
 // tokenWith returns a token that holds r and as many other needed characters
@@ -453,7 +462,8 @@ func (g *gen) tokenWith(r rune, need map[rune]int) string {
 				hit++
 			}
 		}
-		if s := float64(hit) / float64(utf8.RuneCountInString(tok)); s > bestScore {
+		// The separator counts: one long word beats two short ones.
+		if s := float64(hit) / float64(utf8.RuneCountInString(tok)+1); s > bestScore {
 			best, bestScore = tok, s
 		}
 	}
@@ -470,17 +480,36 @@ func (g *gen) tokenWith(r rune, need map[rune]int) string {
 	}
 	if !unicode.IsLetter(r) {
 		for _, t := range templates {
-			consider(g.fillTemplate(t, r))
+			consider(g.fillTemplate(t, r, need))
 		}
 	}
-	if best == "" && len(g.short) > 0 {
+	if len(g.short) > 0 && !unicode.IsUpper(r) && !unicode.IsLower(r) {
 		consider(g.pick(g.short) + string(r))
 		consider(string(r) + g.pick(g.short))
+		for _, o := range neededSymbols(need) { // a word between two symbols carries both
+			if o != r {
+				consider(string(r) + g.pick(g.short) + string(o))
+				break
+			}
+		}
 	}
 	if best == "" {
 		return g.attach(r)
 	}
 	return best
+}
+
+// neededSymbols lists the needed characters that are neither cased letters nor
+// digits, sorted, so that the choice stays fixed by the seed.
+func neededSymbols(need map[rune]int) []rune {
+	var out []rune
+	for r, n := range need {
+		if n > 0 && !unicode.IsUpper(r) && !unicode.IsLower(r) && !unicode.IsDigit(r) {
+			out = append(out, r)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // sample is up to wordSample words of list, chosen at random, so that the same
@@ -496,22 +525,29 @@ func (g *gen) sample(list []string) []string {
 	return out
 }
 
-// fillTemplate writes template t with short words, and with r for DIGIT when r
-// is a digit. It is empty when the template cannot be written.
-func (g *gen) fillTemplate(t string, r rune) string {
+// fillTemplate writes template t with short words. When r is a digit it is the
+// first DIGIT, and the others are digits still needed, else r again. It is empty
+// when the template cannot be written.
+func (g *gen) fillTemplate(t string, r rune, need map[rune]int) string {
 	if strings.Contains(t, "WORD") && len(g.short) == 0 {
 		return ""
 	}
 	for strings.Contains(t, "WORD") {
 		t = strings.Replace(t, "WORD", g.pick(g.short), 1)
 	}
-	if strings.Contains(t, "DIGIT") {
-		if !unicode.IsDigit(r) {
-			return ""
-		}
-		t = strings.ReplaceAll(t, "DIGIT", string(r))
+	if !strings.Contains(t, "DIGIT") {
+		return t
 	}
-	return t
+	if !unicode.IsDigit(r) {
+		return ""
+	}
+	t = strings.Replace(t, "DIGIT", string(r), 1)
+	for d := '0'; d <= '9'; d++ {
+		if need[d] > 0 && d != r && strings.Contains(t, "DIGIT") {
+			t = strings.Replace(t, "DIGIT", string(d), 1)
+		}
+	}
+	return strings.ReplaceAll(t, "DIGIT", string(r))
 }
 
 // attach is the last resort: r beside the allowed letters, or alone.

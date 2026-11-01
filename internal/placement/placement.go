@@ -6,6 +6,7 @@ package placement
 import (
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/curriculum"
@@ -19,6 +20,7 @@ const (
 	abortMinChar = 20   // characters typed before a stage may be aborted
 	abortWrong   = 0.25 // wrong share above which it is
 	codeMaxChars = 70   // the code stage is whole lines up to this length
+	minCapitals  = 5    // capitals a stage with capitals must show
 	codeLang     = "go"
 )
 
@@ -43,19 +45,21 @@ type group struct {
 	minWPM      float64
 }
 
-// Lengths give each stage about 30 s at its minimum speed; the code stage is
-// whole lines of a snippet.
+// Lengths give each stage about 30 s at its minimum speed before coverage,
+// which writes whatever the group still lacks; the code stage is whole lines of
+// a snippet.
 var groups = []group{
 	{"letters", "Letters", 0, 4, 50, 20},
 	{"diacritics", "Diacritics", 5, 5, 38, 15},
-	{"digits", "Digits", 6, 6, 30, 12},
-	{"shift", "Shift symbols", 7, 7, 30, 12},
+	{"digits", "Digits", 6, 6, 20, 12},
+	{"shift", "Shift symbols", 7, 7, 20, 12},
 	{"option", "Option symbols", 8, 10, 25, 10},
 	{"code", "Real code", 11, 11, 0, 12},
 }
 
-// Stages returns the six stages in order. The text of each is fixed by seed
-// and uses only characters unlocked up to the last chapter of its group.
+// Stages returns the six stages in order. The text of each is fixed by seed,
+// uses only characters unlocked up to the last chapter of its group and covers
+// that group, see required.
 // Hints are off during the test; the UI applies that.
 func Stages(c *curriculum.Curriculum, lib *content.Library, seed int64) []Stage {
 	chapters := c.Chapters()
@@ -69,16 +73,18 @@ func Stages(c *curriculum.Curriculum, lib *content.Library, seed int64) []Stage 
 				lastID = ch.ID
 			}
 		}
-		allowed := c.AllowedAt(lastID)
+		unlocked := c.AllowedAt(lastID)
+		allowed := func(r rune) bool { return unlocked(r) && c.CanType(r) }
 		if g.id == "code" {
 			st.Text = codeText(lib, allowed, seed+int64(i))
 		} else {
-			st.Text = generate.Drill(lib, generate.Input{
-				Focus:   introduced(chapters, g.first, g.last),
+			focus := introduced(chapters, g.first, g.last)
+			st.Text = generate.Cover(lib, generate.Input{
+				Focus:   focus,
 				Allowed: allowed,
 				Length:  g.length,
 				Seed:    seed + int64(i),
-			})
+			}, required(focus, seed), 1)
 		}
 		stages = append(stages, st)
 	}
@@ -96,29 +102,55 @@ func introduced(chapters []content.ChapterDef, first, last int) []rune {
 	return rs
 }
 
-// codeText is the first lines of a typable Go snippet, at most 70 characters
-// (but at least one line).
-func codeText(lib *content.Library, allowed func(rune) bool, seed int64) string {
-	var list []content.Snippet
-	for _, sn := range lib.Snippets {
-		if sn.Lang == codeLang && !slices.ContainsFunc([]rune(sn.Text), func(r rune) bool { return !allowed(r) }) {
-			list = append(list, sn)
+// required is what a stage must show of its group: every lower-case letter and
+// symbol, and a handful of capitals that changes with the seed. A capital has
+// no key of its own, so that handful proves the pattern. Uppercase-only entries
+// bring their lower case with them: ů is taught early, Ů with the diacritics.
+func required(group []rune, seed int64) []rune {
+	var must, capitals []rune
+	for _, r := range group {
+		if unicode.IsUpper(r) {
+			capitals = append(capitals, r)
+			r = unicode.ToLower(r)
+		}
+		if !slices.Contains(must, r) {
+			must = append(must, r)
 		}
 	}
-	if len(list) == 0 {
+	if len(capitals) == 0 {
+		return must
+	}
+	from := int(uint64(seed) % uint64(len(capitals)))
+	for i := range min(minCapitals, len(capitals)) {
+		must = append(must, capitals[(from+i*len(capitals)/minCapitals)%len(capitals)])
+	}
+	return must
+}
+
+// codeText is the first two lines of a typable Go snippet: Enter is what the
+// code group adds, so one line would prove nothing. Snippets that open with a
+// comment or whose two lines run over 70 characters are passed over while
+// others are left.
+func codeText(lib *content.Library, allowed func(rune) bool, seed int64) string {
+	var fits, typable []string
+	for _, sn := range lib.Snippets {
+		if sn.Lang != codeLang || slices.ContainsFunc([]rune(sn.Text), func(r rune) bool { return r != '\n' && !allowed(r) }) {
+			continue
+		}
+		lines := strings.SplitN(sn.Text, "\n", 3)
+		text := strings.Join(lines[:min(2, len(lines))], "\n")
+		typable = append(typable, text)
+		if len([]rune(text)) <= codeMaxChars && !strings.HasPrefix(text, "//") {
+			fits = append(fits, text)
+		}
+	}
+	if len(fits) > 0 {
+		typable = fits
+	}
+	if len(typable) == 0 {
 		return ""
 	}
-	sn := list[uint64(seed)%uint64(len(list))]
-	var out []string
-	n := 0
-	for _, line := range strings.Split(sn.Text, "\n") {
-		if len(out) > 0 && n+1+len([]rune(line)) > codeMaxChars {
-			break
-		}
-		out = append(out, line)
-		n += 1 + len([]rune(line))
-	}
-	return strings.Join(out, "\n")
+	return typable[uint64(seed)%uint64(len(typable))]
 }
 
 // StageSucceeded reports whether a stage was typed fast and cleanly enough.

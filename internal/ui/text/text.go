@@ -336,7 +336,7 @@ const (
 	ForkFromZero      = "Začínám od nuly"
 	ForkFromZeroNote  = "Začnete od domovské pozice."
 	ForkPlacement     = "Vstupní pohovor"
-	ForkPlacementNote = "Asi 3 minuty. Přeskočí, co už umíte."
+	ForkPlacementNote = "Asi 4 minuty. Přeskočí, co už umíte."
 	FirstRunForkHint  = "↑↓ výběr · Enter potvrdit · Ctrl+C konec"
 
 	FirstRunHandHint  = "↑↓ posun · Enter pokračovat"
