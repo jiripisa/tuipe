@@ -6,11 +6,12 @@ import (
 	"io"
 
 	"github.com/jiripisa/tuipe/internal/buildinfo"
+	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 // Run executes the command line and returns the process exit code.
-func Run(args []string, stdout, stderr io.Writer, runApp func() error, runUpgrade func(check bool) error) int {
+func Run(args []string, stdout, stderr io.Writer, runApp func() error, runUpgrade func(check bool) error, runReset func(store.ResetScope) error) int {
 	if len(args) == 0 {
 		return finish(stderr, runApp())
 	}
@@ -25,6 +26,13 @@ func Run(args []string, stdout, stderr io.Writer, runApp func() error, runUpgrad
 			fmt.Fprint(stderr, text.Usage)
 			return 2
 		}
+	case "reset":
+		scope, ok := resetScope(args[1:])
+		if !ok {
+			fmt.Fprint(stderr, text.Usage)
+			return 2
+		}
+		return finish(stderr, runReset(scope))
 	case "version":
 		fmt.Fprintln(stdout, buildinfo.String())
 		return 0
@@ -35,6 +43,25 @@ func Run(args []string, stdout, stderr io.Writer, runApp func() error, runUpgrad
 		fmt.Fprintf(stderr, text.UnknownCommand, args[0])
 		return 2
 	}
+}
+
+// resetScope reads the flags of `tuipe reset`. It needs at least one, so that
+// nothing is deleted on a bare `tuipe reset`.
+func resetScope(flags []string) (store.ResetScope, bool) {
+	var s store.ResetScope
+	for _, f := range flags {
+		switch f {
+		case "--all":
+			s.Settings, s.Score = true, true
+		case "--settings":
+			s.Settings = true
+		case "--score":
+			s.Score = true
+		default:
+			return store.ResetScope{}, false
+		}
+	}
+	return s, s.Settings || s.Score
 }
 
 func finish(stderr io.Writer, err error) int {

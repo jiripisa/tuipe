@@ -67,6 +67,9 @@ which may not match your keyboard. See [`docs/layouts.md`](docs/layouts.md).
 | `tuipe` | Start the trainer |
 | `tuipe upgrade` | Update to the latest release |
 | `tuipe upgrade --check` | Only report whether a newer version exists |
+| `tuipe reset --score` | Delete progress, history and ghosts |
+| `tuipe reset --settings` | Delete settings and your layouts |
+| `tuipe reset --all` | Delete both, as if tuipe had never run |
 | `tuipe version` | Print the version, commit and build date |
 | `tuipe help` | Show usage |
 

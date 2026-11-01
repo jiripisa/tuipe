@@ -189,6 +189,20 @@ func Open(configDir, dataDir string) (*Store, error) {
 			return nil, fmt.Errorf(text.StoreNoDir, d)
 		}
 	}
+	lock, err := takeLock(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	s := &Store{configDir: configDir, dataDir: dataDir, lock: lock}
+	if err := s.load(); err != nil {
+		_ = lock.Unlock()
+		return nil, err
+	}
+	return s, nil
+}
+
+// takeLock takes the single-instance lock of dataDir, or returns ErrLocked.
+func takeLock(dataDir string) (*flock.Flock, error) {
 	lock := flock.New(filepath.Join(dataDir, "tuipe.lock"))
 	ok, err := lock.TryLock()
 	if err != nil {
@@ -197,12 +211,7 @@ func Open(configDir, dataDir string) (*Store, error) {
 	if !ok {
 		return nil, ErrLocked
 	}
-	s := &Store{configDir: configDir, dataDir: dataDir, lock: lock}
-	if err := s.load(); err != nil {
-		_ = lock.Unlock()
-		return nil, err
-	}
-	return s, nil
+	return lock, nil
 }
 
 func (s *Store) load() error {
@@ -218,7 +227,11 @@ func (s *Store) Close() error { return s.lock.Unlock() }
 // Notices lists things the user should be told, such as a file set aside.
 func (s *Store) Notices() []string { return append([]string(nil), s.notices...) }
 
-const profileFile = "profile.json"
+const (
+	profileFile = "profile.json"
+	runsFile    = "runs.jsonl"
+	ghostsDir   = "ghosts"
+)
 
 func (s *Store) profilePath() string { return filepath.Join(s.dataDir, profileFile) }
 
@@ -246,7 +259,7 @@ func (s *Store) SaveProfile() error {
 	return writeJSON(s.profilePath(), s.profile)
 }
 
-func (s *Store) runsPath() string { return filepath.Join(s.dataDir, "runs.jsonl") }
+func (s *Store) runsPath() string { return filepath.Join(s.dataDir, runsFile) }
 
 // AppendRun adds one line to the run history.
 func (s *Store) AppendRun(r Run) error {
@@ -323,7 +336,7 @@ func (s *Store) ghostPath(hash string) (string, error) {
 	if hash == "" || hash != filepath.Base(hash) || hash == "." || hash == ".." {
 		return "", fmt.Errorf("invalid ghost hash %q", hash)
 	}
-	return filepath.Join(s.dataDir, "ghosts", hash+".json"), nil
+	return filepath.Join(s.dataDir, ghostsDir, hash+".json"), nil
 }
 
 // Ghost returns the ghost for a text hash, or nil, nil when there is none. A

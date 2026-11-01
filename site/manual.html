@@ -44,6 +44,7 @@
     <li><a href="#klavesnice">Česká klávesnice</a></li>
     <li><a href="#data">Data a konfigurace</a></li>
     <li><a href="#aktualizace">Aktualizace</a></li>
+    <li><a href="#reset">Začít znovu</a></li>
     <li><a href="#odinstalace">Odinstalace</a></li>
     <li><a href="#potize">Časté potíže</a></li>
   </ol>
@@ -482,6 +483,20 @@ update_check = true</code></pre>
 <pre class="block"><code>tuipe upgrade --check</code></pre>
 <p>Jen zjistí, jestli je dostupná novější verze, a nic nemění. Nainstalovanou verzi vypíše <code>tuipe version</code>.</p>
 <p>Na novou verzi vás upozorní i tichý řádek na úvodní obrazovce. Kontrola běží nejvýš jednou denně na pozadí a start ani psaní nezdržuje. Vypnete ji v Nastavení položkou Kontrola aktualizací. Program z <code>go install</code> se tímto příkazem aktualizovat nedá, napíše vám, ať <code>go install</code> spustíte znovu.</p>
+
+<h2 id="reset">Začít znovu</h2>
+<p>Příkaz <code>tuipe reset</code> vrátí aplikaci do výchozího stavu. Vždy musíte říct, co se má smazat:</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Příkaz</th><th>Co smaže</th></tr></thead>
+<tbody>
+<tr><td><code>tuipe reset --score</code></td><td>znalost znaků, hvězdy, dokončené kapitoly, historii kol a duchy</td></tr>
+<tr><td><code>tuipe reset --settings</code></td><td>nastavení a vaše rozložení klávesnice</td></tr>
+<tr><td><code>tuipe reset --all</code></td><td>obojí, jako by tuipe běžel poprvé</td></tr>
+</tbody>
+</table>
+</div>
+<p>Příkaz nejdřív vypíše, co přesně smaže, a zeptá se, jestli si jste jistí. Smaže to, až když napíšete <code>ano</code> a stisknete <kbd>Enter</kbd>. Jiná odpověď nic nezmění. Smazaná data nejde vrátit. Když tuipe běží v jiném okně, příkaz odmítne, dokud ho nezavřete. Ostatních souborů ve složkách si nevšímá.</p>
 
 <h2 id="odinstalace">Odinstalace</h2>
 <p>Na macOS a Linuxu smažte program a pak, pokud chcete, i data:</p>

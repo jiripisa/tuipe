@@ -47,12 +47,29 @@ func SkippedContent(layout string, lessons, incidents int) string {
 const Usage = `tuipe - trenažér psaní všemi deseti pro programátory (česká klávesnice QWERTY)
 
 Použití:
-  tuipe                  spustí trenažér
-  tuipe upgrade          aktualizuje na nejnovější verzi
-  tuipe upgrade --check  jen zjistí, zda je dostupná novější verze
-  tuipe version          vypíše verzi
-  tuipe help             zobrazí tuto nápovědu
+  tuipe                   spustí trenažér
+  tuipe upgrade           aktualizuje na nejnovější verzi
+  tuipe upgrade --check   jen zjistí, zda je dostupná novější verze
+  tuipe reset --score     smaže postup, historii kol a duchy
+  tuipe reset --settings  smaže nastavení a vlastní rozložení klávesnice
+  tuipe reset --all       smaže obojí, jako by tuipe běžel poprvé
+  tuipe version           vypíše verzi
+  tuipe help              zobrazí tuto nápovědu
+
+Příkaz reset vypíše, co smaže, a smaže to až po potvrzení slovem „ano“.
 `
+
+// Messages of `tuipe reset`.
+const (
+	ResetHeader       = "Smaže se:"
+	ResetQuestion     = "Tohle nejde vzít zpět. Opravdu to chcete smazat? Napište „ano“ a stiskněte Enter: "
+	ResetYes          = "ano"
+	ResetCancelled    = "Nic se nesmazalo."
+	ResetNothing      = "Není co mazat."
+	ResetDoneScore    = "Smazáno. Při příštím spuštění začnete od začátku."
+	ResetDoneSettings = "Smazáno. Nastavení je zase výchozí."
+	ResetFailedPrefix = "Nepovedlo se smazat: "
+)
 
 // UnknownCommand is the format of the error for an unknown subcommand (%q is the command).
 const UnknownCommand = "tuipe: neznámý příkaz %q\nNápovědu zobrazíte příkazem: tuipe help\n"

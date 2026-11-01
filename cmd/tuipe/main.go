@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/jiripisa/tuipe/internal/cli"
+	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 	"github.com/jiripisa/tuipe/internal/upgrade"
@@ -39,5 +40,12 @@ func main() {
 				}
 			}
 			return upgrade.Run(context.Background(), upgrade.NewClient(), exe, check, os.Stdout)
+		},
+		func(scope store.ResetScope) error {
+			cfgDir, dataDir, err := store.Paths()
+			if err != nil {
+				return err
+			}
+			return store.Reset(cfgDir, dataDir, scope, os.Stdin, os.Stdout)
 		}))
 }
