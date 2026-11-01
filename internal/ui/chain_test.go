@@ -806,3 +806,36 @@ func TestSprintFinaleEndsTheSprintEvenWhenResumedAfterIt(t *testing.T) {
 	openEntry(a, homeSprint)
 	wantScreen(t, a, "retro")
 }
+
+func TestWeakBigramReachesTheDrillText(t *testing.T) {
+	a, st, _ := typist(t, 40, 5)
+	s := st.Profile().Stats[a.Layout.ID]
+	s.Bigrams["ěq"] = &stats.Entry{Samples: 20, ErrorRate: 0.6, LatencyMs: 900, LastSeen: newClock().now()}
+	openEntry(a, homeStandup)
+	wantScreen(t, a, "round")
+	if spec := ui.RoundSpec(a); !strings.Contains(spec.Text, "ěq") {
+		t.Errorf("the drill does not train the weak bigram: %q", spec.Text)
+	}
+}
+
+func TestSprintPlanKeepsTheBigramsOfItsStart(t *testing.T) {
+	a, st, clk := typist(t, 40, 5)
+	s := st.Profile().Stats[a.Layout.ID]
+	s.Bigrams["st"] = &stats.Entry{Samples: 20, ErrorRate: 0.6, LatencyMs: 900, LastSeen: clk.now()}
+	openEntry(a, homeSprint)
+	a.Update(enter)
+	typeKeys(a, clk, 1)
+	saved := st.Profile().Resume.Sprint
+	if saved.Bigrams["st"].Samples != 20 {
+		t.Fatalf("the snapshot has no bigrams: %+v", saved.Bigrams)
+	}
+	before := ui.SprintPlan(a, saved)
+	st.Profile().Stats[a.Layout.ID].Bigrams = map[string]*stats.Entry{}
+	after := ui.SprintPlan(a, saved)
+	if fmt.Sprint(before) != fmt.Sprint(after) {
+		t.Errorf("the plan moved with the profile:\n%v\n%v", before, after)
+	}
+	if !slices.Contains(before[0].Bigrams, "st") {
+		t.Errorf("first drill = %+v, want it to train st", before[0])
+	}
+}

@@ -96,6 +96,9 @@ func (a *App) sprintPlanState(s *store.SprintState, rng *rand.Rand) recommend.St
 	for k, e := range s.Chars {
 		st.Chars[k] = &e
 	}
+	for k, e := range s.Bigrams {
+		st.Bigrams[k] = &e
+	}
 	started, _ := time.Parse(time.RFC3339Nano, s.Started)
 	return recommend.State{
 		Curr: a.Curr, Lib: a.Lib, Stats: st, RunCount: a.runCadence(), Rand: rng, Now: started, WPM: s.WPM,
@@ -103,8 +106,8 @@ func (a *App) sprintPlanState(s *store.SprintState, rng *rand.Rand) recommend.St
 	}
 }
 
-// newSprintState snapshots what the plan and the Retro need: the character
-// statistics, the stars and the completed chapters at the start.
+// newSprintState snapshots what the plan and the Retro need: the character and
+// bigram statistics, the stars and the completed chapters at the start.
 func (a *App) newSprintState(minutes int) *store.SprintState {
 	p := a.Store.Profile()
 	now := a.Now()
@@ -112,12 +115,16 @@ func (a *App) newSprintState(minutes int) *store.SprintState {
 		Minutes: minutes, Seed: now.UnixNano(), Started: now.Format(time.RFC3339Nano),
 		WPM:          a.liveState(nil).WPM,
 		Chars:        map[string]stats.Entry{},
+		Bigrams:      map[string]stats.Entry{},
 		Stars:        maps.Clone(p.Stars),
 		Completed:    maps.Clone(p.Completed),
 		IncidentBest: maps.Clone(p.IncidentBest),
 	}
 	for k, e := range a.stats().Chars {
 		s.Chars[k] = *e
+	}
+	for k, e := range a.stats().Bigrams {
+		s.Bigrams[k] = *e
 	}
 	return s
 }

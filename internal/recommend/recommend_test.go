@@ -478,3 +478,23 @@ func TestPicksCarryTheDrillLength(t *testing.T) {
 	eq(t, recommend.SprintExtra(s, 9).Kind, recommend.Drill)
 	eq(t, recommend.SprintExtra(s, 9).Length, 300)
 }
+
+func (f *fixture) weakBigram(bg string) {
+	f.st.Bigrams[bg] = &stats.Entry{Samples: 20, ErrorRate: 0.5, LatencyMs: 900, LastSeen: fixtureNow}
+}
+
+func TestDrillCarriesTheWeakestBigrams(t *testing.T) {
+	f := newFixture(t)
+	f.completeBefore(5)
+	f.weakBigram("st")
+	f.weakBigram("až")
+	f.weakBigram("1a") // digits come in chapter 6
+	f.weakBigram("a ") // a space is no drill material
+	picks := recommend.Standup(f.state(0, 1))
+	for _, p := range picks {
+		eq(t, slices.Contains(p.Bigrams, "st"), true)
+		eq(t, slices.Contains(p.Bigrams, "až"), true)
+		eq(t, slices.Contains(p.Bigrams, "1a"), false)
+		eq(t, slices.Contains(p.Bigrams, "a "), false)
+	}
+}

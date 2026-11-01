@@ -33,6 +33,7 @@ type Pick struct {
 	Kind                            Kind
 	LessonID, SnippetID, IncidentID string
 	Focus                           []rune
+	Bigrams                         []string
 	Seed                            int64
 	Length                          int // characters of a Drill
 }
@@ -54,6 +55,7 @@ const (
 	codeChapter    = 11 // code is recommended from this chapter on
 	focusChars     = 5  // characters a drill focuses on
 	staleSlots     = 2  // of those, kept for the characters unseen the longest
+	focusBigrams   = 2  // weak character pairs a drill also trains
 	roundSeconds   = 75 // budget of one round in a Sprint
 	standupRounds  = 5
 	baseWPMWindow  = 20
@@ -231,6 +233,7 @@ func (s State) drillAt(chapterID string, n int) Pick {
 		return slices.Contains(unlocked, r) && !slices.Contains(stale, r)
 	})...)
 	p.Focus = append(p.Focus, stale...)
+	p.Bigrams = s.Stats.WeakestBigrams(focusBigrams, func(r rune) bool { return slices.Contains(unlocked, r) })
 	return p
 }
 

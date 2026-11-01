@@ -143,8 +143,9 @@ func (g *gen) fill(tokens []string, length, limit int) []string {
 	return tokens
 }
 
-// cover is the coverage loop of Cover. Each pass writes the tokens that hold
-// what the text still lacks; only the first pass ignores the length.
+// cover is the coverage loop of Cover. It starts with one token for each bigram.
+// Each pass then writes the tokens that hold what the text still lacks; only the
+// first pass ignores the length.
 func (g *gen) cover(must []rune, times int) []string {
 	need := map[rune]int{}
 	var order []rune
@@ -158,6 +159,9 @@ func (g *gen) cover(must []rune, times int) []string {
 		need[r] = max(times, 1)
 	}
 	var tokens []string
+	for _, b := range g.bigrams {
+		tokens = append(tokens, g.tokenWithBigram(b))
+	}
 	for pass := 0; pass < max(times, 1); pass++ {
 		for _, r := range order {
 			if need[r] < max(times, 1)-pass {
@@ -510,6 +514,21 @@ func neededSymbols(need map[rune]int) []rune {
 	}
 	slices.Sort(out)
 	return out
+}
+
+// tokenWithBigram is a real word that holds b, or else b alone.
+func (g *gen) tokenWithBigram(b string) string {
+	r, _ := utf8.DecodeRuneInString(b)
+	var words []string
+	for _, w := range g.byRune[r] {
+		if strings.Contains(w, b) && g.within(w) {
+			words = append(words, w)
+		}
+	}
+	if len(words) > 0 {
+		return g.pick(words)
+	}
+	return b
 }
 
 // sample is up to wordSample words of list, chosen at random, so that the same

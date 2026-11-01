@@ -300,3 +300,13 @@ func TestCoverStaysNearItsLength(t *testing.T) {
 		}
 	}
 }
+
+func TestCoverShowsItsBigrams(t *testing.T) {
+	l := lib(t)
+	for seed := int64(1); seed <= 100; seed++ {
+		s := generate.Cover(l, generate.Input{Bigrams: []string{"st", "{q"}, Focus: []rune("a"), Allowed: all, Length: 60, Seed: seed}, nil, 1)
+		if !strings.Contains(s, "st") || !strings.Contains(s, "{q") {
+			t.Fatalf("seed %d: a bigram is missing from %q", seed, s)
+		}
+	}
+}

@@ -122,7 +122,7 @@ func (a *App) drillSpec(p recommend.Pick) play.Spec {
 		length = a.drillLength()
 	}
 	txt := generate.Cover(a.Lib, generate.Input{
-		Focus: p.Focus, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed, Length: length,
+		Focus: p.Focus, Bigrams: p.Bigrams, Allowed: a.Curr.AllowedAt(cur.ID), Seed: p.Seed, Length: length,
 	}, p.Focus, focusRepeats)
 	return play.Spec{
 		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,

@@ -64,7 +64,7 @@ type Ghost struct {
 }
 
 // SprintState is the saved state of an interrupted sprint. Seed and the
-// snapshot taken at the start (Chars, Stars, Completed, IncidentBest, WPM) fix
+// snapshot taken at the start (Chars, Bigrams, Stars, Completed, IncidentBest, WPM) fix
 // the plan and the extra drills after it, so a resumed sprint regenerates the
 // same rounds from NextIndex. Chars is also what the retro compares the final
 // statistics with.
@@ -75,6 +75,7 @@ type SprintState struct {
 	Seed         int64
 	Started      string // RFC 3339
 	Chars        map[string]stats.Entry
+	Bigrams      map[string]stats.Entry
 	Stars        map[string]int
 	Completed    map[string]bool
 	IncidentBest map[string]string
