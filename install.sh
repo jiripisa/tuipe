@@ -22,6 +22,16 @@ die() {
   exit 1
 }
 
+# fetch is curl that speaks HTTPS only. TUIPE_API_BASE names a test server, which
+# is plain HTTP.
+fetch() {
+  if [ -n "${TUIPE_API_BASE:-}" ]; then
+    curl "$@"
+  else
+    curl --proto '=https' "$@"
+  fi
+}
+
 cleanup() {
   if [ -n "$STAGED" ]; then
     rm -f "$STAGED"
@@ -127,7 +137,7 @@ main() {
   trap 'exit 143' TERM HUP
 
   printf 'Zjišťuji nejnovější verzi tuipe...\n'
-  status="$(curl -sSL --connect-timeout 10 --max-time 30 -H 'Accept: application/vnd.github+json' \
+  status="$(fetch -sSL --connect-timeout 10 --max-time 30 -H 'Accept: application/vnd.github+json' \
     -o "$TMP/release.json" -w '%{http_code}' "$api/repos/$REPO/releases/latest")" ||
     die "Nelze se spojit s GitHubem. Zkontrolujte připojení k internetu a zkuste to znovu."
   case "$status" in
@@ -151,8 +161,8 @@ main() {
   [ -n "$sums_url" ] || die "Verze $tag nemá soubor checksums.txt."
 
   printf 'Stahuji tuipe %s (%s/%s)...\n' "$tag" "$os" "$arch"
-  curl -fsSL --connect-timeout 10 --max-time 300 "$archive_url" -o "$TMP/$archive" || die "Stažení $archive se nezdařilo."
-  curl -fsSL --connect-timeout 10 --max-time 60 "$sums_url" -o "$TMP/checksums.txt" || die "Stažení checksums.txt se nezdařilo."
+  fetch -fsSL --connect-timeout 10 --max-time 300 "$archive_url" -o "$TMP/$archive" || die "Stažení $archive se nezdařilo."
+  fetch -fsSL --connect-timeout 10 --max-time 60 "$sums_url" -o "$TMP/checksums.txt" || die "Stažení checksums.txt se nezdařilo."
 
   want="$(awk -v n="$archive" '{ f = $2; sub(/^\*/, "", f); if (f == n) { print tolower($1); exit } }' "$TMP/checksums.txt")"
   [ -n "$want" ] || die "V checksums.txt chybí kontrolní součet pro $archive."

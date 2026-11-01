@@ -640,3 +640,89 @@ func TestInstallPs1StaticProperties(t *testing.T) {
 		}
 	}
 }
+
+// fakeCurl puts a curl on PATH that logs its arguments and fails, and returns
+// the log file.
+func fakeCurl(t *testing.T) (dir, log string) {
+	t.Helper()
+	dir = t.TempDir()
+	log = filepath.Join(dir, "args")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + log + "\nexit 7\n"
+	if err := os.WriteFile(filepath.Join(dir, "curl"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir, log
+}
+
+func TestInstallerAsksCurlForHTTPSOnly(t *testing.T) {
+	skipUnlessUnix(t)
+	dir, log := fakeCurl(t)
+	cmd := exec.Command("sh", scriptPath(t))
+	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "HOME="+t.TempDir(), "TUIPE_API_BASE=")
+	_ = cmd.Run() // the fake curl fails, which is enough
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "--proto =https") {
+		t.Errorf("curl was called without --proto =https: %s", b)
+	}
+}
+
+func TestInstallerLetsATestServerSpeakHTTP(t *testing.T) {
+	skipUnlessUnix(t)
+	dir, log := fakeCurl(t)
+	cmd := exec.Command("sh", scriptPath(t))
+	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "HOME="+t.TempDir(), "TUIPE_API_BASE=http://127.0.0.1:1")
+	_ = cmd.Run()
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "--proto") {
+		t.Errorf("curl was limited to HTTPS against a test server: %s", b)
+	}
+}
+
+func workflow(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestReleaseWorkflowGivesWriteAccessToTheReleaseJobOnly(t *testing.T) {
+	s := workflow(t, ".github/workflows/release.yml")
+	head, jobs, ok := strings.Cut(s, "\njobs:\n")
+	if !ok {
+		t.Fatal("no jobs in release.yml")
+	}
+	if !strings.Contains(head, "permissions:\n  contents: read\n") {
+		t.Errorf("the workflow default must be read access:\n%s", head)
+	}
+	test, release, ok := strings.Cut(jobs, "\n  release:\n")
+	if !ok {
+		t.Fatal("no release job")
+	}
+	if strings.Contains(test, "write") {
+		t.Errorf("the test job can write:\n%s", test)
+	}
+	if !strings.Contains(release, "    permissions:\n      contents: write\n") {
+		t.Errorf("the release job has no write access:\n%s", release)
+	}
+}
+
+func TestCIWorkflowOnlyReads(t *testing.T) {
+	if s := workflow(t, ".github/workflows/ci.yml"); !strings.Contains(s, "permissions:\n  contents: read\n") {
+		t.Errorf("ci.yml has no read-only permissions:\n%s", s)
+	}
+}
+
+func TestDependabotWatchesGoModules(t *testing.T) {
+	s := workflow(t, ".github/dependabot.yml")
+	if !strings.Contains(s, "package-ecosystem: gomod") || !strings.Contains(s, "package-ecosystem: github-actions") {
+		t.Errorf("dependabot.yml:\n%s", s)
+	}
+}
