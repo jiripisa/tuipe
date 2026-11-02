@@ -73,33 +73,11 @@ type Ghost struct {
 	TimesMs  []int64 `json:"TimesMs"`
 }
 
-// SprintState is the saved state of an interrupted sprint. Seed and the
-// snapshot taken at the start (Chars, Bigrams, Stars, Completed, IncidentBest,
-// WPM) fix the plan and the extra drills after it, so a resumed sprint regenerates
-// the same rounds from NextIndex. Chars is also what the retro compares the final
-// statistics with.
-type SprintState struct {
-	Minutes      int                    `json:"Minutes"`
-	ActiveMs     int64                  `json:"ActiveMs"`
-	NextIndex    int                    `json:"NextIndex"`
-	Seed         int64                  `json:"Seed"`
-	Started      string                 `json:"Started"` // RFC 3339
-	Chars        map[string]stats.Entry `json:"Chars"`
-	Bigrams      map[string]stats.Entry `json:"Bigrams"`
-	Stars        map[string]int         `json:"Stars"`
-	Completed    map[string]bool        `json:"Completed"`
-	IncidentBest map[string]string      `json:"IncidentBest"`
-	RunIDs       []string               `json:"RunIDs"`     // the runs of this Sprint, as its rounds finish
-	WPM          float64                `json:"WPM"`        // the pace at the start, which sets the drill length
-	FinaleDone   bool                   `json:"FinaleDone"` // the finale has been played: only the Retro is left
-}
-
 // Resume is what to offer the user when they come back.
 type Resume struct {
-	Kind     string       `json:"Kind"`
-	LessonID string       `json:"LessonID"`
-	Sprint   *SprintState `json:"Sprint"`
-	Day      string       `json:"Day"`
+	Kind     string `json:"Kind"`
+	LessonID string `json:"LessonID"`
+	Day      string `json:"Day"`
 }
 
 // Profile is the mastery and progress of the user.
@@ -111,7 +89,6 @@ type Profile struct {
 	IncidentBest    map[string]string       `json:"IncidentBest"` // by incident id: best severity won
 	FirstRunDone    bool                    `json:"FirstRunDone"`
 	FocusTerminals  map[string]bool         `json:"FocusTerminals"` // by terminal key: reports focus changes
-	StandupDay      string                  `json:"StandupDay"`
 	LastUpdateCheck string                  `json:"LastUpdateCheck"`
 	LatestSeen      string                  `json:"LatestSeen"`
 	Resume          *Resume                 `json:"Resume"`

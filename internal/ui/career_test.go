@@ -3,7 +3,6 @@ package ui_test
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,18 +12,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/engine"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
-const (
-	homeCareer   = 3 // downs from the first home entry to Kariéra
-	homePractice = 4
-)
+const homeCareer = 0 // downs from the first home entry to Kariéra
 
 // openFromHome presses Down n times on the home screen and Enter.
 func openFromHome(t *testing.T, a *ui.App, n int, want string) {
@@ -435,22 +429,6 @@ func TestPassingTestOutMovesTheCareerOn(t *testing.T) {
 	if !ok || next.ID != chs[5].Lessons[0].ID {
 		t.Errorf("next lesson = %v %v, want %s", next.ID, ok, chs[5].Lessons[0].ID)
 	}
-	lessons := 0
-	for seed := range uint64(40) {
-		pick := recommend.Next(recommend.State{
-			Curr: a.Curr, Lib: a.Lib, Profile: p, Stats: p.Stats[a.Layout.ID],
-			Rand: rand.New(rand.NewPCG(seed, seed+1)),
-		})
-		if pick.Kind == recommend.Lesson {
-			lessons++
-			if pick.LessonID != chs[5].Lessons[0].ID {
-				t.Fatalf("recommended lesson %s, want %s", pick.LessonID, chs[5].Lessons[0].ID)
-			}
-		}
-	}
-	if lessons == 0 {
-		t.Error("the recommender never offered the next lesson")
-	}
 }
 
 func selectedLine(a *ui.App) string {
@@ -625,238 +603,10 @@ func TestCareerLessonRoundKeepsStars(t *testing.T) {
 	}
 }
 
-// ---- Practice ----
-
 // typeText types a string into the focused field, one key press per rune.
 func typeText(a *ui.App, s string) {
 	for _, r := range s {
 		a.Update(tea.KeyPressMsg{Text: string(r)})
-	}
-}
-
-const (
-	practiceChapter = 0
-	practiceLesson  = 1
-	practiceLang    = 2
-	practiceChars   = 3
-)
-
-func openPractice(t *testing.T, a *ui.App, item int) {
-	t.Helper()
-	openFromHome(t, a, homePractice, "practice")
-	for range item {
-		a.Update(down)
-	}
-	a.Update(enter)
-}
-
-func TestPracticeBySelectedCharacters(t *testing.T) {
-	a, st, clk := playApp(t)
-	openPractice(t, a, practiceChars)
-	typeText(a, "{}")
-	if !strings.Contains(view(a), "{}") {
-		t.Fatalf("the typed characters are not shown:\n%s", view(a))
-	}
-	a.Update(enter)
-	if ui.ScreenName(a) != "round" {
-		t.Fatalf("screen = %s, want round", ui.ScreenName(a))
-	}
-	keys := ui.RoundKeys(a)
-	braces := 0
-	for _, r := range keys {
-		if r == '{' || r == '}' {
-			braces++
-		}
-		if _, ok := a.Layout.Route(r); !ok && r != '\n' {
-			t.Errorf("the drill contains %q, which the layout cannot type", r)
-		}
-	}
-	// On a fresh profile braces are not yet unlocked by the career, yet the
-	// drill is built from them: they are a real share of the text.
-	if braces*5 < len(keys) {
-		t.Errorf("only %d of %d characters are { or }: %q", braces, len(keys), string(keys))
-	}
-	typeKeys(a, clk, -1)
-	runs, _ := st.Runs()
-	if len(runs) != 1 || runs[0].Mode != "practice" {
-		t.Fatalf("runs = %+v, want one practice run", runs)
-	}
-	a.Update(enter)
-	if ui.ScreenName(a) != "round" {
-		t.Errorf("Enter on results: %s, want another drill", ui.ScreenName(a))
-	}
-}
-
-func TestPracticeFieldTakesComposedAndOptionCharacters(t *testing.T) {
-	a, _, _ := playApp(t)
-	openPractice(t, a, practiceChars)
-	a.Update(tea.KeyPressMsg{Text: "ď"})                             // a dead key result, no Code
-	a.Update(tea.KeyPressMsg{Code: '8', Mod: tea.ModAlt, Text: "{"}) // Option symbol
-	a.Update(tea.KeyPressMsg{Text: "€"})                             // no route on the layout
-	a.Update(tea.KeyPressMsg{Text: "ď"})                             // duplicate
-	if v := view(a); !strings.Contains(v, "ď{") || strings.Contains(v, "€") || strings.Contains(v, "ďď") {
-		t.Errorf("field should hold exactly ď{ :\n%s", v)
-	}
-	a.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
-	if v := view(a); !strings.Contains(v, "ď") || strings.Contains(v, "{") {
-		t.Errorf("backspace should remove the last character:\n%s", v)
-	}
-	a.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
-	a.Update(enter)
-	if ui.ScreenName(a) != "practice" {
-		t.Errorf("Enter on an empty field started %s", ui.ScreenName(a))
-	}
-}
-
-func TestPracticeFieldHoldsTwelveUniqueCharacters(t *testing.T) {
-	a, _, _ := playApp(t)
-	openPractice(t, a, practiceChars)
-	typeText(a, "aabcdefghijklmnop")
-	v := view(a)
-	if !strings.Contains(v, "abcdefghijkl") || strings.Contains(v, "abcdefghijklm") {
-		t.Errorf("want exactly the first 12 unique characters:\n%s", v)
-	}
-	a.Update(enter)
-	keys := ui.RoundKeys(a)
-	if len(keys) == 0 {
-		t.Fatal("no drill")
-	}
-	seen := map[rune]bool{}
-	for _, r := range keys {
-		seen[r] = true
-	}
-	hit := 0
-	for _, r := range "abcdefghijkl" {
-		if seen[r] {
-			hit++
-		}
-	}
-	if hit < 6 {
-		t.Errorf("the drill contains only %d of the 12 chosen characters: %q", hit, string(keys))
-	}
-}
-
-func TestPracticeByLanguage(t *testing.T) {
-	langs := []string{"go", "python", "js", "ts", "shell", "sql", "regex"}
-	for i, lang := range langs {
-		t.Run(lang, func(t *testing.T) {
-			a, st, clk := playApp(t)
-			openPractice(t, a, practiceLang)
-			for range i {
-				a.Update(down)
-			}
-			if !strings.Contains(view(a), lang) {
-				t.Fatalf("language %s not listed:\n%s", lang, view(a))
-			}
-			a.Update(enter)
-			if ui.ScreenName(a) != "round" {
-				t.Fatalf("screen = %s, want round", ui.ScreenName(a))
-			}
-			got := string(ui.RoundKeys(a))
-			found := false
-			for _, sn := range a.Lib.Snippets {
-				var keys []rune
-				for _, c := range engine.Prepare(sn.Text).Cells {
-					if !c.Auto {
-						keys = append(keys, c.R)
-					}
-				}
-				if sn.Lang == lang && string(keys) == got {
-					found = true
-					if u := a.Layout.Unresolved(sn.Text); len(u) != 0 {
-						t.Errorf("snippet %s is not typable: %q", sn.ID, string(u))
-					}
-				}
-			}
-			if !found {
-				t.Fatalf("the round text is no %s snippet:\n%s", lang, got)
-			}
-			typeKeys(a, clk, -1)
-			runs, _ := st.Runs()
-			if len(runs) != 1 || runs[0].Mode != "practice" {
-				t.Errorf("runs = %+v, want one practice run", runs)
-			}
-		})
-	}
-}
-
-func TestPracticeLessonPlaysThatLessonAsPractice(t *testing.T) {
-	a, st, clk := playApp(t)
-	tall(a)
-	openPractice(t, a, practiceLesson)
-	if ui.ScreenName(a) != "career" {
-		t.Fatalf("the lesson picker should be the career list, got %s", ui.ScreenName(a))
-	}
-	ch := a.Curr.Chapters()[1]
-	for range len(a.Curr.Chapters()[0].Lessons) + 1 { // second lesson of chapter 1
-		a.Update(down)
-	}
-	a.Update(enter)
-	want := ch.Lessons[1]
-	if ui.RoundLessonID(a) != want.ID {
-		t.Fatalf("round lesson = %q, want %q", ui.RoundLessonID(a), want.ID)
-	}
-	typeKeys(a, clk, -1)
-	runs, _ := st.Runs()
-	if len(runs) != 1 || runs[0].Mode != "practice" || runs[0].LessonID != want.ID {
-		t.Errorf("runs = %+v, want one practice run on %s", runs, want.ID)
-	}
-	if st.Profile().Stars[want.ID] == 0 {
-		t.Error("practising a lesson still improves its stars")
-	}
-	a.Update(enter) // results -> the lesson list again
-	if ui.ScreenName(a) != "career" {
-		t.Fatalf("Enter on the results: %s, want the lesson list", ui.ScreenName(a))
-	}
-	a.Update(esc)
-	if ui.ScreenName(a) != "practice" || !strings.Contains(view(a), text.PracticeChars) {
-		t.Fatalf("Esc in the lesson list should show the practice menu, got %s:\n%s", ui.ScreenName(a), view(a))
-	}
-	a.Update(esc)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("Esc in the practice menu: %s, want home", ui.ScreenName(a))
-	}
-}
-
-func TestPracticeChapterDrillsItsCharacters(t *testing.T) {
-	a, st, clk := playApp(t)
-	tall(a)
-	openPractice(t, a, practiceChapter)
-	if ui.ScreenName(a) != "career" {
-		t.Fatalf("the chapter picker should be the career list, got %s", ui.ScreenName(a))
-	}
-	a.Update(down) // chapter 1, "Domovská řada"
-	a.Update(enter)
-	if ui.ScreenName(a) != "round" {
-		t.Fatalf("screen = %s, want round", ui.ScreenName(a))
-	}
-	ch := a.Curr.Chapters()[1]
-	allowed := a.Curr.AllowedAt(ch.ID)
-	for _, r := range ui.RoundKeys(a) {
-		if !allowed(r) {
-			t.Errorf("drill uses %q, which chapter %s has not unlocked", r, ch.ID)
-		}
-	}
-	typeKeys(a, clk, -1)
-	runs, _ := st.Runs()
-	if len(runs) != 1 || runs[0].Mode != "practice" || runs[0].LessonID != "" {
-		t.Errorf("runs = %+v, want one practice run", runs)
-	}
-	if len(st.Profile().Stars) != 0 {
-		t.Errorf("a chapter drill must not write lesson stars: %v", st.Profile().Stars)
-	}
-}
-
-func TestEscClimbsBackFromPractice(t *testing.T) {
-	a, _, _ := playApp(t)
-	openPractice(t, a, practiceLang)
-	a.Update(esc)
-	if ui.ScreenName(a) != "practice" || !strings.Contains(view(a), text.PracticeChars) {
-		t.Errorf("Esc in the language list should show the practice menu:\n%s", view(a))
-	}
-	a.Update(esc)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("Esc in the practice menu: %s, want home", ui.ScreenName(a))
 	}
 }
 

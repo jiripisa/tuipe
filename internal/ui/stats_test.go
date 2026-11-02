@@ -16,7 +16,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
-const homeStats = 6 // downs from the first home entry to Statistiky
+const homeStats = 1 // downs from the first home entry to Statistiky
 
 var (
 	tab    = tea.KeyPressMsg{Code: tea.KeyTab}
@@ -525,14 +525,6 @@ func onlyRun(t *testing.T, st *store.Store) store.Run {
 }
 
 func TestFinishWritesTheSessionOfEveryWayToStartARound(t *testing.T) {
-	t.Run("quick", func(t *testing.T) {
-		a, st, clk := playApp(t)
-		a.Update(enter) // the recommended round
-		typeKeys(a, clk, -1)
-		if got := onlyRun(t, st).Session; got != "quick" {
-			t.Errorf("Session = %q, want quick", got)
-		}
-	})
 	t.Run("career", func(t *testing.T) {
 		a, st, clk := playApp(t)
 		tall(a)
@@ -543,36 +535,9 @@ func TestFinishWritesTheSessionOfEveryWayToStartARound(t *testing.T) {
 			t.Errorf("Session = %q, want career", got)
 		}
 	})
-	t.Run("practice", func(t *testing.T) {
-		a, st, clk := playApp(t)
-		tall(a)
-		openPractice(t, a, practiceLesson)
-		a.Update(enter)
-		typeKeys(a, clk, -1)
-		if got := onlyRun(t, st).Session; got != "practice" {
-			t.Errorf("Session = %q, want practice", got)
-		}
-	})
-	t.Run("standup", func(t *testing.T) {
-		a, st, clk := playApp(t)
-		openEntry(a, homeStandup)
-		typeKeys(a, clk, -1)
-		if got := onlyRun(t, st).Session; got != "standup" {
-			t.Errorf("Session = %q, want standup", got)
-		}
-	})
-	t.Run("sprint", func(t *testing.T) {
-		a, st, clk := playApp(t)
-		openEntry(a, homeSprint)
-		a.Update(enter)
-		typeKeys(a, clk, -1)
-		if got := onlyRun(t, st).Session; got != "sprint" {
-			t.Errorf("Session = %q, want sprint", got)
-		}
-	})
 	t.Run("incident from the list", func(t *testing.T) {
 		a, st, clk := playApp(t)
-		openFromHome(t, a, homeIncident, "incident-list")
+		openIncidentList(a)
 		a.Update(enter)
 		a.Update(enter)
 		typeKeys(a, clk, -1)

@@ -50,7 +50,6 @@ type App struct {
 	Entries   []menuEntry // home menu entries; later screens register theirs
 	focusSeen bool        // a focus message has arrived in this process
 	tickGen   int         // identifies the running round tick; older ticks are dropped
-	chain     *chain      // the Standup or Sprint being played; nil outside one
 	update    updateCheck // the daily look for a newer release
 
 	// UpdateNotice is the quiet line about a newer version, shown on the home
@@ -126,11 +125,7 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 		a.Banner = append(a.Banner, notice)
 	}
 	a.Entries = defaultEntries()
-	a.RegisterEntry(EntryStandup, openStandup)
-	a.RegisterEntry(EntrySprint, openSprint)
 	a.RegisterEntry(EntryCareer, func(a *App) (Screen, tea.Cmd) { return NewCareerScreen(a), nil })
-	a.RegisterEntry(EntryIncident, func(a *App) (Screen, tea.Cmd) { return NewIncidentListScreen(a), nil })
-	a.RegisterEntry(EntryPractice, func(a *App) (Screen, tea.Cmd) { return NewPracticeScreen(a), nil })
 	a.RegisterEntry(EntryStats, func(a *App) (Screen, tea.Cmd) { return NewStatsScreen(a), nil })
 	a.RegisterEntry(EntrySettings, func(a *App) (Screen, tea.Cmd) { return NewSettingsScreen(a), nil })
 	a.screen = NewHomeScreen(a)
@@ -158,6 +153,9 @@ func (a *App) fillBanner() {
 
 // Init implements tea.Model.
 func (a *App) Init() tea.Cmd { return a.initUpdate() }
+
+// today is the local date in the form the profile stores.
+func (a *App) today() string { return a.Now().Local().Format(dateLayout) }
 
 func (a *App) tooSmall() bool { return a.W < minW || a.H < minH }
 
@@ -235,13 +233,11 @@ func (a *App) setStyle(id style.ID) {
 }
 
 // setLayout switches the keyboard layout for the rest of the session and saves
-// the choice. The curriculum is resolved against the layout, so it is rebuilt,
-// and a Standup or Sprint in flight holds the old one, so it is dropped.
+// the choice. The curriculum is resolved against the layout, so it is rebuilt.
 // Statistics are kept per layout id and need no change.
 func (a *App) setLayout(l *layout.Layout) {
 	a.Layout = l
 	a.Curr = curriculum.New(a.Lib, l)
-	a.chain = nil
 	cfg := a.Store.Config()
 	cfg.Layout = l.ID
 	a.SaveErr(a.Store.SaveConfig(cfg))

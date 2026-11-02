@@ -213,7 +213,8 @@ func TestDoesNotDelayStartup(t *testing.T) {
 func TestNoticeArrivesDuringARoundWithoutDisturbingIt(t *testing.T) {
 	client, _ := releaseServer(t, http.StatusOK, "v1.2.0")
 	a, _ := updateApp(t, client, true, "v1.0.0")
-	a.Update(enter) // the recommended round
+	a.Update(enter) // Kariéra
+	a.Update(enter) // the selected lesson
 	if ui.ScreenName(a) != "round" {
 		t.Fatalf("screen = %s", ui.ScreenName(a))
 	}

@@ -10,18 +10,8 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/play"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
-)
-
-// listMode says what a pick in the chapter list does.
-type listMode int
-
-const (
-	listCareer          listMode = iota // play a lesson, or test a chapter out
-	listPracticeLesson                  // practise a lesson of an open chapter
-	listPracticeChapter                 // drill the characters of an open chapter
 )
 
 type rowKind int
@@ -33,8 +23,7 @@ const (
 	rowTestOut
 )
 
-// careerRow is one line of the list. Lessons and test-outs can be picked; so
-// can a chapter when its characters are practised.
+// careerRow is one line of the list. Lessons, bosses and test-outs can be picked.
 type careerRow struct {
 	kind    rowKind
 	chapter content.ChapterDef
@@ -46,38 +35,27 @@ func (r careerRow) sameAs(o careerRow) bool {
 	return r.kind == o.kind && r.chapter.ID == o.chapter.ID && r.lesson.ID == o.lesson.ID
 }
 
-// careerScreen lists the chapters with their lessons and stars. It is also the
-// chapter and lesson picker of Practice.
+// careerScreen lists the chapters with their lessons and stars.
 type careerScreen struct {
-	mode listMode
-	sel  int               // among the rows that can be picked
-	back func(*App) Screen // where Esc goes; the home screen when nil
+	sel  int // among the rows that can be picked
 	note string
 }
 
 // NewCareerScreen builds the career map.
 func NewCareerScreen(a *App) Screen {
-	c := &careerScreen{mode: listCareer}
-	c.selectDefault(a)
-	return c
-}
-
-func newChapterList(mode listMode, back func(*App) Screen, a *App) *careerScreen {
-	c := &careerScreen{mode: mode, back: back}
+	c := &careerScreen{}
 	c.selectDefault(a)
 	return c
 }
 
 // selectDefault selects the next lesson, or the owed incident when none is due,
-// or when all are done the first row of the current chapter. Practice of chapters
-// selects the current chapter.
+// or when all are done the first row of the current chapter.
 func (c *careerScreen) selectDefault(a *App) {
 	p := a.Store.Profile()
 	rows := c.rows(a)
 	cur := a.Curr.CurrentChapter(p)
 	next, hasNext := a.Curr.NextLesson(p)
 	_, boss := a.owedBoss(cur)
-	boss = boss && c.mode == listCareer
 	pickIdx := -1
 	for _, r := range rows {
 		if !r.pick {
@@ -85,9 +63,9 @@ func (c *careerScreen) selectDefault(a *App) {
 		}
 		pickIdx++
 		switch {
-		case c.mode != listPracticeChapter && hasNext && r.kind == rowLesson && r.lesson.ID == next.ID,
-			c.mode != listPracticeChapter && !hasNext && boss && r.kind == rowBoss,
-			(!hasNext && !boss || c.mode == listPracticeChapter) && r.chapter.ID == cur.ID:
+		case hasNext && r.kind == rowLesson && r.lesson.ID == next.ID,
+			!hasNext && boss && r.kind == rowBoss,
+			!hasNext && !boss && r.chapter.ID == cur.ID:
 			c.sel = pickIdx
 			return
 		}
@@ -115,27 +93,17 @@ func (c *careerScreen) reselect(a *App, want careerRow) {
 
 // rows lays out the list for the current progress. An open chapter lists its
 // lessons, completed ones too, so they can be improved. Every chapter that is
-// not done offers its test-out, except onboarding, which has none. Practice
-// lists open chapters only and offers no test-out.
+// not done offers its test-out, except onboarding, which has none.
 func (c *careerScreen) rows(a *App) []careerRow {
 	p := a.Store.Profile()
 	var rows []careerRow
 	for _, ch := range a.Curr.Chapters() {
 		open := a.Curr.IsUnlocked(p, ch.ID)
-		if !open && c.mode != listCareer {
-			continue
-		}
-		rows = append(rows, careerRow{kind: rowChapter, chapter: ch, pick: c.mode == listPracticeChapter})
-		if c.mode == listPracticeChapter {
-			continue
-		}
+		rows = append(rows, careerRow{kind: rowChapter, chapter: ch})
 		if open {
 			for _, l := range ch.Lessons {
 				rows = append(rows, careerRow{kind: rowLesson, chapter: ch, lesson: l, pick: true})
 			}
-		}
-		if c.mode != listCareer {
-			continue
 		}
 		if _, owed := a.owedBoss(ch); owed && open {
 			rows = append(rows, careerRow{kind: rowBoss, chapter: ch, pick: true})
@@ -202,9 +170,6 @@ func (c *careerScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	case "down", "j":
 		c.sel++
 	case "esc":
-		if c.back != nil {
-			return c.back(a), nil
-		}
 		return NewHomeScreen(a), nil
 	case "enter":
 		if r, ok := c.picked(rows); ok {
@@ -226,12 +191,8 @@ func (c *careerScreen) start(a *App, r careerRow) (Screen, tea.Cmd) {
 		return NewSeverityScreen(a, inc, again, again), nil
 	case r.kind == rowTestOut:
 		spec, err = a.testOutSpec(r.chapter)
-	case r.kind == rowChapter:
-		spec, err = a.chapterDrillSpec(r.chapter)
-		spec.Practice = true
 	default:
-		spec, err = a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: r.lesson.ID})
-		spec.Practice = c.mode == listPracticeLesson
+		spec, err = a.lessonSpec(r.lesson.ID)
 	}
 	if err != nil {
 		c.note = err.Error()
@@ -268,12 +229,9 @@ func (c *careerScreen) View(a *App, w, h int) string {
 	}
 
 	var head []string
-	title := text.AppName + " · " + text.PracticeTitle
-	if c.mode == listCareer {
-		title = text.AppName + " · " + text.CareerTitle
-		head = []string{
-			paint(st.Dim, false, text.HomeRank+"  ") + paint(st.Accent, false, a.Curr.RankOf(p).String()), "",
-		}
+	title := text.AppName + " · " + text.CareerTitle
+	head = []string{
+		paint(st.Dim, false, text.HomeRank+"  ") + paint(st.Accent, false, a.Curr.RankOf(p).String()), "",
 	}
 
 	rows := c.rows(a)

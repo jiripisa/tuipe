@@ -45,8 +45,8 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	if testOut && r.Stars >= testOutStars {
 		a.Curr.ApplySkip(p, a.stats(), a.skippedBy(spec.ChapterID))
 	}
-	if !testOut && !placement && !sprintResume(p.Resume) {
-		p.Resume = nil // a test-out is no part of the lesson to continue; a Sprint outranks everything
+	if !testOut && !placement {
+		p.Resume = nil // a test-out is no part of the lesson to continue
 	}
 
 	var errs []error
@@ -77,7 +77,6 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 			Severity: spec.Severity, Won: r.Incident.Won, SLA: r.Incident.SLA, MTTRMs: r.Incident.MTTR.Milliseconds(),
 		}
 	}
-	a.chain.finished(a, r, run.ID) // keeps the Sprint to resume or marks the Standup
 	errs = append(errs, a.Store.AppendRun(run), a.Store.SaveProfile())
 
 	err := errors.Join(errs...)
@@ -127,22 +126,16 @@ func (a *App) skippedBy(chapterID string) []string {
 // How a round was started, as stored on its run.
 const (
 	sessionQuick     = "quick"
-	sessionStandup   = kindStandup
-	sessionSprint    = kindSprint
+	sessionStandup   = "standup"
+	sessionSprint    = "sprint"
 	sessionCareer    = "career"
-	sessionPractice  = "practice"
 	sessionPlacement = "placement"
 )
 
-// sessionOf says how the round of spec was started: inside a Standup or Sprint,
-// by hand in Practice, from the career or incident list, or as a quick run.
+// sessionOf says how the round of spec was started: from the career or
+// incident list, or by placement. Old runs without a session count as quick runs.
 func (a *App) sessionOf(spec play.Spec) string {
-	switch {
-	case a.chain != nil:
-		return a.chain.kind
-	case spec.Practice:
-		return sessionPractice
-	case spec.Session != "":
+	if spec.Session != "" {
 		return spec.Session
 	}
 	return sessionQuick
@@ -157,9 +150,6 @@ func runStars(spec play.Spec, r play.Result) int {
 }
 
 func modeName(spec play.Spec) string {
-	if spec.Practice {
-		return "practice"
-	}
 	switch spec.Kind {
 	case play.KindLesson:
 		return "lesson"
@@ -263,11 +253,11 @@ func (s *resultsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return s, nil
 }
 
-// canRepeat says whether the round can be played again from here. A Sprint or a
-// Standup keeps to its plan, and a passed test-out has nothing left to prove.
+// canRepeat says whether the round can be played again from here. A passed
+// test-out has nothing left to prove.
 func (s *resultsScreen) canRepeat(a *App) bool {
 	passed := s.spec.Kind == play.KindTestOut && s.res.Stars >= testOutStars
-	return a.chain == nil && !passed
+	return !passed
 }
 
 // repeat plays the same text again. The round that just ended may have left a
@@ -344,10 +334,6 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 		outcome = verdict[:min(1, len(verdict))]
 	}
 	rows := h - 3
-	label := ""
-	if l := a.chain.label(0); l != "" {
-		label = dim(l)
-	}
 	build := func(blank bool) []string {
 		sep := func() []string {
 			if blank {
@@ -365,10 +351,6 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 		full = append(full, sep()...)
 		full = append(full, stars...)
 		full = append(full, verdict...)
-		if label != "" {
-			full = append(full, sep()...)
-			full = append(full, label)
-		}
 		return full
 	}
 	body := build(true)

@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"fmt"
+	"slices"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/play"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 )
@@ -30,18 +32,12 @@ func ScreenName(a *App) string {
 		return "home"
 	case *careerScreen:
 		return "career"
-	case *practiceScreen:
-		return "practice"
 	case *severityScreen:
 		return "severity"
 	case *incidentListScreen:
 		return "incident-list"
 	case *incidentResultsScreen:
 		return "incident-results"
-	case *retroScreen:
-		return "retro"
-	case *sprintPickerScreen:
-		return "sprint-minutes"
 	case *statsScreen:
 		return "stats"
 	case *firstRunScreen:
@@ -132,9 +128,6 @@ func RoundFrame(a *App) play.Frame {
 	return play.Frame{}
 }
 
-// SprintPlan regenerates the plan of a sprint from its saved state.
-func SprintPlan(a *App, s *store.SprintState) []recommend.Pick { return a.sprintPlan(s) }
-
 // SetGOOS replaces the operating system the first run checks and returns a
 // function that restores it.
 func SetGOOS(s string) func() {
@@ -142,9 +135,6 @@ func SetGOOS(s string) func() {
 	goos = s
 	return func() { goos = old }
 }
-
-// RunCadence is the number of runs the recommender counts for its rhythm.
-func RunCadence(a *App) int { return a.runCadence() }
 
 // RawView is the view of the screen as it draws itself, before the app pads
 // or cuts it to the window.
@@ -159,8 +149,50 @@ func Centre(s string, w, h int) string { return centre(s, w, h) }
 // StatsOf returns the character statistics of the active layout.
 func StatsOf(a *App) *stats.Stats { return a.stats() }
 
-// SprintPick is the pick of a round of a sprint, planned or extra, from its saved state.
-func SprintPick(a *App, s *store.SprintState, i int) recommend.Pick {
-	c := &chain{kind: kindSprint, state: s, picks: a.sprintPlan(s)}
-	return c.pickAt(a, i)
+// LessonRound builds the round of a lesson, as the lesson list starts it. A nil
+// next returns home when the results are left.
+func LessonRound(a *App, id string, next func(*App) Screen) (Screen, error) {
+	spec, err := a.lessonSpec(id)
+	if err != nil {
+		return nil, err
+	}
+	return newRound(a, spec, next), nil
+}
+
+// LessonSpec is the spec of a lesson round.
+func LessonSpec(a *App, id string) (play.Spec, error) { return a.lessonSpec(id) }
+
+// ChapterTestOutRound builds the test-out round of a chapter.
+func ChapterTestOutRound(a *App, chapterID string) (Screen, error) {
+	for _, ch := range a.Curr.Chapters() {
+		if ch.ID != chapterID {
+			continue
+		}
+		spec, err := a.testOutSpec(ch)
+		if err != nil {
+			return nil, err
+		}
+		return newRound(a, spec, nil), nil
+	}
+	return nil, fmt.Errorf("unknown chapter %q", chapterID)
+}
+
+// BaseWPM is the speed an incident is calibrated against.
+func BaseWPM(runs []store.Run) float64 { return baseWPM(runs) }
+
+// SnippetRound builds a round on a snippet of the library, which no lesson of
+// the course has to use.
+func SnippetRound(a *App, id string) (Screen, error) {
+	i := slices.IndexFunc(a.Lib.Snippets, func(s content.Snippet) bool { return s.ID == id })
+	if i < 0 {
+		return nil, fmt.Errorf("unknown snippet %q", id)
+	}
+	sn := a.Lib.Snippets[i]
+	spec, err := a.withReplay(play.Spec{
+		Kind: play.KindCode, Title: sn.ID, Lang: sn.Lang, Text: sn.Text, Targets: a.chapterTargets(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newRound(a, spec, nil), nil
 }

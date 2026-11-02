@@ -3,7 +3,9 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,10 +14,10 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/engine"
+	"github.com/jiripisa/tuipe/internal/generate"
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/play"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -84,14 +86,6 @@ func (s *story) view(pos int, active time.Duration) (prompt, lang, info string) 
 		fmt.Sprintf(text.RoundIncidentInfo, s.inc.ID, i+1, len(s.inc.Steps), secs/60, secs%60)
 }
 
-func (a *App) incidentByID(id string) (content.Incident, bool) {
-	i := slices.IndexFunc(a.Lib.Incidents, func(inc content.Incident) bool { return inc.ID == id })
-	if i < 0 {
-		return content.Incident{}, false
-	}
-	return a.Lib.Incidents[i], true
-}
-
 // incidentSpecBase is a Spec holding only the Targets and HintsOff of an
 // incident: the targets of the last lesson of its chapter, or of the nearest
 // earlier chapter that has lessons.
@@ -126,7 +120,7 @@ func (a *App) incidentSpec(inc content.Incident, sev incident.Severity) (play.Sp
 		}
 	}
 	runs, _ := a.Store.Runs() // a damaged history only affects the calibration
-	params := incident.NewParams(sev, recommend.BaseWPM(runs), keys)
+	params := incident.NewParams(sev, baseWPM(runs), keys)
 	spec := a.incidentSpecBase(inc.Chapter)
 	spec.Kind, spec.Title, spec.Lang, spec.Text = play.KindIncident, inc.Title, inc.Steps[0].Lang, txt
 	spec.Incident = &params
@@ -193,7 +187,7 @@ func (s *severityScreen) View(a *App, w, h int) string {
 	labels := []string{text.IncidentSev3, text.IncidentSev2, text.IncidentSev1}
 	lines := []string{
 		st.Base().Foreground(st.Fg).Bold(true).Render(s.inc.ID + "  " + s.inc.Title),
-		st.Base().Foreground(st.Dim).Render(fmt.Sprintf(text.IncidentBaseWPM, recommend.BaseWPM(runs))),
+		st.Base().Foreground(st.Dim).Render(fmt.Sprintf(text.IncidentBaseWPM, baseWPM(runs))),
 		"",
 	}
 	for i, l := range labels {
@@ -413,8 +407,48 @@ func (s *incidentResultsScreen) drill(a *App) Screen {
 	allowed := func(r rune) bool {
 		return (unlocked(r) || slices.Contains(s.focus, r)) && a.Curr.CanType(r)
 	}
-	spec := a.generatedSpec(fmt.Sprintf(text.PostmortemDrill, string(s.focus)), s.focus, allowed, s.spec.Targets)
+	runs, _ := a.Store.Runs() // a damaged history only affects the length
+	length := min(max(int(baseWPM(runs)*drillCharsPerWord), minDrillChars), maxDrillChars)
+	txt := generate.Cover(a.Lib, generate.Input{
+		Focus: s.focus, Allowed: allowed, Seed: a.Now().UnixNano(), Length: length,
+	}, s.focus, focusRepeats)
+	spec := play.Spec{
+		Kind: play.KindDrill, Title: fmt.Sprintf(text.PostmortemDrill, string(s.focus)), Text: txt,
+		Targets: s.spec.Targets,
+	}
 	return newRound(a, spec, s.next)
+}
+
+const (
+	baseWPMWindow     = 20   // runs the base speed looks at
+	baseWPMFloor      = 15.0 // the base speed never falls below this
+	drillCharsPerWord = 5
+	minDrillChars     = 30
+	maxDrillChars     = 600
+	focusRepeats      = 3 // times a drill shows each of its focus characters
+)
+
+// baseWPM is the median WPM of the last 20 runs, never below 15. Runs without a
+// valid WPM are ignored.
+func baseWPM(runs []store.Run) float64 {
+	if len(runs) > baseWPMWindow {
+		runs = runs[len(runs)-baseWPMWindow:]
+	}
+	var wpm []float64
+	for _, r := range runs {
+		if r.WPM > 0 && !math.IsNaN(r.WPM) && !math.IsInf(r.WPM, 0) {
+			wpm = append(wpm, r.WPM)
+		}
+	}
+	if len(wpm) == 0 {
+		return baseWPMFloor
+	}
+	sort.Float64s(wpm)
+	mid := len(wpm) / 2
+	if len(wpm)%2 == 0 {
+		return max((wpm[mid-1]+wpm[mid])/2, baseWPMFloor)
+	}
+	return max(wpm[mid], baseWPMFloor)
 }
 
 func (s *incidentResultsScreen) View(a *App, w, h int) string {

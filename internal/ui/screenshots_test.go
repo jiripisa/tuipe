@@ -17,7 +17,6 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/incident"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -117,7 +116,7 @@ func (s *session) placedThroughChapter(last int) {
 	p.Stats[shotLayout].SetMastery('\n', stats.Solid)
 }
 
-// playWeeks plays every day but one: quick runs, some Standups and a Sprint.
+// playWeeks plays every day but one: a few lessons of the career.
 func (s *session) playWeeks() {
 	for day := firstDay; day < lastDay; day++ {
 		if day == skippedDay {
@@ -126,17 +125,11 @@ func (s *session) playWeeks() {
 		s.clk.t = dayAt(day)
 		s.wpm = startWPM + wpmPerDay*float64(day-firstDay) + s.rng.Float64()*3
 		for range roundsADay {
-			s.quickRun()
-		}
-		switch {
-		case day == lastDay-1:
-			s.chain("sprint", 10)
-		case day%3 == 0:
-			s.chain("standup", 0)
+			s.careerRound()
 		}
 	}
 	s.loseIncident()
-	s.start(recommend.Pick{Kind: recommend.Code, SnippetID: "go-1"}) // the ghost of shootRound
+	s.startSnippet("go-1") // the ghost of shootRound
 	s.playRound()
 	s.clk.advance(endingWait)
 	s.a.Update(esc)
@@ -144,30 +137,17 @@ func (s *session) playWeeks() {
 	s.wpm += 2
 }
 
-// quickRun takes the recommended round from the home screen, as a user does.
-func (s *session) quickRun() {
+// careerRound plays the lesson the career list selects, as a user does.
+func (s *session) careerRound() {
 	ui.SetScreen(s.a, ui.NewHomeScreen(s.a))
-	s.a.Update(enter)
+	s.a.Update(enter) // Kariéra
+	s.a.Update(enter) // the selected row
 	if ui.ScreenName(s.a) == "severity" {
 		s.a.Update(enter)
 	}
 	s.playRound()
 	s.clk.advance(endingWait)
 	s.a.Update(esc)
-}
-
-// chain plays a whole Standup or Sprint and leaves it on its last screen.
-func (s *session) chain(kind string, minutes int) {
-	ui.SetScreen(s.a, ui.NewChain(s.a, kind, nil, minutes))
-	for ui.ScreenName(s.a) == "round" {
-		s.playRound()
-		s.clk.advance(endingWait)
-		s.a.Update(enter)
-	}
-	if ui.ScreenName(s.a) == "retro" {
-		s.shoot("retro", style.Editor)
-		s.a.Update(enter)
-	}
 }
 
 // playRound types the rest of the round, or until an incident is lost.
@@ -224,14 +204,27 @@ func (s *session) typeUpTo(mark string) {
 	}
 }
 
-func (s *session) start(pick recommend.Pick) {
-	ui.SetScreen(s.a, ui.NewRoundScreen(s.a, pick, nil))
+func (s *session) startLesson(id string) {
+	round, err := ui.LessonRound(s.a, id, nil)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	ui.SetScreen(s.a, round)
+	s.a.Update(ui.TickMsg(s.a))
+}
+
+func (s *session) startSnippet(id string) {
+	round, err := ui.SnippetRound(s.a, id)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	ui.SetScreen(s.a, round)
 	s.a.Update(ui.TickMsg(s.a))
 }
 
 // shootRound is a Go lesson in the middle of a round against its replay ghost.
 func (s *session) shootRound() {
-	s.start(recommend.Pick{Kind: recommend.Lesson, LessonID: "ch11-01"})
+	s.startLesson("ch11-01")
 	s.typeUpTo("return 0, fmt.Errorf")
 	s.a.Update(ui.TickMsg(s.a))
 	for _, st := range []style.ID{style.Editor, style.Fosfor, style.Velin} {
@@ -260,7 +253,7 @@ func roundKeysLeft(a *ui.App) int {
 
 // shootHint waits on a { until the hint and the keyboard map appear.
 func (s *session) shootHint() {
-	s.start(recommend.Pick{Kind: recommend.Code, SnippetID: "go-5"})
+	s.startSnippet("go-5")
 	s.typeUpTo("{\nid := r.URL")
 	for range 25 { // 2.5 s of hesitation, in the steps of the real tick
 		s.clk.advance(100 * time.Millisecond)

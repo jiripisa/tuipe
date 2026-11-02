@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 	"unicode"
 
@@ -11,27 +10,20 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/engine"
-	"github.com/jiripisa/tuipe/internal/generate"
 	"github.com/jiripisa/tuipe/internal/ghost"
-	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/play"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
-	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 const (
 	tickEvery        = 100 * time.Millisecond
 	sampleEvery      = time.Second // throughput sample spacing, in active time
 	maxSamples       = 30
-	paceFallbackMs   = 400.0 // pace ghost speed for characters without samples
-	minPaceChars     = 20    // keystrokes of statistics a pace ghost needs
-	focusRepeats     = 3     // times a drill shows each of its focus characters
-	hintsOffChapter  = 12    // the chapter that tests without hints
-	codeTrendChapter = 11    // from here on rounds count as code in the trends
+	hintsOffChapter  = 12 // the chapter that tests without hints
+	codeTrendChapter = 11 // from here on rounds count as code in the trends
 	runIDLen         = 7
 	dateLayout       = "2006-01-02"
 	resumeKindLesson = "lesson"
@@ -63,23 +55,6 @@ func (a *App) stats() *stats.Stats {
 		p.Stats[a.Layout.ID] = s
 	}
 	return s
-}
-
-// SpecFor builds the text, targets and ghost of a recommended round.
-func (a *App) SpecFor(p recommend.Pick) (play.Spec, error) {
-	switch p.Kind {
-	case recommend.Lesson:
-		return a.lessonSpec(p.LessonID)
-	case recommend.Code:
-		return a.codeSpec(p.SnippetID)
-	case recommend.Incident:
-		inc, ok := a.incidentByID(p.IncidentID)
-		if !ok {
-			return play.Spec{}, fmt.Errorf("unknown incident %q", p.IncidentID)
-		}
-		return a.incidentSpec(inc, incident.SEV3)
-	}
-	return a.drillSpec(p), nil
 }
 
 func (a *App) lessonSpec(id string) (play.Spec, error) {
@@ -115,54 +90,6 @@ func (a *App) lessonLang(l content.LessonDef) string {
 	return a.Lib.Snippets[i].Lang
 }
 
-func (a *App) codeSpec(id string) (play.Spec, error) {
-	i := slices.IndexFunc(a.Lib.Snippets, func(s content.Snippet) bool { return s.ID == id })
-	if i < 0 {
-		return play.Spec{}, fmt.Errorf("unknown snippet %q", id)
-	}
-	sn := a.Lib.Snippets[i]
-	spec := play.Spec{
-		Kind: play.KindCode, Title: sn.ID, Lang: sn.Lang, Text: sn.Text,
-		Targets: a.chapterTargets(),
-	}
-	return a.withReplay(spec)
-}
-
-// drillSpec generates the text and races a pace ghost computed from the user's timing.
-func (a *App) drillSpec(p recommend.Pick) play.Spec {
-	unlocked := a.Curr.AllowedAt(a.Curr.CurrentChapter(a.Store.Profile()).ID)
-	length := p.Length
-	if length == 0 {
-		length = a.drillLength()
-	}
-	txt := generate.Cover(a.Lib, generate.Input{
-		Focus: p.Focus, Bigrams: p.Bigrams, Seed: p.Seed, Length: length,
-		Allowed: func(r rune) bool { return unlocked(r) && a.Curr.CanType(r) },
-	}, p.Focus, focusRepeats)
-	return play.Spec{
-		Kind: play.KindDrill, Title: text.DrillTitle, Text: txt,
-		Targets:     a.chapterTargets(),
-		Ghost:       a.paceGhost(txt),
-		GhostIsPace: true,
-	}
-}
-
-// paceGhost races generated text at the user's own timing. Without enough
-// characters behind it, it would race a guess: then there is no ghost, and no
-// race on screen.
-func (a *App) paceGhost(txt string) *ghost.Ghost {
-	if a.stats().Typed() < minPaceChars {
-		return nil
-	}
-	return ghost.Pace(engine.Prepare(txt), a.stats(), paceFallbackMs)
-}
-
-// drillLength is about a minute of typing at the player's recent pace.
-func (a *App) drillLength() int {
-	runs, _ := a.Store.Runs() // a damaged history only affects the length
-	return recommend.DrillLength(recommend.PaceWPM(runs))
-}
-
 // chapterTargets are the targets of the last lesson of the current chapter,
 // which generated and code rounds are measured against.
 func (a *App) chapterTargets() score.Targets {
@@ -186,14 +113,6 @@ func (a *App) withReplay(spec play.Spec) (play.Spec, error) {
 	return spec, nil
 }
 
-// recommended picks the next round for the quick run.
-func (a *App) recommended() recommend.Pick {
-	return recommend.Next(a.liveState(seededRand(a.Now().UnixNano())))
-}
-
-// quickRun is the next-round function of the quick run: the recommended round.
-func quickRun(a *App) Screen { return NewRoundScreen(a, a.recommended(), quickRun) }
-
 // roundScreen is one round being typed.
 type roundScreen struct {
 	spec  play.Spec
@@ -210,25 +129,6 @@ type roundScreen struct {
 	left      bool // Leave has run
 	samples   []float64
 	sampled   int
-}
-
-// NewRoundScreen builds the screen for a recommended round. When the round
-// cannot be built it returns the home screen, with a warning on the status line.
-func NewRoundScreen(a *App, pick recommend.Pick, next func(*App) Screen) Screen {
-	if pick.Kind == recommend.Incident {
-		inc, ok := a.incidentByID(pick.IncidentID)
-		if !ok {
-			a.SaveErr(fmt.Errorf("unknown incident %q", pick.IncidentID))
-			return NewHomeScreen(a)
-		}
-		return NewSeverityScreen(a, inc, next, nil) // SEV3 is selected: Enter starts a quick run
-	}
-	spec, err := a.SpecFor(pick)
-	if err != nil {
-		a.SaveErr(err)
-		return NewHomeScreen(a)
-	}
-	return newRound(a, spec, next)
 }
 
 // newRound builds the screen for a round whose spec is already made.
@@ -345,7 +245,6 @@ func (r *roundScreen) key(m tea.KeyPressMsg, a *App, now time.Time) (Screen, tea
 // It is not a failure: nothing is added to the run history.
 func (r *roundScreen) restart(a *App, now time.Time) tea.Cmd {
 	r.feedStats(a, now)
-	r.countPartial(a, now)
 	r.begin(a)
 	return r.Init(a)
 }
@@ -353,20 +252,13 @@ func (r *roundScreen) restart(a *App, now time.Time) tea.Cmd {
 // rememberLesson writes Profile.Resume at the first keystroke of a lesson, so
 // a closed window or a killed process still offers to continue it.
 func (r *roundScreen) rememberLesson(a *App, now time.Time) {
-	if r.resumeSet || (r.spec.LessonID == "" && a.chain == nil) {
+	if r.resumeSet || r.spec.LessonID == "" {
 		return
-	}
-	if sprintResume(a.Store.Profile().Resume) && (a.chain == nil || a.chain.state == nil) {
-		return // a Sprint left earlier outranks the lesson of this round
 	}
 	if _, log := r.sess.PartialLog(); len(log) == 0 {
 		return
 	}
 	r.resumeSet = true
-	if a.chain != nil { // a Sprint continues as a whole, not as this lesson
-		a.chain.started(a)
-		return
-	}
 	a.Store.Profile().Resume = &store.Resume{
 		Kind: resumeKindLesson, LessonID: r.spec.LessonID, Day: now.Local().Format(dateLayout),
 	}
@@ -380,15 +272,7 @@ func (r *roundScreen) abandon(a *App, now time.Time) {
 		return
 	}
 	r.feedStats(a, now)
-	r.countPartial(a, now)
 	a.SaveErr(a.Store.SaveProfile())
-}
-
-// countPartial gives the chain the active time of keys that did not become a run.
-func (r *roundScreen) countPartial(a *App, now time.Time) {
-	if _, log := r.sess.PartialLog(); len(log) > 0 {
-		a.chain.partial(a, r.sess.Result(now).Metrics.Duration)
-	}
 }
 
 func (r *roundScreen) feedStats(a *App, now time.Time) {
@@ -438,29 +322,12 @@ func (r *roundScreen) View(a *App, w, h int) string {
 	if f.AltWarning {
 		v.AltHelp = altHelp()
 	}
-	active := r.sess.Result(r.now).Metrics.Duration
 	if r.story != nil {
-		v.Prompt, v.Lang, v.RightInfo = r.story.view(f.Pos, active)
-	}
-	if label := a.chain.label(active); label != "" {
-		v.RightInfo = strings.TrimSpace(label + "  " + v.RightInfo)
+		v.Prompt, v.Lang, v.RightInfo = r.story.view(f.Pos, r.sess.Result(r.now).Metrics.Duration)
 	}
 	view := roundview.Render(a.Style, v, w, h)
 	if f.ManualPause {
 		return r.menu.overlay(a.Style, view, w, h)
 	}
 	return view
-}
-
-// runCadence counts the runs that set the rhythm of incidents. Placement runs
-// are no part of it.
-func (a *App) runCadence() int {
-	runs, _ := a.Store.Runs() // a damaged history only affects the incident rhythm
-	n := 0
-	for _, r := range runs {
-		if r.Mode != "placement" {
-			n++
-		}
-	}
-	return n
 }

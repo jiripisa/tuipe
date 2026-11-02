@@ -244,7 +244,8 @@ func TestBannerStaysThroughASaveAndGoesWithAKey(t *testing.T) {
 
 func TestBannerGoesWhenLeavingHome(t *testing.T) {
 	a, _, _ := startWith(t, corruptProfile(t))
-	a.Update(enter)
+	a.Update(enter) // Kariéra
+	a.Update(enter) // the selected lesson
 	wantScreen(t, a, "round")
 	ui.SetScreen(a, ui.NewHomeScreen(a))
 	if strings.Contains(screen(a), "Profil byl poškozený") {

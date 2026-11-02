@@ -8,7 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/streak"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -17,16 +16,11 @@ import (
 // entryID names a menu entry of the home screen.
 type entryID string
 
-// The menu entries below the recommended round, in display order.
+// The menu entries, in display order.
 const (
-	EntryStandup   entryID = "standup"
-	EntrySprint    entryID = "sprint"
-	EntryCareer    entryID = "career"
-	EntryPractice  entryID = "practice"
-	EntryIncident  entryID = "incident"
-	EntryStats     entryID = "stats"
-	EntrySettings  entryID = "settings"
-	EntryEndSprint entryID = "end-sprint"
+	EntryCareer   entryID = "career"
+	EntryStats    entryID = "stats"
+	EntrySettings entryID = "settings"
 )
 
 type menuEntry struct {
@@ -37,11 +31,7 @@ type menuEntry struct {
 
 func defaultEntries() []menuEntry {
 	return []menuEntry{
-		{EntryStandup, text.MenuStandup, nil},
-		{EntrySprint, text.MenuSprint, nil},
 		{EntryCareer, text.MenuCareer, nil},
-		{EntryPractice, text.MenuPractice, nil},
-		{EntryIncident, text.MenuIncident, nil},
 		{EntryStats, text.MenuStats, nil},
 		{EntrySettings, text.MenuSettings, nil},
 	}
@@ -54,43 +44,22 @@ func (a *App) RegisterEntry(id entryID, open func(*App) (Screen, tea.Cmd)) {
 	}
 }
 
-// entries are the rows of the menu now: a Sprint left today adds the way to end
-// it right under the one to continue it.
-func (a *App) entries() []menuEntry {
-	if a.sprintToContinue() == nil {
-		return a.Entries
-	}
-	out := slices.Clone(a.Entries)
-	if i := slices.IndexFunc(out, func(e menuEntry) bool { return e.id == EntrySprint }); i >= 0 {
-		out = slices.Insert(out, i+1, menuEntry{EntryEndSprint, text.MenuEndSprint, closeSprint})
-	}
-	return out
-}
-
-// closeSprint gives up the rest of a Sprint left today and shows its Retro.
-func closeSprint(a *App) (Screen, tea.Cmd) { return a.endSprint(a.sprintToContinue()), nil }
-
-// homeScreen offers the recommended round first, then the other screens.
+// homeScreen offers the menu. When a lesson was left unfinished, the row to
+// continue it comes first and is selected.
 type homeScreen struct {
-	pick   recommend.Pick
-	resume string // lesson title when a lesson can be continued
-	sel    int
-	up     streak.Status
+	resumeID string // the lesson that can be continued, or empty
+	resume   string // its title
+	sel      int
+	up       streak.Status
 }
 
-// NewHomeScreen builds the home screen. The recommended round is selected, or
-// the lesson to continue when a round was left unfinished.
+// NewHomeScreen builds the home screen.
 func NewHomeScreen(a *App) Screen {
-	a.chain = nil
 	a.fillBanner()
-	// A Sprint left on an earlier day ends with a Retro on the part that was done.
-	if r := a.Store.Profile().Resume; sprintResume(r) && r.Day != a.today() {
-		return a.endSprint(r.Sprint)
-	}
-	h := &homeScreen{pick: a.recommended(), up: a.uptime()}
+	h := &homeScreen{up: a.uptime()}
 	if r := a.Store.Profile().Resume; r != nil && r.LessonID != "" {
 		if title, ok := a.lessonTitle(r.LessonID); ok {
-			h.pick = recommend.Pick{Kind: recommend.Lesson, LessonID: r.LessonID}
+			h.resumeID = r.LessonID
 			h.resume = title
 		}
 	}
@@ -114,47 +83,40 @@ func (h *homeScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return h, nil
 	}
 	a.Banner = nil
-	// Midnight passed on this screen: the left Sprint is over and its menu row
-	// is gone, so the selection no longer means what is on the screen.
-	if r := a.Store.Profile().Resume; sprintResume(r) && r.Day != a.today() {
-		return NewHomeScreen(a), nil
+	count := len(a.Entries)
+	if h.resume != "" {
+		count++
 	}
-	entries := a.entries()
-	count := len(entries) + 1
 	switch k.String() {
 	case "up", "k":
 		h.sel = (h.sel + count - 1) % count
 	case "down", "j":
 		h.sel = (h.sel + 1) % count
 	case "enter":
-		if h.sel == 0 {
-			return NewRoundScreen(a, h.pick, quickRun), nil
+		i := h.sel
+		if h.resume != "" {
+			if i == 0 {
+				return h.continueLesson(a), nil
+			}
+			i--
 		}
-		if open := entries[h.sel-1].open; open != nil {
+		if open := a.Entries[i].open; open != nil {
 			return open(a)
 		}
 	}
 	return h, nil
 }
 
-// pickLabel describes a recommended round in one line.
-func (h *homeScreen) pickLabel(a *App) string {
-	if h.resume != "" {
-		return fmt.Sprintf(text.HomeResume, h.resume)
+// continueLesson plays the lesson that was left unfinished; the lesson list
+// follows it.
+func (h *homeScreen) continueLesson(a *App) Screen {
+	spec, err := a.lessonSpec(h.resumeID)
+	if err != nil {
+		a.SaveErr(err)
+		return h
 	}
-	switch h.pick.Kind {
-	case recommend.Lesson:
-		title, _ := a.lessonTitle(h.pick.LessonID)
-		return text.HomeQuickRun + ": " + title
-	case recommend.Code:
-		return text.HomeQuickRun + ": " + fmt.Sprintf(text.PickCode, h.pick.SnippetID)
-	case recommend.Incident:
-		if inc, ok := a.owedBoss(a.Curr.CurrentChapter(a.Store.Profile())); ok && inc.ID == h.pick.IncidentID {
-			return text.HomeQuickRun + ": " + fmt.Sprintf(text.PickBoss, inc.ID, inc.Title)
-		}
-		return text.HomeQuickRun + ": " + text.PickIncident
-	}
-	return text.HomeQuickRun + ": " + text.PickDrill
+	spec.Session = sessionCareer
+	return newRound(a, spec, NewCareerScreen)
 }
 
 func (h *homeScreen) View(a *App, w, hgt int) string {
@@ -168,9 +130,12 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 		lines = append(lines, dim("  ("+text.HomeBudgetSpent+")"))
 	}
 	lines = append(lines, "")
-	labels := []string{ansi.Truncate(h.pickLabel(a), max(w-6, 1), "…")} // "│> " in front
-	for _, e := range a.entries() {
-		labels = append(labels, e.label+a.entryNote(e.id))
+	var labels []string
+	if h.resume != "" { // "│> " in front
+		labels = append(labels, ansi.Truncate(fmt.Sprintf(text.HomeResume, h.resume), max(w-6, 1), "…"))
+	}
+	for _, e := range a.Entries {
+		labels = append(labels, e.label)
 	}
 	selLine := 0
 	for i, l := range labels {
@@ -180,7 +145,7 @@ func (h *homeScreen) View(a *App, w, hgt int) string {
 		} else {
 			lines = append(lines, st.Base().Foreground(st.Fg).Render("  "+l))
 		}
-		if i == 0 {
+		if i == 0 && h.resume != "" {
 			lines = append(lines, "")
 		}
 	}
@@ -226,16 +191,4 @@ func uptimeText(days int) string {
 		return text.HomeUptimeDay
 	}
 	return fmt.Sprintf(text.HomeUptimeDays, days)
-}
-
-// entryNote is the state of an entry shown after its label: a Standup done
-// today, a Sprint to continue.
-func (a *App) entryNote(id entryID) string {
-	switch {
-	case id == EntryStandup && a.Store.Profile().StandupDay == a.today():
-		return " (" + text.HomeDone + ")"
-	case id == EntrySprint && a.sprintToContinue() != nil:
-		return " (" + text.HomeContinue + ")"
-	}
-	return ""
 }

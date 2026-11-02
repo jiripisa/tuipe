@@ -13,14 +13,14 @@ import (
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/play"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
-const homeIncident = 5 // downs from the first home entry to the incident list
+// openIncidentList shows the incident list; the home menu no longer leads to it.
+func openIncidentList(a *ui.App) { ui.SetScreen(a, ui.NewIncidentListScreen(a)) }
 
 // bossChapter is the first lettered chapter that ends with an incident.
 func bossChapter(t *testing.T, a *ui.App) (content.ChapterDef, content.Incident) {
@@ -141,7 +141,7 @@ func TestIncidentRunsAllStepsWithSharedMeter(t *testing.T) {
 		t.Fatalf("spec: kind %v text %q, want one session over %q", spec.Kind, spec.Text, joined(inc))
 	}
 	runs, _ := st.Runs()
-	want := incident.NewParams(incident.SEV3, recommend.BaseWPM(runs), chars(spec.Text))
+	want := incident.NewParams(incident.SEV3, ui.BaseWPM(runs), chars(spec.Text))
 	if spec.Incident == nil || *spec.Incident != want {
 		t.Fatalf("spec.Incident = %+v, want %+v", spec.Incident, want)
 	}
@@ -443,10 +443,12 @@ func TestIncidentPathFromHomeToNextChapter(t *testing.T) {
 	p := st.Profile()
 	ui.SetScreen(a, ui.NewHomeScreen(a))
 
-	// The owed incident is one Enter away, and so is SEV3.
+	// The career list selects the owed incident, and SEV3 is selected on the picker.
+	a.Update(enter)
+	wantScreen(t, a, "career")
 	a.Update(enter)
 	if ui.ScreenName(a) != "severity" {
-		t.Fatalf("the recommended incident opens %s, want the severity picker", ui.ScreenName(a))
+		t.Fatalf("the owed incident opens %s, want the severity picker", ui.ScreenName(a))
 	}
 	a.Update(enter)
 	if ui.ScreenName(a) != "round" || ui.RoundSpec(a).Kind != play.KindIncident {
@@ -471,9 +473,10 @@ func TestIncidentPathFromHomeToNextChapter(t *testing.T) {
 		t.Fatal("the next chapter has no lesson to offer")
 	}
 	clk.advance(time.Second)
-	a.Update(enter) // the next pick of the quick run
-	if ui.ScreenName(a) != "round" || ui.RoundLessonID(a) != next.ID {
-		t.Errorf("next pick: %s lesson %q, want round on %q", ui.ScreenName(a), ui.RoundLessonID(a), next.ID)
+	a.Update(enter) // back to the list
+	wantScreen(t, a, "career")
+	if row := selectedLine(a); !strings.Contains(row, next.Title) {
+		t.Errorf("selected row %q, want the next lesson %q", row, next.Title)
 	}
 }
 
@@ -492,6 +495,7 @@ func TestSeverityPicker(t *testing.T) {
 				}
 			}
 			ui.SetScreen(a, ui.NewHomeScreen(a))
+			a.Update(enter) // Kariéra, with the owed incident selected
 			a.Update(enter)
 			v := screen(a)
 			for _, want := range []string{text.IncidentSeverity, fmt.Sprintf(text.IncidentBaseWPM, 40.0), text.IncidentSev3, text.IncidentSev2, text.IncidentSev1} {
@@ -508,7 +512,7 @@ func TestSeverityPicker(t *testing.T) {
 			a.Update(enter)
 			spec := ui.RoundSpec(a)
 			runs, _ := st.Runs()
-			want := incident.NewParams(tc.sev, recommend.BaseWPM(runs), chars(spec.Text))
+			want := incident.NewParams(tc.sev, ui.BaseWPM(runs), chars(spec.Text))
 			if spec.Incident == nil || *spec.Incident != want {
 				t.Errorf("params = %+v, want %+v", spec.Incident, want)
 			}
@@ -521,10 +525,12 @@ func TestSeverityPickerEscGoesBack(t *testing.T) {
 	ch, _ := bossChapter(t, a)
 	readyForBoss(a, st, ch)
 	ui.SetScreen(a, ui.NewHomeScreen(a))
+	a.Update(enter) // Kariéra, with the owed incident selected
 	a.Update(enter)
+	wantScreen(t, a, "severity")
 	a.Update(esc)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("Esc in the picker: %s, want home", ui.ScreenName(a))
+	if ui.ScreenName(a) != "career" {
+		t.Errorf("Esc in the picker: %s, want the career list", ui.ScreenName(a))
 	}
 }
 
@@ -541,7 +547,7 @@ func TestIncidentPickerListsOnlyUnlocked(t *testing.T) {
 			}
 		}
 	}
-	openFromHome(t, a, homeIncident, "incident-list")
+	openIncidentList(a)
 	v := screen(a)
 	if !strings.Contains(v, first.ID) || !strings.Contains(v, first.Title) {
 		t.Errorf("the first chapter's incident is missing:\n%s", v)
@@ -557,7 +563,7 @@ func TestIncidentPickerListsOnlyUnlocked(t *testing.T) {
 		}
 	}
 	a.Update(esc)
-	openFromHome(t, a, homeIncident, "incident-list")
+	openIncidentList(a)
 	v = screen(a)
 	for _, id := range []string{"INC-1011", "INC-2001", "INC-2002", "INC-2003"} {
 		if !strings.Contains(v, id) {
@@ -578,7 +584,7 @@ func TestIncidentListScrollsAndOpensThePicker(t *testing.T) {
 	}
 	st.Profile().IncidentBest["INC-2006"] = "SEV1"
 	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
-	openFromHome(t, a, homeIncident, "incident-list")
+	openIncidentList(a)
 	a.Update(tea.KeyPressMsg{Code: tea.KeyUp}) // wraps to the last entry
 	v := screen(a)
 	if !strings.Contains(v, "> INC-2006") || !strings.Contains(v, "SEV1") {
@@ -861,31 +867,6 @@ func TestLongPromptIsNotCutAtSixtyByEighteen(t *testing.T) {
 	}
 }
 
-func TestLostBossLeadsToADrillThenTheBossAgain(t *testing.T) {
-	a, st, clk := playApp(t)
-	boss, inc := bossChapter(t, a)
-	readyForBoss(a, st, boss)
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	a.Update(enter)
-	wantScreen(t, a, "severity")
-	a.Update(enter)
-	wantScreen(t, a, "round")
-	typeKeys(a, clk, 3)
-	breachByErrors(a)
-	wantScreen(t, a, "incident-results")
-	clk.advance(time.Second)
-	a.Update(enter)
-	wantScreen(t, a, "round")
-	if k := ui.RoundSpec(a).Kind; k != play.KindDrill {
-		t.Fatalf("after the loss: round kind %v, want a drill on the weakest characters", k)
-	}
-	typeKeys(a, clk, -1)
-	wantScreen(t, a, "results")
-	a.Update(enter)
-	wantScreen(t, a, "severity")
-	wantText(t, a, inc.ID)
-}
-
 // The typist the tuning is for: 92 %, the accuracy of one star, at the usual
 // pace, on the longest boss.
 func TestTypistAtTheOneStarAccuracyWinsTheLongestBoss(t *testing.T) {
@@ -927,7 +908,7 @@ func TestLastLessonAfterAnEarlierWinClosesTheChapterAloud(t *testing.T) {
 	if a.Curr.IsDone(p, boss.ID) {
 		t.Fatal("precondition: the chapter is still open")
 	}
-	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: last.ID}, nil))
+	ui.SetScreen(a, lessonRound(t, a, last.ID, nil))
 	typeKeys(a, clk, -1)
 	wantScreen(t, a, "results")
 	wantText(t, a, fmt.Sprintf(text.IncidentPromoted, boss.Title))
@@ -984,23 +965,4 @@ func TestCareerRowForTheOwedBoss(t *testing.T) {
 	if strings.Contains(view(a), inc.ID) {
 		t.Errorf("a won boss has no row:\n%s", view(a))
 	}
-}
-
-func TestPracticeListsNoBossRow(t *testing.T) {
-	a, st, _ := playApp(t)
-	tall(a)
-	boss, inc := bossChapter(t, a)
-	readyForBoss(a, st, boss)
-	openPractice(t, a, practiceLesson)
-	if strings.Contains(view(a), inc.ID) {
-		t.Errorf("the practice list offers the boss:\n%s", view(a))
-	}
-}
-
-func TestHomeNamesTheOwedBoss(t *testing.T) {
-	a, st, _ := playApp(t)
-	boss, inc := bossChapter(t, a)
-	readyForBoss(a, st, boss)
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	wantText(t, a, inc.ID)
 }

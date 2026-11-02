@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,7 +20,6 @@ import (
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/layout"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -30,7 +28,7 @@ import (
 )
 
 const (
-	homeSettings   = 7 // downs from the first home entry to Nastavení
+	homeSettings   = 2 // downs from the first home entry to Nastavení
 	rowStyle       = 0
 	rowLayout      = 1
 	rowUpdateCheck = 2
@@ -288,26 +286,10 @@ var fitCases = []fitCase{
 		wantText(t, a, "Je tu novější verze")
 		wantText(t, a, text.HomeBudgetSpent)
 	})},
-	{"home-sprint-to-continue", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		denseHome(t, a, st, clk)
-		st.Profile().Resume = sprintResume(a, st, clk, 12*60000+40000)
-		ui.SetScreen(a, ui.NewHomeScreen(a))
-		wantText(t, a, text.HomeContinue)
-	})},
-	{"results-first-attempt-sprint", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		st.Profile().Resume = sprintResume(a, st, clk, 12*60000+40000)
-		openEntry(a, homeSprint)
-		wantScreen(t, a, "round")
-		typeKeys(a, clk, -1)
-		wantScreen(t, a, "results")
-		wantText(t, a, "Sprint 1")
-		a.SaveErr(errors.New("open /Users/někdo/.local/share/tuipe/profile.json: permission denied"))
-	})},
 	{"results-baseline-paused", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id, _ := longestLesson(a)
 		for _, pause := range []bool{false, true} {
-			s := ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: id}, nil)
-			ui.SetScreen(a, s)
+			ui.SetScreen(a, lessonRound(t, a, id, nil))
 			a.Update(ui.TickMsg(a))
 			for i, r := range ui.RoundKeys(a) {
 				clk.advance(200 * time.Millisecond)
@@ -324,37 +306,10 @@ var fitCases = []fitCase{
 		wantText(t, a, text.ResultsPaused)
 	})},
 	{"career", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) { openFromHome(t, a, homeCareer, "career") })},
-	{"practice", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		openFromHome(t, a, homePractice, "practice")
-	})},
 	{"stats-gitlog", statsTab(0)},
 	{"stats-heatmap", statsTab(1)},
 	{"stats-trends", statsTab(2)},
 	{"stats-records", statsTab(3)},
-	{"retro", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		start := clk.now().Add(-time.Hour)
-		for _, r := range retroRuns(35, 0.93, start.Add(-3*24*time.Hour), 3) {
-			addRun(t, st, r)
-		}
-		before, now := map[string]stats.Entry{}, stats.New()
-		for i, c := range "qwertyuiopas" {
-			k := string(c)
-			if i%2 == 0 { // improved
-				before[k] = stats.Entry{ErrorRate: 0.40, LatencyMs: 500, Samples: 20}
-				now.Chars[k] = &stats.Entry{ErrorRate: 0.05 + float64(i)/100, LatencyMs: 300, Samples: 40}
-			} else { // worsened
-				before[k] = stats.Entry{ErrorRate: 0.02, LatencyMs: 300, Samples: 20}
-				now.Chars[k] = &stats.Entry{ErrorRate: 0.30 + float64(i)/100, LatencyMs: 350, Samples: 40}
-			}
-		}
-		st.Profile().Stats[a.Layout.ID] = now
-		st.Profile().Resume = &store.Resume{Kind: "sprint", Day: today, Sprint: &store.SprintState{
-			Minutes: 20, Started: start.Format(time.RFC3339Nano), Chars: before}}
-		ui.SetScreen(a, ui.NewRetroScreen(a, retroRuns(40, 0.95, start.Add(time.Minute), 4)))
-		wantScreen(t, a, "retro")
-		wantText(t, a, "zlepšeno")
-		wantText(t, a, "zhoršeno")
-	})},
 	{"incident-win", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		ch, inc := longestBoss(a)
 		readyForBoss(a, st, ch)
@@ -411,7 +366,7 @@ var fitCases = []fitCase{
 	})},
 	{"pause", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id, _ := longestLesson(a)
-		ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: id}, nil))
+		ui.SetScreen(a, lessonRound(t, a, id, nil))
 		a.Update(ui.TickMsg(a))
 		typeKeys(a, clk, 3)
 		a.Update(esc)
@@ -493,7 +448,7 @@ var fitCases = []fitCase{
 }
 
 // denseHome fills the home screen: the top rank, a long uptime with the
-// forgiven day spent, a Standup done today, the longest lesson to continue, a
+// forgiven day spent, the longest lesson to continue, a
 // stand-in update notice and a save warning.
 func denseHome(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 	t.Helper()
@@ -507,7 +462,6 @@ func denseHome(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		}
 		addRun(t, st, store.Run{ID: fmt.Sprintf("u%05d", i), At: daysAgo(clk, i), Mode: "drill", WPM: 40, Accuracy: 0.95})
 	}
-	p.StandupDay = today
 	id, _ := longestLesson(a)
 	p.Resume = &store.Resume{Kind: "lesson", LessonID: id}
 	a.UpdateNotice = "Je tu novější verze 1.2.3. Nainstalujete ji příkazem tuipe upgrade."
@@ -564,15 +518,6 @@ func longestRankAndChapter(a *ui.App) {
 	for i, ch := range a.Curr.Chapters() {
 		p.Completed[ch.ID] = i < bestAt
 	}
-}
-
-// sprintResume is a saved 20 minute Sprint with the given active time.
-func sprintResume(a *ui.App, st *store.Store, clk *clock, activeMs int64) *store.Resume {
-	p := st.Profile()
-	return &store.Resume{Kind: "sprint", Day: today, Sprint: &store.SprintState{
-		Minutes: 20, ActiveMs: activeMs, NextIndex: 1, Seed: 7, Started: clk.now().Format(time.RFC3339Nano),
-		Chars: map[string]stats.Entry{}, Stars: maps.Clone(p.Stars), Completed: maps.Clone(p.Completed), IncidentBest: maps.Clone(p.IncidentBest),
-	}}
 }
 
 func TestAllSharedScreensFitInAllStyles(t *testing.T) {

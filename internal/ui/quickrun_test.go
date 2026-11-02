@@ -3,7 +3,6 @@ package ui_test
 import (
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,9 +17,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/play"
-	"github.com/jiripisa/tuipe/internal/recommend"
 	"github.com/jiripisa/tuipe/internal/score"
-	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -87,28 +84,81 @@ func firstLesson(t *testing.T, a *ui.App) (id, title string) {
 func startLesson(t *testing.T, a *ui.App) string {
 	t.Helper()
 	id, _ := firstLesson(t, a)
-	s := ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: id}, func(*ui.App) ui.Screen {
-		return ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: id}, nil)
-	})
-	ui.SetScreen(a, s)
+	var again func(*ui.App) ui.Screen
+	again = func(*ui.App) ui.Screen { return lessonRound(t, a, id, again) }
+	ui.SetScreen(a, lessonRound(t, a, id, again))
 	a.Update(ui.TickMsg(a))
 	return id
 }
 
-func TestEnterStartsRecommendedRoundImmediately(t *testing.T) {
+// lessonRound builds the round of a lesson, as the lesson list starts it.
+func lessonRound(t *testing.T, a *ui.App, id string, next func(*ui.App) ui.Screen) ui.Screen {
+	t.Helper()
+	s, err := ui.LessonRound(a, id, next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// today is the date of the fixed test clock.
+const today = "2026-10-31"
+
+var up = tea.KeyPressMsg{Code: tea.KeyUp}
+
+// openEntry moves down the home menu and presses Enter.
+func openEntry(a *ui.App, downs int) {
+	for range downs {
+		a.Update(down)
+	}
+	a.Update(enter)
+}
+
+func wantScreen(t *testing.T, a *ui.App, name string) {
+	t.Helper()
+	if got := ui.ScreenName(a); got != name {
+		t.Fatalf("screen = %s, want %s\n%s", got, name, screen(a))
+	}
+}
+
+func wantText(t *testing.T, a *ui.App, want string) {
+	t.Helper()
+	if v := screen(a); !strings.Contains(v, want) {
+		t.Fatalf("screen lacks %q:\n%s", want, v)
+	}
+}
+
+// typist is someone with a history at wpm, placed before the given chapter.
+func typist(t *testing.T, wpm float64, chapter int) (*ui.App, *store.Store, *clock) {
+	t.Helper()
+	a, st, clk := playApp(t)
+	var skipped []string
+	for _, ch := range a.Curr.Chapters()[:chapter] {
+		skipped = append(skipped, ch.ID)
+	}
+	a.Curr.ApplySkip(st.Profile(), ui.StatsOf(a), skipped)
+	for i := range 20 {
+		run := store.Run{ID: fmt.Sprintf("h%d", i), At: clk.now().Add(-time.Hour), Mode: "lesson", WPM: wpm, Accuracy: 0.98}
+		if err := st.AppendRun(run); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ui.SetScreen(a, ui.NewHomeScreen(a))
+	return a, st, clk
+}
+
+func TestHomeOffersOnlyCareerStatsSettings(t *testing.T) {
 	a, _, _ := playApp(t)
-	if ui.ScreenName(a) != "home" {
-		t.Fatalf("start screen = %s, want home", ui.ScreenName(a))
+	v := screen(a)
+	for _, want := range []string{"Kariéra", "Statistiky", "Nastavení"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("home lacks %q:\n%s", want, v)
+		}
 	}
-	_, cmd := a.Update(enter)
-	if ui.ScreenName(a) != "round" {
-		t.Fatalf("after Enter: %s, want round", ui.ScreenName(a))
-	}
-	if cmd == nil {
-		t.Error("the round must start its tick")
-	}
-	if len(ui.RoundKeys(a)) == 0 {
-		t.Error("the round has no text to type")
+	for _, gone := range []string{"Sprint", "Denní standup", "Rychlovka", "Trénink"} {
+		if strings.Contains(v, gone) {
+			t.Errorf("home still offers %q:\n%s", gone, v)
+		}
 	}
 }
 
@@ -484,6 +534,7 @@ func execCmd(cmd tea.Cmd) []tea.Msg {
 
 func TestTickLoop(t *testing.T) {
 	a, _, clk := playApp(t)
+	a.Update(enter) // Kariéra, with the first lesson selected
 	_, cmd := a.Update(enter)
 	first := execCmd(cmd)
 	if len(first) != 1 {
@@ -662,16 +713,17 @@ func TestAltChordReachesTheSession(t *testing.T) {
 func TestEnterTypesNewlineInMultiLineText(t *testing.T) {
 	a, _, clk := playApp(t)
 	var id string
-	for _, s := range a.Lib.Snippets {
-		if strings.Contains(s.Text, "\n") {
-			id = s.ID
-			break
+	for _, ch := range a.Curr.Chapters() {
+		for _, l := range ch.Lessons {
+			if spec, err := ui.LessonSpec(a, l.ID); err == nil && spec.Lang != "" && strings.Contains(spec.Text, "\n") {
+				id = l.ID
+			}
 		}
 	}
 	if id == "" {
-		t.Fatal("no multi-line snippet")
+		t.Fatal("no multi-line code lesson")
 	}
-	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Code, SnippetID: id}, nil))
+	ui.SetScreen(a, lessonRound(t, a, id, nil))
 	keys := ui.RoundKeys(a)
 	if !slices.Contains(keys, '\n') {
 		t.Fatal("no newline to type")
@@ -781,7 +833,7 @@ func TestFinishRecordsStats(t *testing.T) {
 	}
 }
 
-func TestSpecFor(t *testing.T) {
+func TestLessonSpec(t *testing.T) {
 	a, _, clk := playApp(t)
 	var late string
 	for _, ch := range a.Curr.Chapters() {
@@ -792,35 +844,33 @@ func TestSpecFor(t *testing.T) {
 	if late == "" {
 		t.Fatal("no chapter 12 lesson")
 	}
-	spec, err := a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: late})
+	spec, err := ui.LessonSpec(a, late)
 	if err != nil || !spec.HintsOff {
 		t.Errorf("chapter 12: err %v hintsOff %v", err, spec.HintsOff)
 	}
 	id, _ := firstLesson(t, a)
-	spec, err = a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: id})
-	if err != nil || spec.HintsOff || spec.Ghost != nil || spec.Text == "" {
+	spec, err = ui.LessonSpec(a, id)
+	if err != nil || spec.HintsOff || spec.Ghost != nil || spec.Text == "" || spec.LessonID != id {
 		t.Errorf("first lesson: err %v hintsOff %v ghost %v", err, spec.HintsOff, spec.Ghost)
 	}
-	drill, err := a.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1})
-	if err != nil || !drill.GhostIsPace || drill.Ghost != nil || drill.Kind != play.KindDrill {
-		t.Errorf("drill without data: err %v pace %v ghost %v", err, drill.GhostIsPace, drill.Ghost)
-	}
-	if _, err := a.SpecFor(recommend.Pick{Kind: recommend.Incident, Seed: 1}); err == nil {
-		t.Error("an incident pick without an id must be an error, not a drill")
-	}
-	_, boss := bossChapter(t, a)
-	inc, err := a.SpecFor(recommend.Pick{Kind: recommend.Incident, IncidentID: boss.ID})
-	if err != nil || inc.Kind != play.KindIncident || inc.Incident == nil || inc.Title != boss.Title || inc.Severity != "SEV3" || len(inc.Graces) == 0 {
-		t.Errorf("incident: err %v kind %v params %v", err, inc.Kind, inc.Incident)
+	if _, err := ui.LessonSpec(a, "no-such-lesson"); err == nil {
+		t.Error("an unknown lesson must be an error")
 	}
 	playLesson(t, a, clk, 200*time.Millisecond, false)
-	spec, _ = a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: id})
+	spec, _ = ui.LessonSpec(a, id)
 	if spec.Ghost == nil || spec.GhostIsPace {
 		t.Errorf("after a run the lesson must carry a replay ghost: %v pace %v", spec.Ghost, spec.GhostIsPace)
 	}
-	drill, _ = a.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1})
-	if drill.Ghost == nil || !drill.GhostIsPace {
-		t.Errorf("after a run a drill races a pace ghost: %v pace %v", drill.Ghost, drill.GhostIsPace)
+}
+
+func TestEveryHomeEntryOpensAScreen(t *testing.T) {
+	a, _, _ := playApp(t)
+	for i := range a.Entries {
+		ui.SetScreen(a, ui.NewHomeScreen(a))
+		openEntry(a, i)
+		if got := ui.ScreenName(a); got == "home" || got == "other" {
+			t.Errorf("entry %d (%s) opens %q, want a screen of its own", i, a.Entries[i].Label(), got)
+		}
 	}
 }
 
@@ -841,10 +891,7 @@ func TestHomeShowsRankAndUptime(t *testing.T) {
 func TestSmallWindows(t *testing.T) {
 	a, _, clk := playApp(t)
 	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
-	for range 8 {
-		a.Update(down)
-	}
-	a.Update(tea.KeyPressMsg{Code: tea.KeyUp}) // the last entry
+	a.Update(tea.KeyPressMsg{Code: tea.KeyUp}) // wraps to the last entry
 	if !strings.Contains(screen(a), "> Nastavení") {
 		t.Errorf("the selection scrolled out of view:\n%s", screen(a))
 	}
@@ -859,7 +906,7 @@ func TestSmallWindows(t *testing.T) {
 func TestRegisteredEntryOpens(t *testing.T) {
 	a, _, _ := playApp(t)
 	opened := false
-	a.RegisterEntry(ui.EntryStandup, func(*ui.App) (ui.Screen, tea.Cmd) {
+	a.RegisterEntry(ui.EntryStats, func(*ui.App) (ui.Screen, tea.Cmd) {
 		opened = true
 		return ui.NewHomeScreen(a), nil
 	})
@@ -867,71 +914,6 @@ func TestRegisteredEntryOpens(t *testing.T) {
 	a.Update(enter)
 	if !opened {
 		t.Error("the registered entry was not opened")
-	}
-}
-
-func TestFirstRoundOfABeginnerIsTheFirstLesson(t *testing.T) {
-	a, _, _ := playApp(t)
-	_, title := firstLesson(t, a)
-	for range 50 { // the recommender rolls dice: Home must never offer a drill
-		ui.SetScreen(a, ui.NewHomeScreen(a))
-		if v := screen(a); !strings.Contains(v, title) {
-			t.Fatalf("home does not offer %q:\n%s", title, v)
-		}
-	}
-}
-
-func TestDrillRacesNoGhostWithoutData(t *testing.T) {
-	a, st, clk := playApp(t)
-	pick := recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1}
-	spec, err := a.SpecFor(pick)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if spec.Ghost != nil {
-		t.Error("no characters typed yet, but the drill races a ghost")
-	}
-	ui.SetScreen(a, ui.NewRoundScreen(a, pick, nil))
-	a.Update(ui.TickMsg(a))
-	if v := screen(a); strings.Contains(v, text.RoundGhost) {
-		t.Errorf("the race is shown without a ghost:\n%s", v)
-	}
-
-	// 19 characters are not enough, 20 are.
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	startLesson(t, a)
-	typeKeys(a, clk, 19)
-	a.Update(esc)
-	a.Update(down)
-	a.Update(down)
-	a.Update(enter)
-	wantScreen(t, a, "home")
-	if n := st.Profile().Stats[a.Layout.ID].Typed(); n != 19 {
-		t.Fatalf("typed = %d", n)
-	}
-	if spec, _ := a.SpecFor(pick); spec.Ghost != nil {
-		t.Error("19 characters must not make a ghost")
-	}
-	startLesson(t, a)
-	typeKeys(a, clk, 1)
-	a.Update(esc)
-	a.Update(down)
-	a.Update(down)
-	a.Update(enter)
-	spec, _ = a.SpecFor(pick)
-	if spec.Ghost == nil || !spec.GhostIsPace {
-		t.Errorf("with 20 characters the drill races a pace ghost: %+v", spec.Ghost)
-	}
-}
-
-func TestPracticeDrillRacesNoGhostWithoutData(t *testing.T) {
-	a, _, _ := playApp(t)
-	openPractice(t, a, practiceChars)
-	typeText(a, "{}")
-	a.Update(enter)
-	wantScreen(t, a, "round")
-	if ui.RoundSpec(a).Ghost != nil {
-		t.Error("a practice drill races a ghost with no data")
 	}
 }
 
@@ -943,7 +925,7 @@ func TestCodeLessonsCarryTheLanguageOfTheirSnippet(t *testing.T) {
 		"ch11-09": "go", "ch11-10": "python", "ch11-11": "js",
 	}
 	for id, lang := range byLesson {
-		spec, err := a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: id})
+		spec, err := ui.LessonSpec(a, id)
 		if err != nil {
 			t.Fatalf("%s: %v", id, err)
 		}
@@ -951,7 +933,7 @@ func TestCodeLessonsCarryTheLanguageOfTheirSnippet(t *testing.T) {
 			t.Errorf("%s: Lang = %q, want %q", id, spec.Lang, lang)
 		}
 	}
-	spec, err := a.SpecFor(recommend.Pick{Kind: recommend.Lesson, LessonID: "ch02-01"})
+	spec, err := ui.LessonSpec(a, "ch02-01")
 	if err != nil || spec.Lang != "" {
 		t.Errorf("a drill lesson has no language: %q %v", spec.Lang, err)
 	}
@@ -959,7 +941,7 @@ func TestCodeLessonsCarryTheLanguageOfTheirSnippet(t *testing.T) {
 
 func TestCodeLessonInEditorShowsItsFileNotProse(t *testing.T) {
 	a, _, _ := playApp(t)
-	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Lesson, LessonID: "ch11-09"}, nil))
+	ui.SetScreen(a, lessonRound(t, a, "ch11-09", nil))
 	a.Update(ui.TickMsg(a))
 	if v := screen(a); strings.Contains(v, text.RoundProseFile) || !strings.Contains(v, "main.go") {
 		t.Errorf("the Go lesson does not read as Go:\n%s", v)
@@ -988,21 +970,25 @@ func TestAltWarningNamesTheSettingOfThisTerminal(t *testing.T) {
 
 func TestRoundsWithoutALessonShowNoStars(t *testing.T) {
 	a, _, clk := playApp(t)
-	playLesson(t, a, clk, 200*time.Millisecond, false) // some data, so a drill can race
-	for name, pick := range map[string]recommend.Pick{
-		"drill": {Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1},
-		"code":  {Kind: recommend.Code, SnippetID: "go-1"},
-	} {
-		ui.SetScreen(a, ui.NewRoundScreen(a, pick, nil))
-		a.Update(ui.TickMsg(a))
-		if v := screen(a); strings.ContainsAny(v, "★☆") {
-			t.Errorf("%s round shows stars:\n%s", name, v)
+	var chapter string
+	for _, ch := range a.Curr.Chapters() {
+		if ch.Number == 1 {
+			chapter = ch.ID
 		}
-		typeKeys(a, clk, -1)
-		wantScreen(t, a, "results")
-		if v := screen(a); strings.ContainsAny(v, "★☆") || strings.Contains(v, text.ResultsNoStars) {
-			t.Errorf("%s results show stars:\n%s", name, v)
-		}
+	}
+	round, err := ui.ChapterTestOutRound(a, chapter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui.SetScreen(a, round)
+	a.Update(ui.TickMsg(a))
+	if v := screen(a); strings.ContainsAny(v, "★☆") {
+		t.Errorf("test-out round shows stars:\n%s", v)
+	}
+	typeKeys(a, clk, -1)
+	wantScreen(t, a, "results")
+	if v := screen(a); strings.ContainsAny(v, "★☆") || strings.Contains(v, text.ResultsNoStars) {
+		t.Errorf("test-out results show stars:\n%s", v)
 	}
 }
 
@@ -1033,57 +1019,6 @@ func TestGhostFromANewerVersionIsToldInCzech(t *testing.T) {
 	v := screen(a)
 	if strings.Contains(v, "newer") || !strings.Contains(v, "novější verze") {
 		t.Errorf("the warning is not Czech:\n%s", v)
-	}
-}
-
-func TestDrillOnALayoutThatLacksACharacterNeverAsksForIt(t *testing.T) {
-	_, st, _ := playApp(t)
-	writeUserLayout(t, st, withoutBraces(t))
-	b, _ := reopenFirstRunDone(t, st)
-	if b.Layout.ID != "user-test" {
-		t.Fatalf("layout = %s", b.Layout.ID)
-	}
-	for _, ch := range b.Curr.Chapters() {
-		b.Curr.CompleteChapter(b.Store.Profile(), ch.ID)
-	}
-	for seed := range int64(20) {
-		spec, err := b.SpecFor(recommend.Pick{Kind: recommend.Drill, Focus: []rune("a}"), Seed: seed + 1})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if bad := b.Layout.Unresolved(spec.Text); len(bad) > 0 {
-			t.Fatalf("the drill asks for %q: %q", string(bad), spec.Text)
-		}
-	}
-}
-
-func TestCodeRoundOnALayoutThatLacksACharacterNeverAsksForIt(t *testing.T) {
-	_, st, _ := playApp(t)
-	writeUserLayout(t, st, withoutBraces(t))
-	b, _ := reopenFirstRunDone(t, st)
-	for _, ch := range b.Curr.Chapters() {
-		b.Curr.CompleteChapter(b.Store.Profile(), ch.ID)
-	}
-	snippets := map[string]string{}
-	for _, sn := range b.Lib.Snippets {
-		snippets[sn.ID] = sn.Text
-	}
-	code := 0
-	for i := range 4000 {
-		p := recommend.Next(recommend.State{
-			Curr: b.Curr, Lib: b.Lib, Profile: b.Store.Profile(), Stats: stats.New(),
-			RunCount: i, Rand: rand.New(rand.NewPCG(uint64(i), 1)), Now: b.Now(),
-		})
-		if p.Kind != recommend.Code {
-			continue
-		}
-		code++
-		if bad := b.Layout.Unresolved(strings.ReplaceAll(snippets[p.SnippetID], "\n", "")); len(bad) > 0 {
-			t.Fatalf("snippet %s asks for %q", p.SnippetID, string(bad))
-		}
-	}
-	if code == 0 {
-		t.Fatal("no code round was picked")
 	}
 }
 
@@ -1134,17 +1069,5 @@ func TestEnterAfterARepeatStillGoesOn(t *testing.T) {
 	_, cmd := a.Update(enter)
 	if ui.ScreenName(a) != "round" || cmd == nil {
 		t.Errorf("screen %s, tick cmd nil: %v", ui.ScreenName(a), cmd == nil)
-	}
-}
-
-func TestRepeatOfADrillKeepsItsText(t *testing.T) {
-	a, _, clk := playApp(t)
-	ui.SetScreen(a, ui.NewRoundScreen(a, recommend.Pick{Kind: recommend.Drill, Focus: []rune("fj"), Seed: 1}, nil))
-	keys := ui.RoundKeys(a)
-	typeKeys(a, clk, -1)
-	a.Update(key('r'))
-	wantScreen(t, a, "round")
-	if !slices.Equal(ui.RoundKeys(a), keys) {
-		t.Fatal("the text changed")
 	}
 }

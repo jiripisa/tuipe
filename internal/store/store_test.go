@@ -41,9 +41,7 @@ func TestProfileRoundTrip(t *testing.T) {
 	p.Completed["c1"] = true
 	p.IncidentBest["i1"] = "sev2"
 	p.FirstRunDone = true
-	p.StandupDay = "2026-10-31"
-	p.Resume = &Resume{Kind: "sprint", LessonID: "l1", Day: "2026-10-31",
-		Sprint: &SprintState{Minutes: 5, ActiveMs: 1000, NextIndex: 2, Seed: 7, Started: "2026-10-31T10:00:00Z"}}
+	p.Resume = &Resume{Kind: "lesson", LessonID: "l1", Day: "2026-10-31"}
 	if err := s.SaveProfile(); err != nil {
 		t.Fatal(err)
 	}
@@ -480,18 +478,13 @@ func TestGoldenV1ProfileLoads(t *testing.T) {
 	if p.Stars["ch01-01"] != 2 || !p.Completed["ch01"] || p.IncidentBest["INC-1001"] != "SEV2" {
 		t.Errorf("progress = %+v %+v %+v", p.Stars, p.Completed, p.IncidentBest)
 	}
-	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] || p.StandupDay != "2026-10-30" ||
+	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] ||
 		p.LastUpdateCheck != "2026-10-30" || p.LatestSeen != "v1.0.0" || !p.SkipNoted["user-layout"] {
 		t.Errorf("flags = %+v", p)
 	}
 	r := p.Resume
-	if r == nil || r.Kind != "sprint" || r.Day != "2026-10-30" || r.Sprint == nil {
+	if r == nil || r.Kind != "lesson" || r.LessonID != "ch01-01" || r.Day != "2026-10-30" {
 		t.Fatalf("resume = %+v", r)
-	}
-	sp := r.Sprint
-	if sp.Minutes != 20 || sp.ActiveMs != 61000 || sp.NextIndex != 2 || sp.Seed != 77 || sp.WPM != 41.5 ||
-		sp.Chars["a"].Samples != 30 || sp.Stars["ch01-01"] != 1 || len(sp.RunIDs) != 1 {
-		t.Errorf("sprint = %+v", sp)
 	}
 }
 
@@ -544,7 +537,7 @@ func TestSavingKeepsEveryKeyOfTheGoldenProfile(t *testing.T) {
 
 // Every field carries a JSON tag, so that a later rename in Go cannot drop data.
 func TestPersistedStructsHaveJSONTags(t *testing.T) {
-	for _, v := range []any{Profile{}, Resume{}, SprintState{}, Run{}, IncidentResult{}, Ghost{}, stats.Stats{}, stats.Entry{}} {
+	for _, v := range []any{Profile{}, Resume{}, Run{}, IncidentResult{}, Ghost{}, stats.Stats{}, stats.Entry{}} {
 		ty := reflect.TypeOf(v)
 		for i := range ty.NumField() {
 			f := ty.Field(i)

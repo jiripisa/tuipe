@@ -721,15 +721,12 @@ func TestPlacementRunsHaveNoStarsAndTheirOwnSession(t *testing.T) {
 	showsNone(t, a, "Vstupní pohovor ·")
 }
 
-func TestPlacementRunsAreNoCadenceAndNoOverallTrend(t *testing.T) {
+func TestPlacementRunsAreNoOverallTrend(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
 	for i := range 6 {
 		addRun(t, st, store.Run{ID: fmt.Sprintf("p%d", i), At: clk.t.Add(-time.Duration(i+1) * time.Minute), Mode: "placement", Session: "placement", WPM: 60, Accuracy: 1})
 	}
 	addRun(t, st, store.Run{ID: "q", At: clk.t, Mode: "drill", WPM: 40, Accuracy: 1})
-	if n := ui.RunCadence(a); n != 1 {
-		t.Errorf("cadence = %d, want 1 (placement runs skipped)", n)
-	}
 	openStats(t, a)
 	a.Update(tab)
 	a.Update(tab)
@@ -775,11 +772,11 @@ func TestPlacementCountsOnlyNewlyUnlockedChapters(t *testing.T) {
 	showsAll(t, a, "Odemčeny 4 kapitoly")
 }
 
-func TestJobOfferPointsToSelectedCharacters(t *testing.T) {
+func TestJobOfferPointsToTheLessons(t *testing.T) {
 	a, _, _ := playApp(t)
 	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 	a.Update(esc) // give up: the offer of a beginner
-	showsAll(t, a, text.PracticeChars)
+	showsAll(t, a, text.OfferPractice)
 }
 
 // reopenFirstRunDone restarts on the saved data with the user layout chosen.

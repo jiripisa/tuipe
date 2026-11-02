@@ -35,39 +35,11 @@
   "FocusTerminals": {
     "ghostty|tmux=false": true
   },
-  "StandupDay": "2026-10-30",
   "LastUpdateCheck": "2026-10-30",
   "LatestSeen": "v1.0.0",
   "Resume": {
-    "Kind": "sprint",
-    "LessonID": "",
-    "Sprint": {
-      "Minutes": 20,
-      "ActiveMs": 61000,
-      "NextIndex": 2,
-      "Seed": 77,
-      "Started": "2026-10-30T17:00:00+01:00",
-      "Chars": {
-        "a": {
-          "LatencyMs": 150,
-          "ErrorRate": 0.02,
-          "Samples": 30,
-          "Mastery": 1,
-          "LastSeen": "2026-10-30T16:00:00+01:00"
-        }
-      },
-      "Bigrams": {},
-      "Stars": {
-        "ch01-01": 1
-      },
-      "Completed": {},
-      "IncidentBest": {},
-      "RunIDs": [
-        "abc1234"
-      ],
-      "WPM": 41.5,
-      "FinaleDone": false
-    },
+    "Kind": "lesson",
+    "LessonID": "ch01-01",
     "Day": "2026-10-30"
   },
   "SkipNoted": {

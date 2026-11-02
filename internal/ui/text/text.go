@@ -117,22 +117,11 @@ const (
 	HomeUptimeDay   = "up 1 day"
 	HomeUptimeDays  = "up %d days"
 	HomeBudgetSpent = "rozpočet chyb na tento týden je vyčerpaný"
-	HomeQuickRun    = "Rychlovka"
 	HomeResume      = "pokračuj: %s"
 
-	MenuStandup   = "Denní standup"
-	MenuSprint    = "Sprint"
-	MenuCareer    = "Kariéra"
-	MenuEndSprint = "Ukončit sprint"
-	MenuPractice  = "Trénink"
-	MenuIncident  = "Incident v produkci"
-	MenuStats     = "Statistiky"
-	MenuSettings  = "Nastavení"
-
-	PickDrill    = "drill na slabá místa"
-	PickIncident = "incident v produkci"
-	PickBoss     = "závěrečný incident %s %s"
-	PickCode     = "kód: %s"
+	MenuCareer   = "Kariéra"
+	MenuStats    = "Statistiky"
+	MenuSettings = "Nastavení"
 )
 
 // Pause menu.
@@ -148,7 +137,6 @@ const (
 	ResultsOld      = "HEAD~1"
 	ResultsNoBase   = "/dev/null"
 	ResultsCommit   = "commit %s  %s"
-	DrillTitle      = "drill"
 	ResultsNew      = "ty"
 	ResultsWPM      = "wpm  "
 	ResultsAccuracy = "přes."
@@ -220,21 +208,6 @@ func TestOutPassed(n int) string {
 	return fmt.Sprintf("test-out splněn: %s %s, bez hvězd", Plural(n, "uzavřena", "uzavřeny", "uzavřeno"), Chapters(n))
 }
 
-// Practice.
-const (
-	PracticeTitle      = "Trénink"
-	PracticeChapter    = "Kapitola"
-	PracticeLesson     = "Lekce"
-	PracticeLanguage   = "Jazyk"
-	PracticeChars      = "Vybrané znaky"
-	PracticeCharsAsk   = "znaky k procvičení (nejvýše %d):"
-	PracticeCharsEmpty = "napište alespoň jeden znak, který klávesnice umí"
-	PracticeNoSnippet  = "pro tento jazyk není na této klávesnici žádná ukázka"
-	PracticeDrill      = "trénink: %s"
-	HintPractice       = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
-	HintPracticeChars  = "Enter spustit · Backspace smazat · Esc zpět · Ctrl+T styl"
-)
-
 // Incidents: the severity picker, the list, the round and the two endings.
 const (
 	IncidentTitle     = "Incident v produkci"
@@ -270,36 +243,6 @@ const (
 	HintPostmortem     = "d drill na znaky · Enter další · Esc domů · Ctrl+T styl"
 	HintPostmortemBare = "Enter další · Esc domů · Ctrl+T styl"
 	HintIncidentWon    = "Enter další · Esc domů · Ctrl+T styl"
-)
-
-// Standup, Sprint and Retro.
-const (
-	ChainStandup = "Standup %d/%d"
-	ChainSprint  = "Sprint %d:%02d / %d:00"
-
-	HomeDone     = "hotovo"
-	HomeContinue = "pokračovat"
-
-	SprintTitle  = "Sprint"
-	SprintAsk    = "Jak dlouhý sprint?"
-	SprintOption = "%d minut"
-	HintSprint   = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
-
-	RetroTitle      = "Retro"
-	RetroHead       = "git log --stat --since=7.days"
-	RetroRuns       = "%s v tomto sprintu"
-	RetroNoRuns     = "Prázdný commit: žádné dokončené kolo, není co hodnotit."
-	RetroWPM        = "wpm   %6.1f  (%+.1f)"
-	RetroAccuracy   = "přes. %5.1f %%  (%+.1f p. b.)"
-	RetroWPMNew     = "wpm   %6.1f"
-	RetroAccNew     = "přes. %5.1f %%"
-	RetroNoPrev     = "Předchozích 7 dní bez kol: není s čím srovnávat."
-	RetroImproved   = "zlepšeno: %s"
-	RetroWorsened   = "zhoršeno: %s"
-	RetroCharShift  = "%s %+.0f p. b."
-	RetroNoShift    = "Znaky: žádná změna, která by stála za záznam."
-	RetroNoSnapshot = "Znaky: chybí snímek ze startu sprintu, nemám co porovnat."
-	HintRetro       = "Enter domů · Esc domů · Ctrl+T styl"
 )
 
 // Statistics.
@@ -430,7 +373,7 @@ const (
 	OfferGreeting = "Dobrý den,"
 	OfferFromZero = "pohovor skončil u první fáze. To je v pořádku, začínáte od nuly a každý někde začíná."
 	OfferHolding  = "Hodnost: %s."
-	OfferPractice = "Symboly si můžete procvičovat hned: Trénink › Vybrané znaky."
+	OfferPractice = "Symboly si můžete procvičit hned v lekcích: Kariéra."
 	OfferRank     = "na základě pohovoru Vám nabízíme pozici: %s."
 	OfferNoChange = "pohovor nic nepřidal, Vaše hodnost zůstává: %s."
 	OfferStart    = "Začínáte v kapitole %d: %s."
