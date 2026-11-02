@@ -245,3 +245,27 @@ func TestResetTellsInCzechWhatItCouldNotDelete(t *testing.T) {
 	}
 	wantFiles(t, false, scoreFiles(data)...) // the rest still goes
 }
+
+func TestResetListsFilesSetAside(t *testing.T) {
+	cfg, data := dirs(t)
+	old := []string{
+		filepath.Join(data, "profile.json.v1"),
+		filepath.Join(data, "profile.json.v1-2"),
+		filepath.Join(data, "runs.jsonl.v1"),
+	}
+	for _, f := range old {
+		if err := os.MkdirAll(data, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := reset(t, cfg, data, ResetScope{Score: true}, "ano")
+	for _, f := range old {
+		if !strings.Contains(out, f) {
+			t.Errorf("the list does not name %s:\n%s", f, out)
+		}
+	}
+	wantFiles(t, false, old...)
+}

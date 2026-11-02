@@ -23,7 +23,7 @@ import (
 )
 
 // SchemaVersion is the version written into every JSON file.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 var (
 	// ErrNewerData means a file was written by a newer tuipe and is left untouched.
@@ -34,14 +34,21 @@ var (
 
 // The JSON tags keep the keys of the files as they are written today, whatever
 // a field is called in Go later. Changing one drops the user's data: add a
-// migration instead. testdata/profile-v1.json guards them.
+// migration instead. testdata/profile-v2.json guards them.
+
+// The values of Run.Mode.
+const (
+	ModeTest      = "test"      // a Test of a lesson
+	ModeTraining  = "training"  // a Trénink
+	ModePlacement = "placement" // the placement test of the first run
+)
 
 // Run is one finished round in the history.
 type Run struct {
 	Schema     int       `json:"Schema"`
 	ID         string    `json:"ID"`
 	At         time.Time `json:"At"`
-	Mode       string    `json:"Mode"`
+	Mode       string    `json:"Mode"` // ModeTest, ModeTraining or ModePlacement; runs of the old round code still write other values
 	LessonID   string    `json:"LessonID"`
 	TextHash   string    `json:"TextHash"`
 	LayoutID   string    `json:"LayoutID"`
@@ -50,6 +57,7 @@ type Run struct {
 	Accuracy   float64   `json:"Accuracy"`
 	Score      float64   `json:"Score"`
 	Stars      int       `json:"Stars"`
+	Length     string    `json:"Length"` // the training length, empty for other parts
 	DurationMs int64     `json:"DurationMs"`
 	Paused     bool      `json:"Paused"`
 	HintUsed   bool      `json:"HintUsed"`
@@ -73,7 +81,9 @@ type Profile struct {
 	LastUpdateCheck string                  `json:"LastUpdateCheck"`
 	LatestSeen      string                  `json:"LatestSeen"`
 	Resume          *Resume                 `json:"Resume"`
-	SkipNoted       map[string]bool         `json:"SkipNoted"` // by layout id: told about the content it cannot type
+	SkipNoted       map[string]bool         `json:"SkipNoted"`   // by layout id: told about the content it cannot type
+	Recommended     string                  `json:"Recommended"` // lesson id the placement test recommends
+	Taught          map[string]bool         `json:"Taught"`      // by lesson id: Výuka finished
 }
 
 func newProfile() *Profile {
@@ -103,6 +113,9 @@ func (p *Profile) fillMaps() {
 	}
 	if p.SkipNoted == nil {
 		p.SkipNoted = map[string]bool{}
+	}
+	if p.Taught == nil {
+		p.Taught = map[string]bool{}
 	}
 }
 
@@ -173,7 +186,10 @@ func (s *Store) load() error {
 	if err := s.loadConfig(); err != nil {
 		return err
 	}
-	return s.loadProfile()
+	if err := s.loadProfile(); err != nil {
+		return err
+	}
+	return s.checkRuns()
 }
 
 // Close releases the lock.
@@ -305,31 +321,91 @@ func (s *Store) readJSON(path, name string, v any) (found bool, err error) {
 	if head.Schema > SchemaVersion {
 		return false, fmt.Errorf("%s: %w", name, ErrNewerData)
 	}
+	if head.Schema < SchemaVersion {
+		return false, s.setAsideOld(path, name)
+	}
 	if json.Unmarshal(b, v) != nil {
 		return false, s.setAside(path, name)
 	}
 	return true, nil
 }
 
+// checkRuns sets the run history aside when it is of an older schema. The
+// first valid line decides, so a mix with an old line first counts as old, and
+// a file with no valid line stays. It reads only up to that line.
+func (s *Store) checkRuns() error {
+	f, err := os.Open(s.runsPath())
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	old := false
+	br := bufio.NewReader(f)
+	for {
+		line, rerr := br.ReadBytes('\n')
+		var r Run
+		if len(line) > 0 && json.Unmarshal(line, &r) == nil && r.ID != "" {
+			old = r.Schema < SchemaVersion
+			break
+		}
+		if rerr != nil {
+			break
+		}
+	}
+	_ = f.Close()
+	if !old {
+		return nil
+	}
+	return s.setAsideOld(s.runsPath(), runsFile)
+}
+
 // setAside renames a corrupted file to <path>.corrupt-N, with the first free N,
 // and records a notice.
 func (s *Store) setAside(path, name string) error {
+	target, err := moveAside(path, func(n int) string { return fmt.Sprintf("%s.corrupt-%d", path, n) })
+	if err != nil {
+		return err
+	}
+	if name == profileFile {
+		s.notices = append(s.notices, fmt.Sprintf(text.StoreProfileSetAside, target))
+	} else {
+		s.notices = append(s.notices, fmt.Sprintf(text.StoreCorruptSetAside, name, target))
+	}
+	return nil
+}
+
+// setAsideOld renames a file of an older schema to <path>.v1, or <path>.v1-N
+// when an earlier one is already there, and records a notice.
+func (s *Store) setAsideOld(path, name string) error {
+	target, err := moveAside(path, func(n int) string {
+		if n == 1 {
+			return path + ".v1"
+		}
+		return fmt.Sprintf("%s.v1-%d", path, n)
+	})
+	if err != nil {
+		return err
+	}
+	s.notices = append(s.notices, fmt.Sprintf(text.OldDataSetAside, name, target))
+	return nil
+}
+
+// moveAside renames path to the first of target(1), target(2), ... that does
+// not exist yet, so nothing set aside earlier is overwritten.
+func moveAside(path string, target func(n int) string) (string, error) {
 	for n := 1; ; n++ {
-		target := fmt.Sprintf("%s.corrupt-%d", path, n)
-		if _, err := os.Lstat(target); err == nil {
+		t := target(n)
+		if _, err := os.Lstat(t); err == nil {
 			continue
 		} else if !errors.Is(err, fs.ErrNotExist) {
-			return err
+			return "", err
 		}
-		if err := os.Rename(path, target); err != nil {
-			return err
+		if err := os.Rename(path, t); err != nil {
+			return "", err
 		}
-		if name == profileFile {
-			s.notices = append(s.notices, fmt.Sprintf(text.StoreProfileSetAside, target))
-		} else {
-			s.notices = append(s.notices, fmt.Sprintf(text.StoreCorruptSetAside, name, target))
-		}
-		return nil
+		return t, nil
 	}
 }
 

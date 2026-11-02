@@ -73,6 +73,9 @@ const StoreCorruptSetAside = "Soubor %s byl poškozený a je odložený jako %s.
 // StoreProfileSetAside is the notice for a damaged profile (%s is where it went).
 const StoreProfileSetAside = "Profil byl poškozený, začínáte s prázdným. Původní soubor je odložený jako %s."
 
+// OldDataSetAside is the notice for a file from an older tuipe (%s is the file, then where it went).
+const OldDataSetAside = "Soubor %s je ze starší verze tuipe. Je odložený jako %s a začínáte znovu."
+
 // AppName is the name shown in the window.
 const AppName = "tuipe"
 

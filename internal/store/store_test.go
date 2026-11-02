@@ -41,6 +41,8 @@ func TestProfileRoundTrip(t *testing.T) {
 	p.Completed["c1"] = true
 	p.FirstRunDone = true
 	p.Resume = &Resume{Kind: "lesson", LessonID: "l1", Day: "2026-10-31"}
+	p.Recommended = "l2"
+	p.Taught["l1"] = true
 	if err := s.SaveProfile(); err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +338,7 @@ func TestRunsSkipEmptyIDLines(t *testing.T) {
 func TestNilStatsEntriesAreDropped(t *testing.T) {
 	cfg, data := dirs(t)
 	os.MkdirAll(data, 0o755)
-	os.WriteFile(filepath.Join(data, "profile.json"), []byte(`{"Schema":1,"Stats":{"x":null}}`), 0o644)
+	os.WriteFile(filepath.Join(data, "profile.json"), []byte(`{"Schema":2,"Stats":{"x":null}}`), 0o644)
 	s := open(t, cfg, data)
 	defer s.Close()
 	if len(s.Profile().Stats) != 0 {
@@ -362,7 +364,7 @@ func TestCorruptedProfileNoticeSaysWhatHappenedAndWhere(t *testing.T) {
 
 func copyFixture(t *testing.T, data string) {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("testdata", "profile-v1.json"))
+	b, err := os.ReadFile(filepath.Join("testdata", "profile-v2.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,9 +376,9 @@ func copyFixture(t *testing.T, data string) {
 	}
 }
 
-// The fixture is what a first release writes. If this test fails, a field was
+// The fixture is what schema 2 writes. If this test fails, a field was
 // renamed or moved and users would lose that data: add a migration instead.
-func TestGoldenV1ProfileLoads(t *testing.T) {
+func TestGoldenV2ProfileLoads(t *testing.T) {
 	cfg, data := dirs(t)
 	copyFixture(t, data)
 	s := open(t, cfg, data)
@@ -398,6 +400,9 @@ func TestGoldenV1ProfileLoads(t *testing.T) {
 	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] ||
 		p.LastUpdateCheck != "2026-10-30" || p.LatestSeen != "v1.0.0" || !p.SkipNoted["user-layout"] {
 		t.Errorf("flags = %+v", p)
+	}
+	if p.Recommended != "ch02-01" || !p.Taught["ch01-01"] {
+		t.Errorf("course = %q %+v", p.Recommended, p.Taught)
 	}
 	r := p.Resume
 	if r == nil || r.Kind != "lesson" || r.LessonID != "ch01-01" || r.Day != "2026-10-30" {
@@ -474,5 +479,163 @@ func TestDirectoryThatCannotBeMadeIsToldInCzech(t *testing.T) {
 	_, err := Open(filepath.Join(blocker, "cfg"), filepath.Join(dir, "data"))
 	if err == nil || !strings.Contains(err.Error(), "nelze vytvořit") || strings.Contains(err.Error(), "mkdir") {
 		t.Errorf("error = %v", err)
+	}
+}
+
+func writeFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestOldProfileIsSetAside(t *testing.T) {
+	cfg, data := dirs(t)
+	old := `{"Schema":1,"FirstRunDone":true,"Stars":{"ch01-01":3}}`
+	writeFile(t, filepath.Join(data, "profile.json"), old)
+	s := open(t, cfg, data)
+	defer s.Close()
+	if p := s.Profile(); p.FirstRunDone || len(p.Stars) != 0 || p.Schema != SchemaVersion {
+		t.Fatalf("expected a fresh profile, got %+v", p)
+	}
+	if got := readFile(t, filepath.Join(data, "profile.json.v1")); got != old {
+		t.Fatalf("set-aside content = %q", got)
+	}
+	if exists(filepath.Join(data, "profile.json")) {
+		t.Fatal("the old profile is still in place")
+	}
+}
+
+func TestOldRunsAreSetAside(t *testing.T) {
+	cfg, data := dirs(t)
+	old := `{"Schema":1,"ID":"a","Mode":"lesson"}` + "\n"
+	writeFile(t, filepath.Join(data, "runs.jsonl"), old)
+	s := open(t, cfg, data)
+	defer s.Close()
+	if runs, _ := s.Runs(); len(runs) != 0 {
+		t.Fatalf("runs = %+v", runs)
+	}
+	if got := readFile(t, filepath.Join(data, "runs.jsonl.v1")); got != old {
+		t.Fatalf("set-aside content = %q", got)
+	}
+	if err := s.AppendRun(Run{ID: "b", Mode: ModeTest}); err != nil {
+		t.Fatal(err)
+	}
+	if runs, _ := s.Runs(); len(runs) != 1 || runs[0].Schema != SchemaVersion {
+		t.Fatalf("runs = %+v", runs)
+	}
+}
+
+func TestRunsFileSchemaIsJudgedByTheFirstValidLine(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body    string
+		wantOld bool
+	}{
+		"torn first line is skipped": {"{not json\n{\"Schema\":2,\"ID\":\"a\"}\n", false},
+		"old line first is a mix":    {"{\"Schema\":1,\"ID\":\"a\"}\n{\"Schema\":2,\"ID\":\"b\"}\n", true},
+		"no schema counts as old":    {"{\"ID\":\"a\"}\n", true},
+		"empty file stays":           {"", false},
+		"no valid line stays":        {"garbage\n{}\n", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg, data := dirs(t)
+			writeFile(t, filepath.Join(data, "runs.jsonl"), tc.body)
+			open(t, cfg, data).Close()
+			if got := exists(filepath.Join(data, "runs.jsonl.v1")); got != tc.wantOld {
+				t.Fatalf("set aside = %v, want %v", got, tc.wantOld)
+			}
+			if exists(filepath.Join(data, "runs.jsonl")) == tc.wantOld {
+				t.Fatalf("runs.jsonl present = %v", !tc.wantOld)
+			}
+		})
+	}
+}
+
+func TestEachFileIsJudgedOnItsOwn(t *testing.T) {
+	cfg, data := dirs(t)
+	// A schema 1 profile with no runs file.
+	writeFile(t, filepath.Join(data, "profile.json"), `{"Schema":1}`)
+	open(t, cfg, data).Close()
+	if !exists(filepath.Join(data, "profile.json.v1")) || exists(filepath.Join(data, "runs.jsonl.v1")) {
+		t.Fatal("only the profile should be set aside")
+	}
+
+	// A schema 2 profile next to schema 1 runs.
+	cfg, data = dirs(t)
+	writeFile(t, filepath.Join(data, "profile.json"), `{"Schema":2,"FirstRunDone":true}`)
+	writeFile(t, filepath.Join(data, "runs.jsonl"), `{"Schema":1,"ID":"a"}`+"\n")
+	s := open(t, cfg, data)
+	defer s.Close()
+	if !s.Profile().FirstRunDone || exists(filepath.Join(data, "profile.json.v1")) {
+		t.Fatal("the new profile must stay")
+	}
+	if !exists(filepath.Join(data, "runs.jsonl.v1")) {
+		t.Fatal("the old runs should be set aside")
+	}
+}
+
+func TestSecondSetAsideKeepsTheFirst(t *testing.T) {
+	cfg, data := dirs(t)
+	writeFile(t, filepath.Join(data, "profile.json.v1"), "first")
+	writeFile(t, filepath.Join(data, "profile.json"), `{"Schema":1}`)
+	open(t, cfg, data).Close()
+	if got := readFile(t, filepath.Join(data, "profile.json.v1")); got != "first" {
+		t.Fatalf("the first set-aside file was overwritten: %q", got)
+	}
+	if got := readFile(t, filepath.Join(data, "profile.json.v1-2")); got != `{"Schema":1}` {
+		t.Fatalf("second set-aside = %q", got)
+	}
+}
+
+func TestSetAsideShowsANotice(t *testing.T) {
+	cfg, data := dirs(t)
+	writeFile(t, filepath.Join(data, "profile.json"), `{"Schema":1}`)
+	writeFile(t, filepath.Join(data, "runs.jsonl"), `{"Schema":1,"ID":"a"}`+"\n")
+	s := open(t, cfg, data)
+	defer s.Close()
+	n := s.Notices()
+	if len(n) != 2 {
+		t.Fatalf("notices = %q", n)
+	}
+	for i, f := range []string{"profile.json", "runs.jsonl"} {
+		if !strings.Contains(n[i], "starší verze") || !strings.Contains(n[i], filepath.Join(data, f+".v1")) {
+			t.Errorf("notice %d = %q", i, n[i])
+		}
+	}
+}
+
+func TestNewProfileKeepsTaughtAndRecommended(t *testing.T) {
+	cfg, data := dirs(t)
+	s := open(t, cfg, data)
+	s.Profile().Taught["ch01-01"] = true
+	s.Profile().Recommended = "ch02-01"
+	if err := s.SaveProfile(); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	s = open(t, cfg, data)
+	defer s.Close()
+	if p := s.Profile(); !p.Taught["ch01-01"] || p.Recommended != "ch02-01" || len(s.Notices()) != 0 {
+		t.Fatalf("profile = %+v notices = %q", p, s.Notices())
+	}
+	// A profile saved without the new keys gets a usable map.
+	writeFile(t, filepath.Join(data, "profile.json"), `{"Schema":2,"Taught":null}`)
+	s.Close()
+	s = open(t, cfg, data)
+	defer s.Close()
+	if s.Profile().Taught == nil {
+		t.Fatal("Taught is nil")
 	}
 }

@@ -1,5 +1,5 @@
 {
-  "Schema": 1,
+  "Schema": 2,
   "Stats": {
     "macos-czech-qwerty": {
       "Chars": {
@@ -38,6 +38,10 @@
     "Kind": "lesson",
     "LessonID": "ch01-01",
     "Day": "2026-10-30"
+  },
+  "Recommended": "ch02-01",
+  "Taught": {
+    "ch01-01": true
   },
   "SkipNoted": {
     "user-layout": true
