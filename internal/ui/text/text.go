@@ -134,7 +134,7 @@ const (
 	ResultsAccuracy = "přes."
 	ResultsTime     = "čas  "
 	ResultsStars    = "hvězdy"
-	ResultsPaused   = "pauza: kolo se nesrovnává s dřívějšími"
+	ResultsPaused   = "pauza: kolo se nepočítá jako rekord"
 	ResultsHintUsed = "nápověda použita: třetí hvězda není možná"
 	ResultsNoStars  = "bez hvězdy"
 
