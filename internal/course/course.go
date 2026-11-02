@@ -1,6 +1,6 @@
 // Package course is the lesson model: chapters of lessons in the order they
 // are taught, which of them a keyboard layout can type, the stars and rank
-// earned, and the lesson to open next.
+// earned, the lesson to open next, and the text of each Trénink and Test.
 package course
 
 import (
@@ -54,8 +54,10 @@ func (r Rank) String() string {
 
 // Course is the lessons a layout can type.
 type Course struct {
+	lib        *content.Library
 	lay        *layout.Layout
-	chapterIDs []string // every chapter, also one whose lessons are all left out
+	snippets   map[string][]content.Snippet // the typable snippets of each language
+	chapterIDs []string                     // every chapter, also one whose lessons are all left out
 	chapters   []Chapter
 	lessons    []Lesson
 	chapterPos map[string]int
@@ -67,11 +69,13 @@ type Course struct {
 // Skipped, when its focus has a character l cannot type or its language has
 // no typable snippet. A nil layout types everything.
 func New(lib *content.Library, l *layout.Layout) *Course {
-	c := &Course{lay: l, chapterPos: map[string]int{}, byID: map[string]int{}}
-	typableLang := map[string]bool{}
+	c := &Course{
+		lib: lib, lay: l, snippets: map[string][]content.Snippet{},
+		chapterPos: map[string]int{}, byID: map[string]int{},
+	}
 	for _, s := range lib.Snippets {
 		if c.typable(s.Text) {
-			typableLang[s.Lang] = true
+			c.snippets[s.Lang] = append(c.snippets[s.Lang], s)
 		}
 	}
 	for pos, ch := range lib.Course {
@@ -79,7 +83,7 @@ func New(lib *content.Library, l *layout.Layout) *Course {
 		c.chapterPos[ch.ID] = pos
 		out := Chapter{ID: ch.ID, Title: ch.Title}
 		for _, def := range ch.Lessons {
-			if !c.typable(def.Focus) || (def.Lang != "" && !typableLang[def.Lang]) {
+			if !c.typable(def.Focus) || (def.Lang != "" && len(c.snippets[def.Lang]) == 0) {
 				c.skipped++
 				continue
 			}

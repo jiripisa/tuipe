@@ -310,3 +310,95 @@ func TestCoverShowsItsBigrams(t *testing.T) {
 		}
 	}
 }
+
+func TestCoverHoldsOnceCharactersOnce(t *testing.T) {
+	l := lib(t)
+	for seed := int64(1); seed <= 50; seed++ {
+		in := generate.Input{Focus: []rune("a"), Allowed: all, Length: 100, Seed: seed, Once: []rune("§°")}
+		s := generate.Cover(l, in, []rune("ˇ"), 3)
+		if count(s, 'ˇ') < 3 || count(s, '§') != 1 || count(s, '°') != 1 {
+			t.Fatalf("seed %d: ˇ %d, § %d, ° %d times in %q", seed, count(s, 'ˇ'), count(s, '§'), count(s, '°'), s)
+		}
+	}
+}
+
+func TestCoverOnceDoesNotLowerMust(t *testing.T) {
+	s := generate.Cover(lib(t), generate.Input{Focus: []rune("a"), Allowed: all, Length: 100, Seed: 1, Once: []rune("§")}, []rune("§"), 3)
+	if count(s, '§') < 3 {
+		t.Errorf("§ %d times, want at least 3: %q", count(s, '§'), s)
+	}
+}
+
+func TestCoverOnceKeepsToAllowed(t *testing.T) {
+	allowed := setOf("abcdefghijklmnopqrstuvwxyz ")
+	s := generate.Cover(lib(t), generate.Input{Focus: []rune("a"), Allowed: allowed.Has, Length: 60, Seed: 1, Once: []rune("§ \nb")}, nil, 1)
+	for _, r := range s {
+		if !allowed.Has(r) {
+			t.Fatalf("disallowed %q in %q", r, s)
+		}
+	}
+}
+
+// Unlike must, Once gives way to the limit: the sample is one attempt of many.
+func TestCoverOnceStopsAtTheLimit(t *testing.T) {
+	l := lib(t)
+	once := []rune("°ˇ¨§ĎŤŇÓÚŮÝ{}[]~^7ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	for seed := int64(1); seed <= 50; seed++ {
+		s := generate.Cover(l, generate.Input{Focus: []rune("a"), Allowed: all, Length: 40, Seed: seed, Once: once}, []rune("ab"), 1)
+		if n := utf8.RuneCountInString(s); n < 40 || n > 60 {
+			t.Fatalf("seed %d: %d characters, want 40 to 60: %q", seed, n, s)
+		}
+		if count(s, 'a') == 0 || count(s, 'b') == 0 {
+			t.Fatalf("seed %d: must is missing from %q", seed, s)
+		}
+	}
+}
+
+func TestDenseKeepsEveryTokenOnFocus(t *testing.T) {
+	l := lib(t)
+	for _, in := range []generate.Input{
+		{Focus: []rune("ěí"), Allowed: all, Length: 300},   // commit messages are thin
+		{Focus: []rune("FJDK"), Allowed: all, Length: 300}, // capitalised words are thin
+		{Focus: []rune("+="), Allowed: all, Length: 300},   // two-word templates are thin
+		{Focus: []rune("ó"), Allowed: all, Length: 300},    // few real words
+		{Focus: []rune("fj"), Allowed: setOf("fj ").Has, Length: 300},
+	} {
+		in.Dense = true
+		for seed := int64(1); seed <= 20; seed++ {
+			in.Seed = seed
+			for _, s := range []string{generate.Drill(l, in), generate.Cover(l, in, in.Focus, 3)} {
+				if utf8.RuneCountInString(s) < in.Length {
+					t.Fatalf("%q seed %d: too short: %q", string(in.Focus), seed, s)
+				}
+				for _, tok := range strings.Fields(s) {
+					hits := 0
+					for _, r := range tok {
+						if strings.ContainsRune(string(in.Focus), r) {
+							hits++
+						}
+					}
+					if hits*4 < utf8.RuneCountInString(tok) {
+						t.Fatalf("%q seed %d: thin token %q in %q", string(in.Focus), seed, tok, s)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestDenseCoverShowsItsBigrams(t *testing.T) {
+	s := generate.Cover(lib(t), generate.Input{Bigrams: []string{"st"}, Allowed: all, Length: 60, Seed: 1, Dense: true}, nil, 1)
+	if !strings.Contains(s, "st") {
+		t.Errorf("no bigram in %q", s)
+	}
+}
+
+func TestDenseWithoutFocusIsAPlainDrill(t *testing.T) {
+	l := lib(t)
+	in := generate.Input{Allowed: all, Length: 80, Seed: 3}
+	plain := generate.Drill(l, in)
+	in.Dense = true
+	if got := generate.Drill(l, in); got != plain {
+		t.Errorf("got %q, want %q", got, plain)
+	}
+}

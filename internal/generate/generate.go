@@ -19,6 +19,8 @@ type Input struct {
 	Allowed func(rune) bool
 	Length  int // minimum length in characters, 100 when zero
 	Seed    int64
+	Once    []rune // Cover also holds these once each, while the text stays within its limit
+	Dense   bool   // every token is at least strongDensity focus characters
 }
 
 const (
@@ -46,10 +48,13 @@ func Drill(lib *content.Library, in Input) string {
 
 // Cover is a drill that is sure to hold the characters of must, each at least
 // times times. A coverage loop first writes tokens that hold what is still
-// missing, then the drill fills the text up to in.Length, and the tokens are
-// shuffled. The first appearance of a character is always written, however long
-// the text gets; repeats stop leaving room for the drill. Space, newline and
-// characters in.Allowed does not admit are left out of must.
+// missing, then tokens for in.Once, then the drill fills the text up to
+// in.Length, and the tokens are shuffled. The first appearance of a character of
+// must is always written, however long the text gets; repeats stop leaving room
+// for the drill, and in.Once stops at the limit of 1.5 times in.Length. Space,
+// newline and characters in.Allowed does not admit are left out of must and
+// in.Once. With in.Dense, a character of must outside in.Focus still gets its
+// token, thin or not.
 func Cover(lib *content.Library, in Input, must []rune, times int) string {
 	g := newGen(lib, in)
 	if g == nil {
@@ -57,7 +62,7 @@ func Cover(lib *content.Library, in Input, must []rune, times int) string {
 	}
 	g.collectCandidates(lib)
 	limit := g.length + g.length/2
-	tokens := g.fill(g.cover(must, times), g.length, limit)
+	tokens := g.fill(g.cover(must, times, limit), g.length, limit)
 	g.rng.Shuffle(len(tokens), func(i, j int) { tokens[i], tokens[j] = tokens[j], tokens[i] })
 	return strings.Join(tokens, g.sep)
 }
@@ -74,6 +79,8 @@ func newGen(lib *content.Library, in Input) *gen {
 		allowed: allowed,
 		length:  in.Length,
 		sep:     "",
+		once:    in.Once,
+		dense:   in.Dense,
 	}
 	if g.length <= 0 {
 		g.length = defaultLength
@@ -118,7 +125,7 @@ func (g *gen) fill(tokens []string, length, limit int) []string {
 	var recent []string
 	for i := 0; n < length; i++ {
 		tok := g.token(i == 0)
-		for try := 0; contains(recent, tok) && try < 8; try++ {
+		for try := 0; (contains(recent, tok) || g.thin(tok)) && try < 8; try++ {
 			tok = g.token(false)
 		}
 		if contains(recent, tok) {
@@ -126,6 +133,9 @@ func (g *gen) fill(tokens []string, length, limit int) []string {
 		}
 		if limit > 0 && n+sepLen+utf8.RuneCountInString(tok) > limit {
 			tok = g.pseudo()
+		}
+		if g.thin(tok) {
+			tok = g.pattern()
 		}
 		if tok == "" {
 			continue
@@ -145,41 +155,68 @@ func (g *gen) fill(tokens []string, length, limit int) []string {
 
 // cover is the coverage loop of Cover. It starts with one token for each bigram.
 // Each pass then writes the tokens that hold what the text still lacks; only the
-// first pass ignores the length.
-func (g *gen) cover(must []rune, times int) []string {
+// first pass ignores the length. Last come in.Once, as far as limit allows.
+func (g *gen) cover(must []rune, times, limit int) []string {
+	times = max(times, 1)
 	need := map[rune]int{}
-	var order []rune
-	for _, r := range must {
-		if r == ' ' || r == '\n' || !g.allowed(r) {
-			continue
-		}
-		if _, dup := need[r]; !dup {
-			order = append(order, r)
-		}
-		need[r] = max(times, 1)
-	}
+	order := g.require(need, must, times)
+	once := g.require(need, g.once, 1)
 	var tokens []string
 	for _, b := range g.bigrams {
 		tokens = append(tokens, g.tokenWithBigram(b))
 	}
-	for pass := 0; pass < max(times, 1); pass++ {
+	tokens = g.coverPasses(tokens, order, times, need)
+	for _, r := range once {
+		if need[r] == 0 {
+			continue // an earlier token already held it
+		}
+		tok := g.tokenWith(r, need)
+		if g.runeLen(append(tokens, tok)) <= limit {
+			tokens = appendCovering(tokens, tok, need)
+		}
+	}
+	return tokens
+}
+
+// require sets need to n for the characters of list that can be asked for and
+// have no need yet, and returns those characters.
+func (g *gen) require(need map[rune]int, list []rune, n int) []rune {
+	var added []rune
+	for _, r := range list {
+		if _, dup := need[r]; dup || r == ' ' || r == '\n' || !g.allowed(r) {
+			continue
+		}
+		need[r] = n
+		added = append(added, r)
+	}
+	return added
+}
+
+// coverPasses writes up to times passes over order. Repeats stop leaving room
+// for the drill.
+func (g *gen) coverPasses(tokens []string, order []rune, times int, need map[rune]int) []string {
+	for pass := range times {
 		for _, r := range order {
-			if need[r] < max(times, 1)-pass {
+			if need[r] < times-pass {
 				continue // an earlier token already held it often enough
 			}
 			if pass > 0 && g.runeLen(tokens) >= g.length*repeatShare/10 {
 				return tokens
 			}
-			tok := g.tokenWith(r, need)
-			tokens = append(tokens, tok)
-			for _, c := range tok {
-				if need[c] > 0 {
-					need[c]--
-				}
-			}
+			tokens = appendCovering(tokens, g.tokenWith(r, need), need)
 		}
 	}
 	return tokens
+}
+
+// appendCovering adds tok to tokens and takes what it holds off need.
+func appendCovering(tokens []string, tok string, need map[rune]int) []string {
+	for _, c := range tok {
+		if need[c] > 0 {
+			need[c]--
+		}
+	}
+	return append(tokens, tok)
 }
 
 func contains(list []string, s string) bool {
@@ -210,6 +247,8 @@ type gen struct {
 	bigrams []string
 	sep     string
 	length  int
+	once    []rune
+	dense   bool
 
 	letters   []rune // allowed letters, sorted
 	vowels    []rune
@@ -386,6 +425,14 @@ func (g *gen) within(s string) bool {
 	return true
 }
 
+// thin reports a token that a dense text cannot use. Without a focus none is thin.
+func (g *gen) thin(tok string) bool {
+	if !g.dense || (len(g.focus) == 0 && len(g.bigrams) == 0) {
+		return false
+	}
+	return float64(g.focusScore(tok)) < strongDensity*float64(utf8.RuneCountInString(tok))
+}
+
 // focusScore counts the characters of w that are focus characters or part of a focus bigram.
 func (g *gen) focusScore(w string) int {
 	rs := []rune(w)
@@ -456,7 +503,7 @@ func (g *gen) collectCandidates(lib *content.Library) {
 func (g *gen) tokenWith(r rune, need map[rune]int) string {
 	best, bestScore := "", -1.0
 	consider := func(tok string) {
-		if tok == "" || !strings.ContainsRune(tok, r) || !g.within(tok) {
+		if tok == "" || !strings.ContainsRune(tok, r) || !g.within(tok) || g.thin(tok) {
 			return
 		}
 		hit, seen := 0, map[rune]bool{}
@@ -521,7 +568,7 @@ func (g *gen) tokenWithBigram(b string) string {
 	r, _ := utf8.DecodeRuneInString(b)
 	var words []string
 	for _, w := range g.byRune[r] {
-		if strings.Contains(w, b) && g.within(w) {
+		if strings.Contains(w, b) && g.within(w) && !g.thin(w) {
 			words = append(words, w)
 		}
 	}
