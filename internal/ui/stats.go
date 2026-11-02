@@ -211,13 +211,10 @@ func (s *statsScreen) gitLog(a *App, rows int) []string {
 	return lines
 }
 
-// runLine is a run like a git log entry: hash, WPM, accuracy, stars, the lead
-// on the ghost and what was typed.
+// runLine is a run like a git log entry: hash, WPM, accuracy, stars and what
+// was typed.
 func (s *statsScreen) runLine(r store.Run) string {
 	line := fmt.Sprintf("%s  %2.0f wpm  %-7s %s", r.ID, r.WPM, fmt.Sprintf("%.1f %%", r.Accuracy*100), starBar(r.Stars))
-	if r.GhostDeltaMs != nil {
-		line += fmt.Sprintf("  %+.1f s", float64(*r.GhostDeltaMs)/1000)
-	}
 	title := s.titles[r.LessonID]
 	name := modeLabel(r.Mode)
 	if l := sessionLabel(sessionOfRun(r)); l != "" {

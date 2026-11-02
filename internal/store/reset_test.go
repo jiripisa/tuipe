@@ -84,6 +84,14 @@ func TestResetScoreKeepsSettings(t *testing.T) {
 	wantFiles(t, true, settingsFiles(cfg)...)
 }
 
+// The ghost is gone from the app, but its folder from an older version is
+// still part of the score and a score reset removes it.
+func TestResetDeletesOldGhostsFolder(t *testing.T) {
+	cfg, data := seeded(t)
+	reset(t, cfg, data, ResetScope{Score: true}, "ano\n")
+	wantFiles(t, false, filepath.Join(data, "ghosts", "abc.json"), filepath.Join(data, "ghosts"))
+}
+
 func TestResetSettingsKeepsScore(t *testing.T) {
 	cfg, data := seeded(t)
 	reset(t, cfg, data, ResetScope{Settings: true}, "ano\n")

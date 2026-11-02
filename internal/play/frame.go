@@ -20,11 +20,9 @@ type HintInfo struct {
 // Frame is everything the screen needs to draw one moment of the round.
 type Frame struct {
 	Cells         []engine.Cell
-	Pos, GhostPos int
+	Pos           int
 	WrongPos      map[int]bool // positions that have had a wrong press
 	WPM, Accuracy float64
-	Lead          time.Duration
-	HasGhost      bool
 	Hint          *HintInfo
 	Paused        bool
 	ManualPause   bool // Esc pause: only Resume ends it
@@ -35,13 +33,12 @@ type Frame struct {
 
 // Result is the outcome of a finished (or inspected) round.
 type Result struct {
-	Metrics    score.Metrics
-	Stars      int
-	HintUsed   bool
-	Paused     bool
-	Log        []engine.Keystroke
-	Text       engine.Text
-	GhostDelta *time.Duration
+	Metrics  score.Metrics
+	Stars    int
+	HintUsed bool
+	Paused   bool
+	Log      []engine.Keystroke
+	Text     engine.Text
 }
 
 const weakCount = 4
@@ -66,11 +63,6 @@ func (s *Session) Frame(at time.Time) Frame {
 		if !k.Correct {
 			f.WrongPos[k.Pos] = true
 		}
-	}
-	if s.ghost != nil {
-		f.HasGhost = true
-		f.GhostPos = s.ghost.PosAt(elapsed)
-		f.Lead = s.ghost.Lead(f.Pos, elapsed)
 	}
 	// Never evaluate later than the last Tick or Key, so the hint shown and
 	// HintUsed always agree.
@@ -112,10 +104,6 @@ func (s *Session) Result(at time.Time) Result {
 		Paused:   s.round.WasPaused(),
 		Log:      s.round.Log(),
 		Text:     s.round.Text(),
-	}
-	if s.ghost != nil {
-		d := s.ghost.Lead(s.round.Pos(), elapsed)
-		r.GhostDelta = &d
 	}
 	r.Stars = score.Stars(m, s.spec.Targets, s.hintUsed)
 	return r

@@ -14,10 +14,31 @@
 13 // Handle answers one request and logs a failure.↵
 14 func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
 15     if err := s.auth(r); err != nil {↵
+16         http.Error(w, "unauthorized", 401)↵
+17         return↵
+18     }↵
+19     port, err := parsePort(r.URL.Query().Get("port"))↵
+20     if err != nil {↵
+21         http.Error(w, err.Error(), 400)↵
+22         return↵
+23     }↵
+24     fmt.Fprintf(w, "port %d\n", port)↵
+25 }
+ ~
+ ~
+ ~
+ ~
+ ~
+ ~
+ ~
+ ~
+ ~
+ ~
+ ~
 ── přehled ─────────────────────────────────────────────────────────────────────
    postup     █████░░░░░░░░░░░░░░░░░░░░░░░░░  15 %
    znaky      91 / 601
    řádek      3 / 25
    chyby      1
    nejslabší  —
- PSANÍ  62 wpm  98.1 %  HEAD~1 +1.4 s                            série 25  3:15
+ PSANÍ  62 wpm  98.1 %                                           série 25  3:15

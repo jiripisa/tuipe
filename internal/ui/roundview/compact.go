@@ -32,7 +32,7 @@ func compact(s style.Style, v View, w, h int) []string {
 	textH := h - len(lines) - notes
 
 	rows := wrap(f.Cells, w-2)
-	paint := ink{s: s, f: f, base: typedThen(f, s.OK, s.Fg), ghostFg: s.Fg}
+	paint := ink{s: s, f: f, base: typedThen(f, s.OK, s.Fg)}
 	top := scrollTop(len(rows), rowOf(rows, f.Pos), textH)
 	for i := top; i < min(top+textH, len(rows)); i++ {
 		lines = append(lines, " "+paint.row(rows[i], s.Bg))
@@ -51,15 +51,12 @@ func compact(s style.Style, v View, w, h int) []string {
 }
 
 // compactNumbers joins the numbers on one row of at most w cells. The paused
-// mark stays, and in a narrow window the numbers go from the left, so what
-// matters most in the race is the last to leave.
+// mark stays, and in a narrow window the numbers go from the left, so the
+// speed, the first number, is the last to leave.
 func compactNumbers(s style.Style, f play.Frame, w int) string {
 	numbers := []string{
 		plain(s, s.Accent).render(wpmText(f.WPM)),
 		plain(s, s.Fg).render(accuracyText(f)),
-	}
-	if f.HasGhost {
-		numbers = append(numbers, plain(s, leadColour(s, f.Lead)).render(leadText(f.Lead)))
 	}
 	if f.Paused {
 		w -= ansi.StringWidth(pausedChip(s)) + 1

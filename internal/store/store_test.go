@@ -63,8 +63,7 @@ func TestRunsAppendAndSkipBrokenLine(t *testing.T) {
 	cfg, data := dirs(t)
 	s := open(t, cfg, data)
 	defer s.Close()
-	delta := int64(-120)
-	r1 := Run{ID: "1", At: time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC), Mode: "lesson", WPM: 40, Accuracy: 97, Stars: 2, GhostDeltaMs: &delta}
+	r1 := Run{ID: "1", At: time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC), Mode: "lesson", WPM: 40, Accuracy: 97, Stars: 2}
 	r2 := Run{ID: "2", At: time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC), Mode: "drill"}
 	if err := s.AppendRun(r1); err != nil {
 		t.Fatal(err)
@@ -304,71 +303,6 @@ func TestCorruptConfigIsSetAside(t *testing.T) {
 	}
 }
 
-func TestGhostRoundTripAbsentAndNewer(t *testing.T) {
-	cfg, data := dirs(t)
-	s := open(t, cfg, data)
-	defer s.Close()
-	if g, err := s.Ghost("abc"); g != nil || err != nil {
-		t.Fatalf("absent ghost = %v, %v", g, err)
-	}
-	g := Ghost{TextHash: "abc", Score: 31.5, TimesMs: []int64{100, 220, 340}}
-	if err := s.SaveGhost(g); err != nil {
-		t.Fatal(err)
-	}
-	got, err := s.Ghost("abc")
-	if err != nil || got == nil {
-		t.Fatalf("got %v, %v", got, err)
-	}
-	g.Schema = SchemaVersion
-	if !reflect.DeepEqual(*got, g) {
-		t.Fatalf("got %+v want %+v", *got, g)
-	}
-
-	newer := filepath.Join(data, "ghosts", "new.json")
-	if err := os.WriteFile(newer, []byte(`{"Schema": 999}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.Ghost("new"); !errors.Is(err, ErrNewerData) {
-		t.Fatalf("err = %v", err)
-	}
-	if b, _ := os.ReadFile(newer); string(b) != `{"Schema": 999}` {
-		t.Fatalf("newer ghost changed: %q", b)
-	}
-}
-
-func TestCorruptGhostIsSetAside(t *testing.T) {
-	cfg, data := dirs(t)
-	s := open(t, cfg, data)
-	defer s.Close()
-	if err := os.MkdirAll(filepath.Join(data, "ghosts"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(data, "ghosts", "h.json"), []byte("oops"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if g, err := s.Ghost("h"); g != nil || err != nil {
-		t.Fatalf("got %v, %v", g, err)
-	}
-	if m, _ := filepath.Glob(filepath.Join(data, "ghosts", "h.json.corrupt-*")); len(m) != 1 {
-		t.Fatalf("set-aside files = %v", m)
-	}
-	if len(s.Notices()) == 0 {
-		t.Fatal("expected a notice")
-	}
-}
-
-func TestGhostRejectsPathLikeHash(t *testing.T) {
-	cfg, data := dirs(t)
-	s := open(t, cfg, data)
-	defer s.Close()
-	if err := s.SaveGhost(Ghost{TextHash: "../evil"}); err == nil || !strings.Contains(err.Error(), "hash") {
-		t.Fatalf("err = %v", err)
-	}
-	if _, err := s.Ghost("../evil"); err == nil {
-		t.Fatal("expected error")
-	}
-}
-
 func TestAppendAfterTornTailKeepsNewRun(t *testing.T) {
 	cfg, data := dirs(t)
 	s := open(t, cfg, data)
@@ -396,22 +330,6 @@ func TestRunsSkipEmptyIDLines(t *testing.T) {
 	got, _ := s.Runs()
 	if len(got) != 1 || got[0].ID != "ok" {
 		t.Fatalf("runs = %+v", got)
-	}
-}
-
-func TestSaveGhostRefusesNewerSchema(t *testing.T) {
-	cfg, data := dirs(t)
-	s := open(t, cfg, data)
-	defer s.Close()
-	os.MkdirAll(filepath.Join(data, "ghosts"), 0o755)
-	path := filepath.Join(data, "ghosts", "h.json")
-	orig := []byte(`{"Schema": 999}`)
-	os.WriteFile(path, orig, 0o644)
-	if err := s.SaveGhost(Ghost{TextHash: "h"}); !errors.Is(err, ErrNewerData) {
-		t.Fatalf("err = %v", err)
-	}
-	if b, _ := os.ReadFile(path); string(b) != string(orig) {
-		t.Fatalf("file changed: %q", b)
 	}
 }
 
@@ -536,7 +454,7 @@ func TestSavingKeepsEveryKeyOfTheGoldenProfile(t *testing.T) {
 
 // Every field carries a JSON tag, so that a later rename in Go cannot drop data.
 func TestPersistedStructsHaveJSONTags(t *testing.T) {
-	for _, v := range []any{Profile{}, Resume{}, Run{}, Ghost{}, stats.Stats{}, stats.Entry{}} {
+	for _, v := range []any{Profile{}, Resume{}, Run{}, stats.Stats{}, stats.Entry{}} {
 		ty := reflect.TypeOf(v)
 		for i := range ty.NumField() {
 			f := ty.Field(i)

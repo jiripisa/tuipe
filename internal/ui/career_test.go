@@ -350,9 +350,6 @@ func TestPassingTestOutCompletesChapterWithoutStars(t *testing.T) {
 	if len(runs) != 1 || runs[0].Mode != "testout" || runs[0].LessonID != "" || runs[0].Stars < 2 {
 		t.Fatalf("runs = %+v, want one testout run with at least 2 stars", runs)
 	}
-	if g, _ := st.Ghost(runs[0].TextHash); g != nil {
-		t.Error("a test-out result must not become a ghost")
-	}
 	raw, err := os.ReadFile(filepath.Join(dataDir, "profile.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -395,9 +392,6 @@ func TestFailingTestOutChangesNothing(t *testing.T) {
 	runs, _ := st.Runs()
 	if len(runs) != 1 || runs[0].Mode != "testout" || runs[0].Stars >= 2 {
 		t.Errorf("runs = %+v, want one testout run under 2 stars", runs)
-	}
-	if g, _ := st.Ghost(runs[0].TextHash); g != nil {
-		t.Error("a failed test-out must not become a ghost")
 	}
 }
 

@@ -28,7 +28,7 @@ import (
 // PNGs. Without the variable it is skipped.
 //
 // Nothing here is drawn by hand. A simulated typist plays about four weeks of
-// real rounds through the real app on a fake clock, so the ghost, the
+// real rounds through the real app on a fake clock, so the
 // heatmap and the history on the pictures are what the app computes.
 func TestScreenshots(t *testing.T) {
 	dir := os.Getenv("TUIPE_SHOTS")
@@ -126,8 +126,6 @@ func (s *session) playWeeks() {
 			s.careerRound()
 		}
 	}
-	s.startSnippet("go-1") // the ghost of shootRound
-	s.playRound()
 	s.clk.advance(endingWait)
 	s.a.Update(esc)
 	s.clk.t = dayAt(lastDay)
@@ -224,7 +222,7 @@ func (s *session) startSnippet(id string) {
 	s.a.Update(ui.TickMsg(s.a))
 }
 
-// shootRound is a Go lesson in the middle of a round against its replay ghost.
+// shootRound is a Go lesson in the middle of a round.
 func (s *session) shootRound() {
 	s.startLesson("ch11-01")
 	s.typeUpTo("return 0, fmt.Errorf")

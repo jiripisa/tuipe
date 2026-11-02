@@ -136,7 +136,7 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 }
 
 // fillBanner takes in what has come up since the last look: new store notices,
-// such as a ghost found damaged during play, and once per layout the note about
+// such as a damaged file found during play, and once per layout the note about
 // skipped content.
 func (a *App) fillBanner() {
 	notices := a.Store.Notices()

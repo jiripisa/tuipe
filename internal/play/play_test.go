@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jiripisa/tuipe/internal/ghost"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -76,7 +75,7 @@ func TestBlurPausesAndFocusResumesOnKey(t *testing.T) {
 	eq(t, r.Log[1].T, 1000*time.Millisecond)
 }
 
-func TestPausedRoundNeverReplacesGhost(t *testing.T) {
+func TestPausedRoundResultIsMarkedPaused(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)
 	s.Pause(at(100))
@@ -86,7 +85,6 @@ func TestPausedRoundNeverReplacesGhost(t *testing.T) {
 	press(s, 'd', 1200)
 	r := s.Result(at(1200))
 	eq(t, r.Paused, true)
-	eq(t, ghost.ShouldReplace(nil, r.Metrics, r.Paused, false), false)
 }
 
 func TestUnpausedRoundHasPausedFalse(t *testing.T) {
@@ -322,39 +320,6 @@ func TestExplicitPauseSurvivesBlurAndFocus(t *testing.T) {
 	press(s, 'b', 400)
 	eq(t, s.Frame(at(400)).Pos, 1)
 	eq(t, s.Frame(at(400)).Paused, true)
-}
-
-func TestLeadShownOnlyWithGhost(t *testing.T) {
-	s := newSession(t, play.Spec{}, true)
-	press(s, 'a', 0)
-	f := s.Frame(at(100))
-	eq(t, f.HasGhost, false)
-	eq(t, f.Lead, time.Duration(0))
-
-	g := ghost.Replay([]int64{0, 500, 1000, 1500})
-	s = newSession(t, play.Spec{Ghost: g}, true)
-	press(s, 'a', 0)
-	press(s, 'b', 300)
-	f = s.Frame(at(300))
-	eq(t, f.HasGhost, true)
-	eq(t, f.Lead, 200*time.Millisecond) // ghost finished b at 500, the player at 300
-	eq(t, f.GhostPos, 1)
-	eq(t, f.Pos, 2)
-	press(s, 'c', 600)
-	press(s, 'd', 900)
-	d := s.Result(at(900)).GhostDelta
-	if d == nil {
-		t.Fatal("expected a ghost delta")
-	}
-	eq(t, *d, 600*time.Millisecond)
-}
-
-func TestResultGhostDeltaNilWithoutGhost(t *testing.T) {
-	s := newSession(t, play.Spec{}, true)
-	for i, r := range "abcd" {
-		press(s, r, i*100)
-	}
-	eq(t, s.Result(at(300)).GhostDelta == nil, true)
 }
 
 func TestWrongPressesNeverEndTheRound(t *testing.T) {

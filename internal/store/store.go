@@ -1,5 +1,5 @@
 // Package store keeps tuipe's data on disk as plain files: a profile, an
-// append-only run history and one file per ghost, plus the user's config. Files
+// append-only run history, plus the user's config. Files
 // are written atomically, a corrupted file is set aside instead of crashing the
 // app, and a lock keeps two instances from corrupting each other's data. It
 // never reads the clock.
@@ -38,30 +38,21 @@ var (
 
 // Run is one finished round in the history.
 type Run struct {
-	Schema       int       `json:"Schema"`
-	ID           string    `json:"ID"`
-	At           time.Time `json:"At"`
-	Mode         string    `json:"Mode"`
-	LessonID     string    `json:"LessonID"`
-	TextHash     string    `json:"TextHash"`
-	LayoutID     string    `json:"LayoutID"`
-	Session      string    `json:"Session"` // how the round was started: quick, standup, sprint, career or practice; empty in old runs
-	WPM          float64   `json:"WPM"`
-	Accuracy     float64   `json:"Accuracy"`
-	Score        float64   `json:"Score"`
-	Stars        int       `json:"Stars"`
-	DurationMs   int64     `json:"DurationMs"`
-	Paused       bool      `json:"Paused"`
-	HintUsed     bool      `json:"HintUsed"`
-	GhostDeltaMs *int64    `json:"GhostDeltaMs"`
-}
-
-// Ghost is the best recorded replay of one text.
-type Ghost struct {
-	Schema   int     `json:"Schema"`
-	TextHash string  `json:"TextHash"`
-	Score    float64 `json:"Score"`
-	TimesMs  []int64 `json:"TimesMs"`
+	Schema     int       `json:"Schema"`
+	ID         string    `json:"ID"`
+	At         time.Time `json:"At"`
+	Mode       string    `json:"Mode"`
+	LessonID   string    `json:"LessonID"`
+	TextHash   string    `json:"TextHash"`
+	LayoutID   string    `json:"LayoutID"`
+	Session    string    `json:"Session"` // how the round was started: quick, standup, sprint, career or practice; empty in old runs
+	WPM        float64   `json:"WPM"`
+	Accuracy   float64   `json:"Accuracy"`
+	Score      float64   `json:"Score"`
+	Stars      int       `json:"Stars"`
+	DurationMs int64     `json:"DurationMs"`
+	Paused     bool      `json:"Paused"`
+	HintUsed   bool      `json:"HintUsed"`
 }
 
 // Resume is what to offer the user when they come back.
@@ -194,7 +185,7 @@ func (s *Store) Notices() []string { return append([]string(nil), s.notices...) 
 const (
 	profileFile = "profile.json"
 	runsFile    = "runs.jsonl"
-	ghostsDir   = "ghosts"
+	ghostsDir   = "ghosts" // no longer written; kept so a reset deletes the old folder
 )
 
 func (s *Store) profilePath() string { return filepath.Join(s.dataDir, profileFile) }
@@ -294,47 +285,6 @@ func (s *Store) Runs() ([]Run, error) {
 			return runs, err
 		}
 	}
-}
-
-func (s *Store) ghostPath(hash string) (string, error) {
-	if hash == "" || hash != filepath.Base(hash) || hash == "." || hash == ".." {
-		return "", fmt.Errorf("invalid ghost hash %q", hash)
-	}
-	return filepath.Join(s.dataDir, ghostsDir, hash+".json"), nil
-}
-
-// Ghost returns the ghost for a text hash, or nil, nil when there is none. A
-// corrupted file is set aside and treated as absent.
-func (s *Store) Ghost(hash string) (*Ghost, error) {
-	path, err := s.ghostPath(hash)
-	if err != nil {
-		return nil, err
-	}
-	var g Ghost
-	found, err := s.readJSON(path, "ghosts/"+hash+".json", &g)
-	if err != nil || !found {
-		return nil, err
-	}
-	return &g, nil
-}
-
-// SaveGhost writes a ghost atomically.
-func (s *Store) SaveGhost(g Ghost) error {
-	path, err := s.ghostPath(g.TextHash)
-	if err != nil {
-		return err
-	}
-	if b, err := os.ReadFile(path); err == nil {
-		var head struct{ Schema int }
-		if json.Unmarshal(b, &head) == nil && head.Schema > SchemaVersion {
-			return fmt.Errorf("ghosts/%s.json: %w", g.TextHash, ErrNewerData)
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf(text.StoreNoDir, filepath.Dir(path))
-	}
-	g.Schema = SchemaVersion
-	return writeJSON(path, g)
 }
 
 // readJSON decodes the file at path into v. It reports found=false for a missing

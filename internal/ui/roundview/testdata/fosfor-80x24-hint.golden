@@ -1,5 +1,6 @@
  tuipe  ::  kapitola 6 / symboly  ::  lekce 4                               ★★☆
 
+           return n, nil↵
        }↵
        ↵
        // Handle answers one request and logs a failure.↵
@@ -10,9 +11,8 @@
            }↵
            port, err := parsePort(r.URL.Query().Get("port"))↵
            if err != nil {↵
-
-       HEAD~1 ░░░░░░░░░░░░░░░░░░░░░░░▒                -0.8 s za duchem
-       ty     ███████████████████████▍
+               http.Error(w, err.Error(), 400)↵
+               return↵
 
        62 wpm   98.1 %   série 379
 

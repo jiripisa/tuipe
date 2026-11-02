@@ -178,11 +178,8 @@ func SnippetRound(a *App, id string) (Screen, error) {
 		return nil, fmt.Errorf("unknown snippet %q", id)
 	}
 	sn := a.Lib.Snippets[i]
-	spec, err := a.withReplay(play.Spec{
+	spec := play.Spec{
 		Kind: play.KindCode, Title: sn.ID, Lang: sn.Lang, Text: sn.Text, Targets: a.chapterTargets(),
-	})
-	if err != nil {
-		return nil, err
 	}
 	return newRound(a, spec, nil), nil
 }

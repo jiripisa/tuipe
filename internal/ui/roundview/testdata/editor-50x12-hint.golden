@@ -1,4 +1,4 @@
- 62 wpm  98.1 %  -0.8 s
+ 62 wpm  98.1 %
  failure.↵
  func (s *Server) Get(w http.ResponseWriter, r
  *Req) {↵

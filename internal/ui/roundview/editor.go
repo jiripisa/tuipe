@@ -27,7 +27,6 @@ var (
 	editorTabText  color.Color = lipgloss.Color("#c0caf5")
 	editorGutter   color.Color = lipgloss.Color("#3b4261")
 	editorCursorLn color.Color = lipgloss.Color("#1f2233")
-	editorGhostFg  color.Color = lipgloss.Color("#d6c6ff")
 )
 
 // tokenClass is a kind of source token. Classes, not colours, are cached.
@@ -181,14 +180,9 @@ func editor(s style.Style, v View, w, h int) []string {
 	gutter := max(len(strconv.Itoa(lineCount(f))), 2) + 1 // 3 cells leave a 56-cell line and its mark at width 60
 	rows := wrap(f.Cells, w-gutter)
 
-	prompt := promptLines(v.Prompt, w-gutter, h-1-hintRows-2)
-	bufferH := max(1, h-1-len(prompt)-hintRows-2)
+	bufferH := max(1, h-1-hintRows-2)
 
 	lines := []string{editorTabs(s, v, w)}
-	for _, line := range prompt {
-		pad := strings.Repeat(" ", gutter)
-		lines = append(lines, spread(look{fg: s.Fg, bg: editorBar}.render(pad+line), "", w, look{fg: s.Fg, bg: editorBar}))
-	}
 	lines = append(lines, editorBuffer(s, v, rows, w, gutter, bufferH)...)
 	lines = append(lines, editorHint(s, v, rows, w)...)
 	return append(lines, editorStatus(s, f, rows, w), editorMessage(s, f, v.AltHelp))
@@ -212,16 +206,13 @@ func editorTabs(s style.Style, v View, w int) string {
 	}
 	left := look{fg: editorTabText, bg: s.Bg}.render(" "+name+" ") + bar.render("  "+v.Title)
 	right := bar.render(stars(v.Stars) + " ")
-	if v.RightInfo != "" {
-		right = look{fg: s.Fg, bg: editorBar}.render(v.RightInfo+"  ") + right
-	}
 	return spread(left, right, w, bar)
 }
 
 func editorBuffer(s style.Style, v View, rows []row, w, gutter, height int) []string {
 	f := v.Frame
 	classes := syntaxClasses(f.Cells, v.Lang)
-	paint := ink{s: s, f: f, ghostFg: editorGhostFg}
+	paint := ink{s: s, f: f}
 	paint.base = func(i int) color.Color {
 		switch {
 		case i < f.Pos:
@@ -291,10 +282,6 @@ func editorStatus(s style.Style, f play.Frame, rows []row, w int) string {
 	}
 	left := mode + item(s.Fg, editorBarHi, wpmText(f.WPM)) + item(s.Fg, editorBarHi, accuracyText(f))
 	bar := look{fg: s.Dim, bg: editorBar}
-	if f.HasGhost {
-		left += bar.render(" "+text.RoundGhost+" ") +
-			look{fg: leadColour(s, f.Lead), bg: editorBar}.render(leadText(f.Lead)+" ")
-	}
 	right := ""
 	for _, optional := range []string{
 		item(s.Fg, editorBarHi, ruler(f, rows)),

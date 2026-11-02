@@ -142,12 +142,8 @@ const (
 	ResultsRank          = "Hodnost: %s → %s. HR byla informována."
 )
 
-// Labels of the round screen. HEAD~1 and wpm are the app's own terms.
+// Labels of the round screen. wpm is the app's own term.
 const (
-	RoundGhost      = "HEAD~1"
-	RoundYou        = "ty"
-	RoundAhead      = "před duchem"
-	RoundBehind     = "za duchem"
 	RoundStreak     = "série"
 	RoundWPM        = "wpm"
 	RoundAccuracy   = "přes."

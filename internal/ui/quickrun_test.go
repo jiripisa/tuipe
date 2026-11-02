@@ -162,7 +162,7 @@ func TestHomeOffersOnlyCareerStatsSettings(t *testing.T) {
 	}
 }
 
-func TestFinishingARoundShowsDiffAgainstGhost(t *testing.T) {
+func TestFinishingARoundShowsDiffAgainstThePreviousRun(t *testing.T) {
 	a, st, clk := playApp(t)
 	startLesson(t, a)
 	typeKeys(a, clk, -1)
@@ -382,27 +382,6 @@ func TestPauseAddsNoThroughputSamples(t *testing.T) {
 	}
 }
 
-func TestPausedRunNeverReplacesGhost(t *testing.T) {
-	a, st, clk := playApp(t)
-	startLesson(t, a)
-	typeKeys(a, clk, 3)
-	a.Update(esc)
-	clk.advance(time.Minute)
-	a.Update(esc) // resume
-	typeKeys(a, clk, -1)
-	if ui.ScreenName(a) != "results" {
-		t.Fatalf("screen = %s", ui.ScreenName(a))
-	}
-	runs, _ := st.Runs()
-	g, err := st.Ghost(runs[0].TextHash)
-	if err != nil || g != nil {
-		t.Errorf("a run with a pause became a ghost: %+v %v", g, err)
-	}
-	if !runs[0].Paused {
-		t.Error("run not marked paused")
-	}
-}
-
 func TestFinishingSavesStarsAndClearsResume(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := startLesson(t, a)
@@ -414,9 +393,6 @@ func TestFinishingSavesStarsAndClearsResume(t *testing.T) {
 	runs, _ := st.Runs()
 	if st.Profile().Stars[id] != runs[0].Stars {
 		t.Errorf("stars %d, run %d", st.Profile().Stars[id], runs[0].Stars)
-	}
-	if g, _ := st.Ghost(runs[0].TextHash); g == nil {
-		t.Error("the first clean run must become the ghost")
 	}
 }
 
@@ -829,7 +805,7 @@ func TestFinishRecordsStats(t *testing.T) {
 }
 
 func TestLessonSpec(t *testing.T) {
-	a, _, clk := playApp(t)
+	a, _, _ := playApp(t)
 	var late string
 	for _, ch := range a.Curr.Chapters() {
 		if ch.Number == 12 && len(ch.Lessons) > 0 {
@@ -845,16 +821,11 @@ func TestLessonSpec(t *testing.T) {
 	}
 	id, _ := firstLesson(t, a)
 	spec, err = ui.LessonSpec(a, id)
-	if err != nil || spec.HintsOff || spec.Ghost != nil || spec.Text == "" || spec.LessonID != id {
-		t.Errorf("first lesson: err %v hintsOff %v ghost %v", err, spec.HintsOff, spec.Ghost)
+	if err != nil || spec.HintsOff || spec.Text == "" || spec.LessonID != id {
+		t.Errorf("first lesson: err %v hintsOff %v", err, spec.HintsOff)
 	}
 	if _, err := ui.LessonSpec(a, "no-such-lesson"); err == nil {
 		t.Error("an unknown lesson must be an error")
-	}
-	playLesson(t, a, clk, 200*time.Millisecond, false)
-	spec, _ = ui.LessonSpec(a, id)
-	if spec.Ghost == nil || spec.GhostIsPace {
-		t.Errorf("after a run the lesson must carry a replay ghost: %v pace %v", spec.Ghost, spec.GhostIsPace)
 	}
 }
 
@@ -996,27 +967,6 @@ func TestLessonResultsKeepTheirStars(t *testing.T) {
 	}
 }
 
-func TestGhostFromANewerVersionIsToldInCzech(t *testing.T) {
-	a, st, _ := playApp(t)
-	id, _ := firstLesson(t, a)
-	txt, err := a.Curr.LessonText(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(filepath.Dir(st.ConfigDir()), "data", "ghosts", engine.Prepare(txt).Hash+".json")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(`{"Schema": 99}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	startLesson(t, a)
-	v := screen(a)
-	if strings.Contains(v, "newer") || !strings.Contains(v, "novější verze") {
-		t.Errorf("the warning is not Czech:\n%s", v)
-	}
-}
-
 func TestRepeatOnResultsPlaysTheSameTextAgain(t *testing.T) {
 	for _, press := range []tea.KeyPressMsg{key('r'), key('R'), {Code: 'r', Mod: tea.ModCtrl}} {
 		a, st, clk := playApp(t)
@@ -1043,16 +993,19 @@ func TestRepeatOnResultsPlaysTheSameTextAgain(t *testing.T) {
 	}
 }
 
-func TestRepeatRacesTheBestAttempt(t *testing.T) {
+func TestRoundShowsNoSecondCursor(t *testing.T) {
 	a, _, clk := playApp(t)
 	startLesson(t, a)
-	if v := screen(a); strings.Contains(v, text.RoundGhost) {
-		t.Fatalf("a first attempt has no ghost:\n%s", v)
-	}
 	typeKeys(a, clk, -1)
-	a.Update(key('r'))
-	a.Update(ui.TickMsg(a))
-	wantText(t, a, text.RoundGhost)
+	a.Update(key('R'))
+	wantScreen(t, a, "round")
+	for i := range 3 {
+		a.Update(ui.TickMsg(a))
+		if v := screen(a); strings.Contains(v, "HEAD~1") {
+			t.Errorf("style %d: a repeated round shows a second cursor:\n%s", i, v)
+		}
+		a.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
+	}
 }
 
 func TestEnterAfterARepeatStillGoesOn(t *testing.T) {

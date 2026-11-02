@@ -1,4 +1,4 @@
-// Package play combines the engine, ghost and hints into one
+// Package play combines the engine and hints into one
 // session that the terminal UI drives. It never reads the clock.
 package play
 
@@ -7,7 +7,6 @@ import (
 	"unicode"
 
 	"github.com/jiripisa/tuipe/internal/engine"
-	"github.com/jiripisa/tuipe/internal/ghost"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
@@ -35,8 +34,6 @@ type Spec struct {
 	Text                  string
 	Targets               score.Targets
 	HintsOff              bool
-	Ghost                 *ghost.Ghost
-	GhostIsPace           bool
 }
 
 // Input is one key press. Alt is set when the terminal reported Alt/Option held.
@@ -65,7 +62,6 @@ type Session struct {
 	focusSeen   bool
 
 	round *engine.Round
-	ghost *ghost.Ghost
 
 	pause      pauseKind
 	pausedFrom time.Time
@@ -94,7 +90,6 @@ func New(spec Spec, l *layout.Layout, st *stats.Stats, focusEvents bool) *Sessio
 		stats:       st,
 		focusEvents: focusEvents,
 		round:       engine.New(engine.Prepare(spec.Text)),
-		ghost:       spec.Ghost,
 		wrong:       map[rune]int{},
 	}
 }

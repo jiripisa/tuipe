@@ -9,7 +9,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
@@ -25,24 +24,21 @@ import (
 const (
 	minW, minH = 60, 18 // below this the compact strip replaces the layouts
 
-	keyboardRows  = 5
-	hintRows      = keyboardRows + 1 // the hint line above the map
-	promptMaxRows = 2
-	promptBigRows = 4 // a long story line may grow to this many rows when the window has room
-	promptMinText = 2 // rows of text that the prompt never takes: the line being typed and one more
-	maxStars      = 3
+	keyboardRows = 5
+	hintRows     = keyboardRows + 1 // the hint line above the map
+	maxStars     = 3
 
 	overviewLabelW = 11
 )
 
 // View is everything the round screen shows.
 type View struct {
-	Frame                          play.Frame
-	Title, Lang, Prompt, RightInfo string
-	Layout                         *layout.Layout
-	Stars                          int       // best stars of the lesson; negative when the round has no lesson
-	Throughput                     []float64 // recent WPM samples, oldest first; may be empty
-	AltHelp                        string    // how to fix Option on this terminal, when known
+	Frame       play.Frame
+	Title, Lang string
+	Layout      *layout.Layout
+	Stars       int       // best stars of the lesson; negative when the round has no lesson
+	Throughput  []float64 // recent WPM samples, oldest first; may be empty
+	AltHelp     string    // how to fix Option on this terminal, when known
 }
 
 // Render draws v to fit w × h exactly: the layout of the style, or the compact
@@ -164,12 +160,11 @@ func scrollTop(total, cursor, height int) int {
 }
 
 // ink colours the cells of a frame. base gives a layout's own colour of a cell,
-// and ink adds what all layouts share: indentation, errors, ghost and cursor.
+// and ink adds what all layouts share: indentation, errors and cursor.
 type ink struct {
-	s       style.Style
-	f       play.Frame
-	base    func(i int) color.Color
-	ghostFg color.Color
+	s    style.Style
+	f    play.Frame
+	base func(i int) color.Color
 }
 
 func (k ink) look(i int, bg color.Color) look {
@@ -183,12 +178,6 @@ func (k ink) look(i int, bg color.Color) look {
 		l.fg, l.underline = k.s.Bad, true
 		if c.R == ' ' {
 			l.bg = k.s.Bad
-		}
-	}
-	if k.f.HasGhost && i == k.f.GhostPos {
-		l.bg = k.s.Ghost
-		if !wrong {
-			l.fg = k.ghostFg
 		}
 	}
 	if i == k.f.Pos && !k.f.Done {
@@ -243,13 +232,6 @@ func spread(left, right string, w int, fill look) string {
 	return left + fill.render(strings.Repeat(" ", gap)) + right
 }
 
-// promptLines wraps the prompt. It takes the rows it needs, up to promptBigRows,
-// as long as textRoom (the rows free for the prompt and the text together)
-// keeps promptMinText rows for the text; it never takes fewer than promptMaxRows.
-func promptLines(prompt string, width, textRoom int) []string {
-	return wrapProse(prompt, width, max(promptMaxRows, min(promptBigRows, textRoom-promptMinText)))
-}
-
 // wrapProse breaks a sentence into at most maxRows rows of width cells. What
 // does not fit ends with an ellipsis.
 func wrapProse(sentence string, width, maxRows int) []string {
@@ -284,26 +266,6 @@ func accuracyText(f play.Frame) string {
 		return "-- %"
 	}
 	return fmt.Sprintf("%.1f %%", f.Accuracy*100)
-}
-
-// leadText shows the lead like +1.4 s or -0.8 s. Under 0.05 s it has no sign of
-// its own, so the display cannot flicker between +0.0 and -0.0.
-func leadText(d time.Duration) string {
-	tenths := math.Round(d.Seconds()*10) / 10
-	if tenths == 0 {
-		return "+0.0 s"
-	}
-	return fmt.Sprintf("%+.1f s", tenths)
-}
-
-func leadColour(s style.Style, d time.Duration) color.Color {
-	switch {
-	case math.Round(d.Seconds()*10) == 0:
-		return s.Fg
-	case d > 0:
-		return s.OK
-	}
-	return s.Bad
 }
 
 // streak counts the cells typed since the last wrong press.

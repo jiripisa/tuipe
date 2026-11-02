@@ -9,8 +9,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/engine"
-	"github.com/jiripisa/tuipe/internal/ghost"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
@@ -72,7 +70,7 @@ func (a *App) lessonSpec(id string) (play.Spec, error) {
 				Targets:  a.Curr.Targets(id),
 				HintsOff: ch.Number == hintsOffChapter,
 			}
-			return a.withReplay(spec)
+			return spec, nil
 		}
 	}
 	return play.Spec{}, fmt.Errorf("unknown lesson %q", id)
@@ -98,19 +96,6 @@ func (a *App) chapterTargets() score.Targets {
 		return a.Curr.Targets(cur.Lessons[n-1].ID)
 	}
 	return score.Targets{}
-}
-
-// withReplay attaches the stored best attempt on a fixed text as the ghost.
-func (a *App) withReplay(spec play.Spec) (play.Spec, error) {
-	g, err := a.Store.Ghost(engine.Prepare(spec.Text).Hash)
-	if err != nil {
-		a.SaveErr(err)
-		return spec, nil // a damaged ghost never blocks the round
-	}
-	if g != nil {
-		spec.Ghost = ghost.Replay(g.TimesMs)
-	}
-	return spec, nil
 }
 
 // roundScreen is one round being typed.

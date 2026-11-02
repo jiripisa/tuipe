@@ -1,6 +1,16 @@
  tuipe  ::  kapitola 6 / symboly  ::  lekce 4                               ★★☆
 
 
+
+
+
+
+
+
+
+
+
+
        // parsePort reads a TCP port from text.↵
        func parsePort(s string) (int, error) {↵
            n, err := strconv.Atoi(strings.TrimSpace(s))↵
@@ -10,11 +20,22 @@
            if n < 1 || n > 65535 {↵
                return 0, errors.New("port out of range")↵
            }↵
-
-       HEAD~1 ░░░░▒                                   +1.4 s před duchem
-       ty     █████▎
+           return n, nil↵
+       }↵
+       ↵
+       // Handle answers one request and logs a failure.↵
+       func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
 
        62 wpm   98.1 %   série 25
+
+
+
+
+
+
+
+
+
 
 
 

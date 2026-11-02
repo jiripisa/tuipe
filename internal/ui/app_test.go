@@ -263,31 +263,6 @@ func TestUnknownLayoutNoticeSurvivesASave(t *testing.T) {
 	wantText(t, a, "Rozložení „gone“")
 }
 
-// A corrupted ghost is found during play, long after the start.
-func TestNoticeThatArrivesLaterIsToldOnTheNextHome(t *testing.T) {
-	a, st, _ := startWith(t, func(string, string) {})
-	if strings.Contains(screen(a), "poškozený") {
-		t.Fatalf("no notice yet:\n%s", screen(a))
-	}
-	path := filepath.Join(filepath.Dir(st.ConfigDir()), "data", "ghosts", "abc.json")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte("garbage{{"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if g, err := st.Ghost("abc"); g != nil || err != nil {
-		t.Fatalf("ghost %v err %v", g, err)
-	}
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	wantText(t, a, "abc.json.corrupt-1")
-	a.Update(down)
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	if strings.Contains(screen(a), "abc.json.corrupt-1") {
-		t.Errorf("the same notice was told twice:\n%s", screen(a))
-	}
-}
-
 // withoutBraces is the Czech layout's file without { and §.
 func withoutBraces(t *testing.T) string {
 	t.Helper()

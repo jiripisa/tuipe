@@ -9,6 +9,8 @@
 
 
 
+
+
                      }↵
                      return n, nil↵
                  }↵
@@ -27,10 +29,8 @@
                      fmt.Fprintf(w, "port %d\n", port)↵
                  }
 
-                 HEAD~1 ░░░░░░░░░░░░░░░░░░░░░░░▒                -0.8 s za duchem
-                 ty     ███████████████████████▍
-
                  62 wpm   98.1 %   série 379
+
 
 
 

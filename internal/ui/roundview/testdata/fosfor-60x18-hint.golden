@@ -1,12 +1,12 @@
  tuipe  ::  kapitola 6 / symboly  ::  lekce 4           ★★☆
+ ↵
  // Handle answers one request and logs a failure.↵
  func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
      if err := s.auth(r); err != nil {↵
          http.Error(w, "unauthorized", 401)↵
          return↵
-
- HEAD~1 ░░░░░░░░░░░░░░░░░░▒            -0.8 s za duchem
- ty     ██████████████████
+     }↵
+     port, err := parsePort(r.URL.Query().Get("port"))↵
 
  62 wpm   98.1 %   série 379
 

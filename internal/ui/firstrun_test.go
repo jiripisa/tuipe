@@ -404,9 +404,6 @@ func TestPlacementResultIsAJobOfferAndAppliesSkip(t *testing.T) {
 		if r.Mode != "placement" {
 			t.Errorf("run mode = %q", r.Mode)
 		}
-		if g, _ := st.Ghost(r.TextHash); g != nil {
-			t.Errorf("placement saved a ghost for %s", r.TextHash)
-		}
 	}
 	s := p.Stats[a.Layout.ID]
 	if m := s.MasteryOf('@'); m != stats.Solid {

@@ -22,10 +22,10 @@ const (
 
 // Style is a colour scheme with a border character.
 type Style struct {
-	ID                                        ID
-	Name                                      string
-	Bg, Fg, Dim, Accent, OK, Warn, Bad, Ghost color.Color
-	Border                                    lipgloss.Border
+	ID                                 ID
+	Name                               string
+	Bg, Fg, Dim, Accent, OK, Warn, Bad color.Color
+	Border                             lipgloss.Border
 }
 
 func c(hex string) color.Color { return lipgloss.Color(hex) }
@@ -34,19 +34,19 @@ var all = []Style{
 	{
 		ID: Fosfor, Name: "Fosfor",
 		Bg: c("#050805"), Fg: c("#3fae55"), Dim: c("#1e5a2c"), Accent: c("#9dffb0"),
-		OK: c("#9dffb0"), Warn: c("#3fae55"), Bad: c("#ff5a4a"), Ghost: c("#143f20"),
+		OK: c("#9dffb0"), Warn: c("#3fae55"), Bad: c("#ff5a4a"),
 		Border: lipgloss.NormalBorder(),
 	},
 	{
 		ID: Editor, Name: "Editor",
 		Bg: c("#1a1b26"), Fg: c("#a9b1d6"), Dim: c("#565f89"), Accent: c("#e0af68"),
-		OK: c("#9ece6a"), Warn: c("#e0af68"), Bad: c("#f7768e"), Ghost: c("#3d2f5c"),
+		OK: c("#9ece6a"), Warn: c("#e0af68"), Bad: c("#f7768e"),
 		Border: lipgloss.NormalBorder(),
 	},
 	{
 		ID: Velin, Name: "Velín",
 		Bg: c("#0b0d10"), Fg: c("#c9d1d9"), Dim: c("#545d68"), Accent: c("#e0823d"),
-		OK: c("#57ab5a"), Warn: c("#e0823d"), Bad: c("#e5534b"), Ghost: c("#3a2a55"),
+		OK: c("#57ab5a"), Warn: c("#e0823d"), Bad: c("#e5534b"),
 		Border: lipgloss.RoundedBorder(),
 	},
 }

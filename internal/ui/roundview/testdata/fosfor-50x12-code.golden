@@ -1,4 +1,4 @@
- 62 wpm  98.1 %  +1.4 s
+ 62 wpm  98.1 %
  func parsePort(s string) (int, error) {↵
      n, err :=
  strconv.Atoi(strings.TrimSpace(s))↵

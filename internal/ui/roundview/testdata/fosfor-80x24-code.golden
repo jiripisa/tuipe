@@ -2,14 +2,6 @@
 
 
 
-
-
-
-
-
-
-
-
        // parsePort reads a TCP port from text.↵
        func parsePort(s string) (int, error) {↵
            n, err := strconv.Atoi(strings.TrimSpace(s))↵
@@ -21,21 +13,8 @@
            }↵
            return n, nil↵
        }↵
-       ↵
-       // Handle answers one request and logs a failure.↵
-       func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
-
-       HEAD~1 ░░░░▒                                   +1.4 s před duchem
-       ty     █████▎
 
        62 wpm   98.1 %   série 25
-
-
-
-
-
-
-
 
 
 

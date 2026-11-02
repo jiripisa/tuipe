@@ -12,7 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/ghost"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/streak"
@@ -26,7 +25,7 @@ const (
 )
 
 // Finish records a finished round: statistics, the best stars of the lesson,
-// the ghost, the run and the chapter. A failed save is shown on the status
+// the run and the chapter. A failed save is shown on the status
 // line and also returned; the run itself is always returned.
 func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	now := a.Now()
@@ -46,17 +45,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 		p.Resume = nil // a test-out is no part of the lesson to continue
 	}
 
-	var errs []error
 	hash := r.Text.Hash
-	if !testOut && !placement { // neither is a text to beat
-		old, err := a.Store.Ghost(hash)
-		errs = append(errs, err)
-		if ghost.ShouldReplace(old, r.Metrics, r.Paused, spec.GhostIsPace) {
-			errs = append(errs, a.Store.SaveGhost(store.Ghost{
-				TextHash: hash, Score: r.Metrics.Score, TimesMs: ghost.FromLog(r.Text, r.Log),
-			}))
-		}
-	}
 
 	run := store.Run{
 		ID: runID(now, hash), At: now, Mode: modeName(spec),
@@ -65,13 +54,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 		Stars: runStars(spec, r), DurationMs: r.Metrics.Duration.Milliseconds(),
 		Paused: r.Paused, HintUsed: r.HintUsed,
 	}
-	if r.GhostDelta != nil {
-		d := r.GhostDelta.Milliseconds()
-		run.GhostDeltaMs = &d
-	}
-	errs = append(errs, a.Store.AppendRun(run), a.Store.SaveProfile())
-
-	err := errors.Join(errs...)
+	err := errors.Join(a.Store.AppendRun(run), a.Store.SaveProfile())
 	a.SaveErr(err)
 	return run, err
 }
@@ -174,8 +157,7 @@ func (a *App) uptime() streak.Status {
 	return streak.Compute(days, a.Now().Local().Format(dateLayout))
 }
 
-// previousBest is the best earlier run on the same text that did not pause: the
-// one the ghost was recorded from.
+// previousBest is the best earlier run on the same text that did not pause.
 func (a *App) previousBest(hash string) *store.Run {
 	runs, _ := a.Store.Runs()
 	var best *store.Run
@@ -250,11 +232,9 @@ func (s *resultsScreen) canRepeat(a *App) bool {
 	return !passed
 }
 
-// repeat plays the same text again. The round that just ended may have left a
-// better ghost than the one it raced, so the ghost is read again.
+// repeat plays the same text again.
 func (s *resultsScreen) repeat(a *App) Screen {
-	spec, _ := a.withReplay(s.spec) // a damaged ghost never blocks the round
-	return newRound(a, spec, s.next)
+	return newRound(a, s.spec, s.next)
 }
 
 func (s *resultsScreen) View(a *App, w, h int) string {

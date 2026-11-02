@@ -1,4 +1,4 @@
- main.go   kapitola 6 / symboly  ::  lekce 4                                ★★☆
+ main.go   kapitola 6 / symboly  ::  lekce 4                                                    ★★☆
  1 // parsePort reads a TCP port from text.↵
  2 func parsePort(s string) (int, error) {↵
  3     n, err := strconv.Atoi(strings.TrimSpace(s))↵
@@ -35,10 +35,15 @@
  ~
  ~
  ~
-── přehled ─────────────────────────────────────────────────────────────────────
+ ~
+ ~
+ ~
+ ~
+ ~
+── přehled ─────────────────────────────────────────────────────────────────────────────────────────
    postup     █████░░░░░░░░░░░░░░░░░░░░░░░░░  15 %
    znaky      91 / 601
    řádek      3 / 25
    chyby      1
    nejslabší  —
- PSANÍ  62 wpm  98.1 %  HEAD~1 +1.4 s                            série 25  3:15
+ PSANÍ  62 wpm  98.1 %                                                               série 25  3:15

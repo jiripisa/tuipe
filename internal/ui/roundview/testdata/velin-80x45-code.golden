@@ -1,8 +1,13 @@
-╭─ POSTUP ──────────────────╮╭─ PROPUSTNOST ─────────────╮╭─ HEAD~1 ───────────╮
-│ 15 %             91 / 601 ││ 62 wpm                    ││ +1.4 s             │
-│ ████░░░░░░░░░░░░░░░░░░░░░ ││               ▁▂▃▄▆▇▅▇█▇█ ││ série 25  98.1 %   │
+╭─ POSTUP ──────────────────╮╭─ PROPUSTNOST ─────────────╮╭─ STATISTIKA ───────╮
+│ 15 %             91 / 601 ││ 62 wpm                    ││ série 25           │
+│ ████░░░░░░░░░░░░░░░░░░░░░ ││                      ▃█▁▇ ││ přes. 98.1 %       │
+│ ████░░░░░░░░░░░░░░░░░░░░░ ││                   ▂▇ ████ ││ chyby 1            │
+│ ████░░░░░░░░░░░░░░░░░░░░░ ││                  ▄███████ ││                    │
+│ ████░░░░░░░░░░░░░░░░░░░░░ ││                 ▃████████ ││                    │
+│ ████░░░░░░░░░░░░░░░░░░░░░ ││               ▁▆█████████ ││                    │
 ╰───────────────────────────╯╰───────────────────────────╯╰────────────────────╯
 ╭─ kapitola 6 / symboly  ::  lekce 4 ──────────────────────────────────── ★★☆ ─╮
+│                                                                              │
 │ // parsePort reads a TCP port from text.↵                                    │
 │ func parsePort(s string) (int, error) {↵                                     │
 │     n, err := strconv.Atoi(strings.TrimSpace(s))↵                            │
@@ -14,6 +19,22 @@
 │     }↵                                                                       │
 │     return n, nil↵                                                           │
 │ }↵                                                                           │
+│ ↵                                                                            │
+│ // Handle answers one request and logs a failure.↵                           │
+│ func (s *Server) Get(w http.ResponseWriter, r *Req) {↵                       │
+│     if err := s.auth(r); err != nil {↵                                       │
+│         http.Error(w, "unauthorized", 401)↵                                  │
+│         return↵                                                              │
+│     }↵                                                                       │
+│     port, err := parsePort(r.URL.Query().Get("port"))↵                       │
+│     if err != nil {↵                                                         │
+│         http.Error(w, err.Error(), 400)↵                                     │
+│         return↵                                                              │
+│     }↵                                                                       │
+│     fmt.Fprintf(w, "port %d\n", port)↵                                       │
+│ }                                                                            │
+│                                                                              │
+│                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ PŘEHLED ──────────────────────────────────────────────╮╭─ DALŠÍ ZNAK ───────╮
 │ postup     █████░░░░░░░░░░░░░░░░░░░░░░░░░  15 %        ││                    │

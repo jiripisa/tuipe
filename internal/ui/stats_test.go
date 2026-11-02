@@ -75,18 +75,17 @@ func nthLine(s, prefix string, n int) string {
 	return ""
 }
 
-func TestGitLogShowsHashWPMAccuracyStarsAndDelta(t *testing.T) {
+func TestGitLogShowsHashWPMAccuracyAndStars(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
 	id, title := lessonOf(t, a, 1)
-	delta := int64(3200)
 	addRun(t, st, store.Run{ID: "a3f9c1e", At: daysAgo(clk, 0), Mode: "lesson", LessonID: id,
-		WPM: 62, Accuracy: 0.981, Stars: 2, GhostDeltaMs: &delta})
+		WPM: 62, Accuracy: 0.981, Stars: 2})
 	addRun(t, st, store.Run{ID: "b7d20aa", At: daysAgo(clk, 1), Mode: "code", WPM: 40, Accuracy: 0.9, Stars: 0})
 	addRun(t, st, store.Run{ID: "c0ffee1", At: daysAgo(clk, 1).Add(-time.Hour), Mode: "drill", WPM: 30, Accuracy: 0.8})
 	openStats(t, a)
 	s := screen(a)
 
-	want := "a3f9c1e  62 wpm  98.1 %  ★★☆  +3.2 s  " + title
+	want := "a3f9c1e  62 wpm  98.1 %  ★★☆  " + title
 	if !strings.Contains(s, want) {
 		t.Fatalf("git log lacks the line %q:\n%s", want, s)
 	}

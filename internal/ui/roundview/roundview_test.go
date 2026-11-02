@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -109,29 +108,21 @@ func sample(name string) roundview.View {
 		v.Frame = frame(prose, "správně vrací")
 		v.Frame.WrongPos[12] = true
 		v.Title = "kapitola 3 / diakritika  ::  lekce 4"
-	case "ghost":
+	case "code":
 		v.Frame = frame(goSource, "strconv.Atoi")
-		v.Frame.HasGhost, v.Frame.Lead = true, 1400*time.Millisecond
-		v.Frame.GhostPos = v.Frame.Pos - 12
 		v.Frame.WrongPos[v.Frame.Pos-30] = true
 		v.Title, v.Lang = "kapitola 6 / symboly  ::  lekce 4", "go"
 		v.Throughput = []float64{41, 44, 47, 52, 55, 58, 54, 60, 63, 59, 62}
 	case "hint":
 		v.Frame = frame(goSource, "{\n    if err := s.auth(r)")
-		v.Frame.HasGhost, v.Frame.Lead = true, -800*time.Millisecond
-		v.Frame.GhostPos = v.Frame.Pos + 9
 		v.Frame.Hint = hintFor('{')
 		v.Frame.Weak = []rune{'{', '}', '~', '\\'}
 		v.Title, v.Lang = "kapitola 6 / symboly  ::  lekce 4", "go"
 		v.Throughput = []float64{41, 44, 47, 52, 55, 58, 54, 60, 63, 59, 62}
-	case "prompt":
+	case "shell":
 		v.Frame = frame(shellSource, "logs deploy")
-		v.Frame.HasGhost, v.Frame.Lead = true, 1400*time.Millisecond
-		v.Frame.GhostPos = v.Frame.Pos - 8
 		v.Frame.Weak = []rune{'|', '-', ' '}
 		v.Title, v.Lang = "kapitola 2 / shell  ::  lekce 3", "shell"
-		v.Prompt = "Přihlašovací služba vrací 500. Monitoring to hlásí od rána, zákazníci už volají. Podívej se, co se stalo."
-		v.RightInfo = "krok 2/3  zbývá 00:47"
 		v.Throughput = []float64{58, 60, 57, 62, 66, 64, 61}
 	case "paused":
 		v.Frame = frame(pythonSource, "raise ValueError")
@@ -180,7 +171,7 @@ func golden(t *testing.T, id style.ID, sz [2]int, name, got string) {
 func TestSizes(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range append(fullSizes, [2]int{50, 12}) {
-			for _, f := range []string{"plain", "ghost", "hint", "prompt", "paused"} {
+			for _, f := range []string{"plain", "code", "hint", "paused"} {
 				out := roundview.Render(st, sample(f), sz[0], sz[1])
 				assertFits(t, out, sz[0], sz[1])
 				golden(t, st.ID, sz, f, ansi.Strip(out))
@@ -190,13 +181,12 @@ func TestSizes(t *testing.T) {
 }
 
 func TestEveryWindowSizeFitsExactly(t *testing.T) {
-	v := sample("prompt")
+	v := sample("shell")
 	v.Title = strings.Repeat("velmi dlouhý nadpis ", 12)
-	v.RightInfo = strings.Repeat("zbývá ", 30)
 	wide := sample("hint")
 	wide.Frame.Cells = engine.Prepare("漢字 ve výuce\n\tkód s tabulátorem a " + strings.Repeat("x", 200)).Cells
 	wide.Frame.Pos = 3
-	done := sample("ghost")
+	done := sample("code")
 	done.Frame.Pos = len(done.Frame.Cells)
 	done.Frame.Done = true
 	empty := sample("plain")
@@ -220,15 +210,15 @@ func TestEveryWindowSizeFitsExactly(t *testing.T) {
 func TestSmallWindowsUseTheCompactStrip(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range [][2]int{{59, 40}, {120, 17}, {50, 12}, {40, 8}} {
-			v := sample("prompt")
+			v := sample("shell")
 			v.Frame.Hint = hintFor('{')
 			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-			for _, want := range []string{"62 wpm", "98.1 %", "+1.4 s", "logs", v.Frame.Hint.Text} {
+			for _, want := range []string{"62 wpm", "98.1 %", "logs", v.Frame.Hint.Text} {
 				if !strings.Contains(s, want) {
 					t.Errorf("%s %v lacks %q:\n%s", st.ID, sz, want, s)
 				}
 			}
-			for _, no := range []string{"⌥", "⇧", "mezera", "krok", "Přihlašovací", text.RoundGhost} {
+			for _, no := range []string{"⌥", "⇧", "mezera", "krok"} {
 				if strings.Contains(s, no) {
 					t.Errorf("%s %v shows %q, compact has text and core numbers only:\n%s", st.ID, sz, no, s)
 				}
@@ -257,7 +247,7 @@ func TestCompactHintIsOneLineCutToWidth(t *testing.T) {
 func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 	for _, st := range style.All() {
 		for h := 1; h <= 8; h++ {
-			v := sample("prompt")
+			v := sample("shell")
 			v.Frame.Hint = hintFor('{')
 			v.Frame.AltWarning = true
 			out := roundview.Render(st, v, 50, h)
@@ -283,7 +273,7 @@ func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 func TestCompactHintAndWarningDoNotMoveTheText(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range [][2]int{{50, 12}, {40, 8}, {50, 5}} {
-			v := sample("ghost")
+			v := sample("code")
 			rows := func(v roundview.View) string {
 				lines := strings.Split(ansi.Strip(roundview.Render(st, v, sz[0], sz[1])), "\n")
 				return strings.Join(lines[1:sz[1]-2], "\n")
@@ -300,10 +290,10 @@ func TestCompactHintAndWarningDoNotMoveTheText(t *testing.T) {
 
 func TestCompactPausedKeepsTheNumbersAtNarrowestWidth(t *testing.T) {
 	for _, st := range style.All() {
-		v := sample("prompt")
+		v := sample("shell")
 		v.Frame.Paused = true
 		s := ansi.Strip(roundview.Render(st, v, 40, 8))
-		for _, want := range []string{text.RoundPaused, "62 wpm", "+1.4 s"} {
+		for _, want := range []string{text.RoundPaused, "62 wpm", "98.1 %"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%s lacks %q:\n%s", st.ID, want, s)
 			}
@@ -477,11 +467,10 @@ func TestCellKindsLookDifferent(t *testing.T) {
 		for _, sz := range append(fullSizes, [2]int{50, 12}) {
 			f := frame(src, "ε")
 			f.WrongPos[1] = true
-			f.HasGhost, f.GhostPos = true, 2
 			out := roundview.Render(st, roundview.View{Frame: f}, sz[0], sz[1])
 			look := func(r string) styledCell { return cellOfText(t, out, r) }
 			kinds := map[string]styledCell{
-				"typed": look("α"), "wrong": look("β"), "ghost": look("γ"),
+				"typed": look("α"), "wrong": look("β"),
 				"cursor": look("ε"), "untyped": look("ζ"),
 			}
 			seen := map[styledCell]string{}
@@ -493,63 +482,6 @@ func TestCellKindsLookDifferent(t *testing.T) {
 			}
 			if !look("β").underline || look("β").fg != rgb(st.Bad) {
 				t.Errorf("%s %v: wrong press is not marked: %+v", st.ID, sz, look("β"))
-			}
-		}
-	}
-}
-
-func TestGhostMarkerShown(t *testing.T) {
-	for _, st := range style.All() {
-		for _, sz := range append(fullSizes, [2]int{50, 12}) {
-			f := frame("αβγδεθηλμν", "γ")
-			f.Pos = 7
-			f.HasGhost, f.GhostPos = true, 5
-			out := roundview.Render(st, roundview.View{Frame: f}, sz[0], sz[1])
-			if got := cellOfText(t, out, "θ"); got.bg != rgb(st.Ghost) {
-				t.Errorf("%s %v: ghost cell %+v is not drawn in Style.Ghost %s", st.ID, sz, got, rgb(st.Ghost))
-			}
-		}
-	}
-}
-
-func TestGhostHiddenWithoutGhost(t *testing.T) {
-	for _, st := range style.All() {
-		for _, sz := range append(fullSizes, [2]int{50, 12}) {
-			f := frame("αβγδεθηλμν", "γ")
-			f.GhostPos = 5 // a stale position must not draw
-			out := roundview.Render(st, roundview.View{Frame: f, Lang: "go"}, sz[0], sz[1])
-			if cellOfText(t, out, "θ").bg == rgb(st.Ghost) {
-				t.Errorf("%s %v: ghost cell drawn with HasGhost false", st.ID, sz)
-			}
-			s := ansi.Strip(out)
-			for _, no := range []string{text.RoundGhost, "▒", text.RoundAhead, text.RoundBehind, "+0.0 s"} {
-				if strings.Contains(s, no) {
-					t.Errorf("%s %v: race element %q shown without a ghost:\n%s", st.ID, sz, no, s)
-				}
-			}
-		}
-	}
-}
-
-func TestLeadIsShown(t *testing.T) {
-	cases := map[time.Duration]string{
-		1400 * time.Millisecond:  "+1.4 s",
-		-800 * time.Millisecond:  "-0.8 s",
-		-30 * time.Millisecond:   "+0.0 s",
-		62340 * time.Millisecond: "+62.3 s",
-	}
-	for _, st := range style.All() {
-		for _, sz := range append(fullSizes, [2]int{50, 12}) {
-			for lead, want := range cases {
-				v := sample("ghost")
-				v.Frame.Lead = lead
-				s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-				if !strings.Contains(s, want) {
-					t.Errorf("%s %v: lead %v not shown as %q:\n%s", st.ID, sz, lead, want, s)
-				}
-				if sz[0] >= 60 && !strings.Contains(s, text.RoundGhost) {
-					t.Errorf("%s %v: no %s label:\n%s", st.ID, sz, text.RoundGhost, s)
-				}
 			}
 		}
 	}
@@ -646,7 +578,7 @@ func TestAltWarningIsOneLineInEveryLayout(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range append(fullSizes, [2]int{50, 12}) {
 			for _, paused := range []bool{false, true} {
-				v := sample("ghost")
+				v := sample("code")
 				v.Frame.AltWarning = true
 				v.Frame.Paused = paused
 				s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
@@ -661,33 +593,6 @@ func TestAltWarningIsOneLineInEveryLayout(t *testing.T) {
 					t.Errorf("%s %v: warning hid the paused state:\n%s", st.ID, sz, s)
 				}
 			}
-		}
-	}
-}
-
-func TestPromptAndRightInfoAreShown(t *testing.T) {
-	for _, st := range style.All() {
-		for _, sz := range fullSizes {
-			v := sample("prompt")
-			v.Prompt = "auth handler vrací 500, oprav to"
-			v.RightInfo = "zbývá 00:47"
-			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-			for _, want := range []string{v.Prompt, v.RightInfo} {
-				if !strings.Contains(s, want) {
-					t.Errorf("%s %v: lacks %q:\n%s", st.ID, sz, want, s)
-				}
-			}
-		}
-	}
-}
-
-func TestLongPromptIsNotLost(t *testing.T) {
-	for _, st := range style.All() {
-		s := ansi.Strip(roundview.Render(st, sample("prompt"), 60, 18))
-		joined := strings.Join(strings.Fields(s), " ")
-		// Two rows hold the start of the prompt, whatever the frame around it.
-		if !strings.Contains(joined, "Přihlašovací služba") || !strings.Contains(s, "Monitoring") {
-			t.Errorf("%s: prompt cut too short:\n%s", st.ID, s)
 		}
 	}
 }
@@ -745,10 +650,10 @@ func TestLongestCodeLineFitsAtMinimumWidth(t *testing.T) {
 func TestEditorSyntaxColoursKeepTextIntact(t *testing.T) {
 	st := style.ByID(style.Editor)
 	for _, sz := range fullSizes {
-		plain := sample("ghost")
+		plain := sample("code")
 		plain.Lang = ""
 		a := roundview.Render(st, plain, sz[0], sz[1])
-		b := roundview.Render(st, sample("ghost"), sz[0], sz[1])
+		b := roundview.Render(st, sample("code"), sz[0], sz[1])
 		if a == b {
 			t.Errorf("%v: no syntax colours", sz)
 		}
@@ -819,7 +724,7 @@ func TestVelinPanels(t *testing.T) {
 	st := style.ByID(style.Velin)
 	for _, sz := range fullSizes {
 		s := ansi.Strip(roundview.Render(st, sample("hint"), sz[0], sz[1]))
-		for _, want := range []string{text.RoundThroughput, text.RoundGhost, text.RoundNextChar, text.RoundWeakest, "{ } ~ \\"} {
+		for _, want := range []string{text.RoundThroughput, text.RoundPanelStats, text.RoundNextChar, text.RoundWeakest, "{ } ~ \\"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%v: lacks %q:\n%s", sz, want, s)
 			}
@@ -847,7 +752,6 @@ func TestNonDefaultNumbersDoNotBreakFrames(t *testing.T) {
 		v.Stars = 9
 		v.Frame.WPM = 1234
 		v.Frame.Accuracy = 0
-		v.Frame.GhostPos = len(v.Frame.Cells) + 40
 		assertFits(t, roundview.Render(st, v, 60, 18), 60, 18)
 		v.Stars = -1
 		assertFits(t, roundview.Render(st, v, 80, 24), 80, 24)
@@ -856,7 +760,7 @@ func TestNonDefaultNumbersDoNotBreakFrames(t *testing.T) {
 
 func TestStars(t *testing.T) {
 	for _, st := range style.All() {
-		v := sample("ghost")
+		v := sample("code")
 		for n, want := range map[int]string{0: "☆☆☆", 2: "★★☆", 3: "★★★"} {
 			v.Stars = n
 			if s := ansi.Strip(roundview.Render(st, v, 80, 24)); !strings.Contains(s, want) {

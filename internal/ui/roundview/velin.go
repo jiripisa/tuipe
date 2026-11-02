@@ -23,9 +23,8 @@ const (
 
 // Colours of the Velín mockup that are not part of the shared style.
 var (
-	velinLine    color.Color = lipgloss.Color("#2d333b")
-	velinLabel   color.Color = lipgloss.Color("#768390")
-	velinGhostFg color.Color = lipgloss.Color("#dcbdfb")
+	velinLine  color.Color = lipgloss.Color("#2d333b")
+	velinLabel color.Color = lipgloss.Color("#768390")
 )
 
 // sparkLevels are the eight heights of one sparkline cell.
@@ -43,9 +42,8 @@ func velin(s style.Style, v View, w, h int) []string {
 
 	textW := w - 3
 	rows := wrap(f.Cells, textW)
-	head := velinHead(s, v, textW, h-velinBottomH-4-2) // inner rows of the text panel under the smallest top panels
 
-	wanted := len(rows) + len(head) + 2
+	wanted := len(rows) + 2
 	topInner := 2
 	if h >= 30 {
 		topInner = 4
@@ -59,9 +57,9 @@ func velin(s style.Style, v View, w, h int) []string {
 	lines := zip(
 		velinFirst(s, f, left, topH),
 		velinThroughput(s, v, mid, topH),
-		velinThird(s, f, right, topH),
+		velinStats(s, f, right, topH),
 	)
-	lines = append(lines, velinText(s, v, rows, head, w, textH)...)
+	lines = append(lines, velinText(s, v, rows, w, textH)...)
 	return append(lines, zip(
 		velinMap(s, v, rows, w-right),
 		velinNext(s, f, right),
@@ -173,45 +171,23 @@ func sparkline(values []float64, width, height int) []string {
 	return lines
 }
 
-// velinThird is the lead over the ghost, or plain statistics when there is none.
-func velinThird(s style.Style, f play.Frame, w, h int) []string {
+// velinStats is the panel of plain statistics.
+func velinStats(s style.Style, f play.Frame, w, h int) []string {
 	series := caption(s, text.RoundStreak+" ") + plain(s, s.Fg).render(strconv.Itoa(streak(f)))
 	accuracy := caption(s, text.RoundAccuracy+" ") + plain(s, s.Fg).render(accuracyText(f))
 	errors := caption(s, text.RoundErrors+" ") + plain(s, s.Fg).render(strconv.Itoa(len(f.WrongPos)))
-	if !f.HasGhost {
-		return box(s, w, h, caption(s, text.RoundPanelStats), "", "", []string{series, accuracy, errors})
-	}
-	body := []string{look{fg: leadColour(s, f.Lead), bg: s.Bg, bold: true}.render(leadText(f.Lead))}
-	if h-2 >= 3 {
-		body = append(body, series, accuracy, errors)
-	} else {
-		body = append(body, series+"  "+plain(s, s.Fg).render(accuracyText(f)))
-	}
-	return box(s, w, h, plain(s, velinGhostFg).render(text.RoundGhost), "", "", body)
-}
-
-// velinHead is the story line at the top of the text panel.
-func velinHead(s style.Style, v View, w, textRoom int) []string {
-	lines := promptLines(v.Prompt, w-1, textRoom)
-	for i, row := range lines {
-		lines[i] = plain(s, s.Fg).render(row)
-	}
-	return lines
+	return box(s, w, h, caption(s, text.RoundPanelStats), "", "", []string{series, accuracy, errors})
 }
 
 // velinText is the wide panel in the middle.
-func velinText(s style.Style, v View, rows []row, head []string, w, h int) []string {
+func velinText(s style.Style, v View, rows []row, w, h int) []string {
 	f := v.Frame
 	inner := h - 2
-	body := append([]string(nil), head...)
-	if len(head) > 0 && inner > len(head)+len(rows) {
-		body = append(body, "")
-	}
-	textH := max(1, inner-len(body))
+	textH := max(1, inner)
 
 	cursor := rowOf(rows, f.Pos)
 	focus := rows[cursor]
-	paint := ink{s: s, f: f, ghostFg: velinGhostFg}
+	paint := ink{s: s, f: f}
 	paint.base = func(i int) color.Color {
 		switch {
 		case i < f.Pos:
@@ -222,16 +198,13 @@ func velinText(s style.Style, v View, rows []row, head []string, w, h int) []str
 		return velinLabel
 	}
 	// A short text floats a little down the panel, nearer the map than the edge.
-	body = append(body, make([]string, max(0, textH-len(rows))/3)...)
+	body := make([]string, max(0, textH-len(rows))/3)
 	top := scrollTop(len(rows), cursor, textH)
 	for i := top; i < min(top+textH, len(rows)); i++ {
 		body = append(body, paint.row(rows[i], s.Bg))
 	}
 
 	right := plain(s, s.Dim).render(stars(v.Stars))
-	if v.RightInfo != "" {
-		right = plain(s, s.Accent).render(v.RightInfo) + "  " + right
-	}
 	if f.Paused {
 		right = pausedChip(s) + " " + right
 	}
