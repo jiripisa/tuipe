@@ -135,6 +135,17 @@ func wrap(cells []engine.Cell, width int) []row {
 	return rows
 }
 
+// WrapSpans breaks cells into rows at most width cells wide, as the round does,
+// and returns each row as the half-open range [from, to) of cell indexes.
+func WrapSpans(cells []engine.Cell, width int) [][2]int {
+	rows := wrap(cells, width)
+	out := make([][2]int, len(rows))
+	for i, r := range rows {
+		out[i] = [2]int{r.from, r.to}
+	}
+	return out
+}
+
 // rowOf returns the index of the row holding cell pos, or the last row when pos
 // is past the end.
 func rowOf(rows []row, pos int) int {
@@ -361,9 +372,10 @@ func hintLine(s style.Style, h *play.HintInfo) string {
 		plain(s, s.Dim).render(finger)
 }
 
-// highlights lists the keys of a route for the keyboard map. A modifier is held
-// by the hand opposite the key, as the hint text says.
-func highlights(l *layout.Layout, route layout.Route) []string {
+// Highlights lists the keys of a route for the keyboard map: the layout key ids
+// and the pseudo ids of the Shift or Option to hold. A modifier is held by the
+// hand opposite the key, as the hint text says.
+func Highlights(l *layout.Layout, route layout.Route) []string {
 	var ids []string
 	for _, c := range route {
 		ids = append(ids, c.Key)
@@ -393,7 +405,7 @@ func keyboard(s style.Style, v View, w int) []string {
 	if h == nil || v.Layout == nil {
 		return rows
 	}
-	drawn := strings.Split(style.Keyboard(s, v.Layout, highlights(v.Layout, h.Route), nil, w), "\n")
+	drawn := strings.Split(style.Keyboard(s, v.Layout, Highlights(v.Layout, h.Route), nil, w), "\n")
 	widest := 0
 	for _, line := range drawn {
 		widest = max(widest, ansi.StringWidth(line))

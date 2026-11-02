@@ -39,6 +39,8 @@ func ScreenName(a *App) string {
 		return "placement"
 	case *settingsScreen:
 		return "settings"
+	case *teachScreen:
+		return "teach"
 	}
 	return "other"
 }
@@ -182,4 +184,52 @@ func SnippetRound(a *App, id string) (Screen, error) {
 		Kind: play.KindCode, Title: sn.ID, Lang: sn.Lang, Text: sn.Text, Targets: a.chapterTargets(),
 	}
 	return newRound(a, spec, nil), nil
+}
+
+// TeachStep is the line being typed in Výuka, or -1 while the explanation shows.
+func TeachStep(a *App) int {
+	if t, ok := a.screen.(*teachScreen); ok {
+		return t.step
+	}
+	return -2
+}
+
+// TeachLine is the text of the line being typed in Výuka.
+func TeachLine(a *App) string {
+	if t, ok := a.screen.(*teachScreen); ok && t.step >= 0 && t.step < len(t.tut.Lines) {
+		return t.tut.Lines[t.step]
+	}
+	return ""
+}
+
+// TeachPos is the cursor position in the line being typed in Výuka.
+func TeachPos(a *App) int {
+	if t, ok := a.screen.(*teachScreen); ok && t.sess != nil {
+		return t.sess.Frame(t.now).Pos
+	}
+	return -1
+}
+
+// TeachKeys returns the runes still to type in the current Výuka line.
+func TeachKeys(a *App) []rune {
+	t, ok := a.screen.(*teachScreen)
+	if !ok || t.sess == nil {
+		return nil
+	}
+	f := t.sess.Frame(t.now)
+	var keys []rune
+	for _, c := range f.Cells[f.Pos:] {
+		if !c.Auto {
+			keys = append(keys, c.R)
+		}
+	}
+	return keys
+}
+
+// TeachHighlights returns the key ids the keyboard of Výuka marks now.
+func TeachHighlights(a *App) []string {
+	if t, ok := a.screen.(*teachScreen); ok {
+		return t.highlights(a)
+	}
+	return nil
 }

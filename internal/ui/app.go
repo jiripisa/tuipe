@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/content"
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/curriculum"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/store"
@@ -41,6 +42,7 @@ type App struct {
 	Layout *layout.Layout
 	Lib    *content.Library
 	Curr   *curriculum.Curriculum
+	Course *course.Course
 	Style  style.Style
 	Now    func() time.Time
 	W, H   int
@@ -111,8 +113,9 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 	}
 	a := &App{
 		Store: st, Layout: lay, Lib: lib,
-		Curr:  curriculum.New(lib, lay),
-		Style: style.ByID(styleID),
+		Curr:   curriculum.New(lib, lay),
+		Course: course.New(lib, lay),
+		Style:  style.ByID(styleID),
 		// Round(0) strips the monotonic reading, so the wall clock is compared
 		// and a gap while the computer slept is visible.
 		Now:    func() time.Time { return time.Now().Round(0) },
@@ -238,6 +241,7 @@ func (a *App) setStyle(id style.ID) {
 func (a *App) setLayout(l *layout.Layout) {
 	a.Layout = l
 	a.Curr = curriculum.New(a.Lib, l)
+	a.Course = course.New(a.Lib, l)
 	cfg := a.Store.Config()
 	cfg.Layout = l.ID
 	a.SaveErr(a.Store.SaveConfig(cfg))

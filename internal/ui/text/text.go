@@ -409,3 +409,13 @@ func TutorialFocus(chars []rune) string {
 	}
 	return "Naučíte se: " + strings.Join(names, ", ") + "."
 }
+
+// Výuka, the screen that teaches a lesson.
+const (
+	// TeachTitle heads the screen: the step first, so a narrow window cuts the lesson title.
+	TeachTitle       = "Výuka · krok %d/%d · %s"
+	HintTeachExplain = "Enter začít · Esc zpět · Ctrl+T styl"
+	HintTeach        = "Esc zpět · Ctrl+T styl"
+	// TeachUnavailable is shown on the home banner when a lesson cannot be taught.
+	TeachUnavailable = "Výuku lekce %s se nepodařilo připravit."
+)

@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/stats"
@@ -358,6 +359,29 @@ var fitCases = []fitCase{
 		onRow(a, 2) // and the retake note
 		return a
 	}},
+	{"teach-explain", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		openTeach(t, a, firstTeachLesson)
+		wantText(t, a, text.HintTeachExplain)
+	})},
+	{"teach-line", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		openTeach(t, a, firstTeachLesson)
+		a.Update(enter)
+		typeLine(a, clk)
+		typeLine(a, clk)
+		a.Update(key('x')) // a mistake shows too
+		wantText(t, a, text.HintTeach)
+	})},
+	{"teach-code", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		openTeach(t, a, lessonWhere(t, a, func(l course.Lesson) bool { return l.Lang != "" }).ID)
+		a.Update(enter)
+		for _, r := range ui.TeachKeys(a)[:3] {
+			a.Update(key(r))
+		}
+	})},
+	{"teach-review", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		openTeach(t, a, lessonWhere(t, a, func(l course.Lesson) bool { return l.Review && l.Lang == "" }).ID)
+		a.Update(enter)
+	})},
 	{"first-run-style", firstRunReach(func(t *testing.T, a *ui.App) {})},
 	{"first-run-check", firstRunReach(func(t *testing.T, a *ui.App) { a.Update(enter) })},
 	{"first-run-wrong-char", firstRunReach(func(t *testing.T, a *ui.App) {
