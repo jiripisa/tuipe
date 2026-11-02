@@ -178,7 +178,7 @@ func TestLayoutMismatchOpensPicker(t *testing.T) {
 	a.Update(enter)
 	a.Update(key('2')) // a US layout types 2 where ě should come
 	a.Update(enter)    // it really is the key's own character
-	showsAll(t, a, "macOS Czech QWERTY", "Testovací rozložení", "docs/layouts.md", "cfg/layouts")
+	showsAll(t, a, "macOS Czech QWERTY", "Testovací rozložení", "docs/layouts.md", filepath.Join("cfg", "layouts"))
 	showsNone(t, a, "(darwin)", "(linux)")
 	showsNone(t, a, "Vítejte")
 	fits(t, a)
@@ -270,7 +270,7 @@ func TestNonDarwinWithoutLayoutExplainsAndCanContinue(t *testing.T) {
 	restore := ui.SetGOOS("linux")
 	defer restore()
 	a.Update(enter)
-	showsAll(t, a, "docs/layouts.md", "cfg/layouts")
+	showsAll(t, a, "docs/layouts.md", filepath.Join("cfg", "layouts"))
 	showsNone(t, a, "Napište")
 	fits(t, a)
 	a.Update(enter)

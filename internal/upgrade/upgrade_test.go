@@ -55,9 +55,9 @@ func header(goos, goarch string) string {
 		if goarch == "arm64" {
 			machine = 0xAA64
 		}
-		dos := make([]byte, 0x40)
+		dos := make([]byte, 0x60) // pe.NewFile always reads 96 bytes first
 		copy(dos, "MZ")
-		le.PutUint32(dos[0x3c:], 0x40)
+		le.PutUint32(dos[0x3c:], 0x60)
 		b.Write(dos)
 		b.WriteString("PE\x00\x00")
 		w(machine)
@@ -503,6 +503,20 @@ func serve(t *testing.T, assetName string, archive []byte, sums string, withSums
 		rel.Assets["checksums.txt"] = srv.URL + "/s"
 	}
 	return &upgrade.Client{APIBase: srv.URL, HTTP: srv.Client(), Repo: "jiripisa/tuipe"}, rel
+}
+
+// The Windows fake must count as a real program, or the hostile cases below
+// would pass only because their files are not executables at all.
+func TestZipArchiveInstallsAWindowsProgram(t *testing.T) {
+	good := header("windows", "amd64") + "NEW"
+	archive := zipOf(t, map[string]string{"tuipe.exe": good})
+	name := upgrade.AssetName("1.1.0", "windows", "amd64")
+	c, rel := serve(t, name, archive, sum(archive)+"  "+name+"\n", true)
+	exe := installOld(t)
+	if err := c.Apply(context.Background(), rel, exe, "windows", "amd64"); err != nil {
+		t.Fatal(err)
+	}
+	eq(t, read(t, exe), good)
 }
 
 func TestZipHostileArchivesAreRejected(t *testing.T) {
