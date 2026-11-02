@@ -3,6 +3,7 @@ package text
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Plural picks the Czech form for n: one for 1, few for 2 to 4, many otherwise.
@@ -392,3 +393,16 @@ const (
 
 // Update notice on the home screen.
 const UpdateNotice = "Je dostupná nová verze %s. Aktualizujte příkazem tuipe upgrade."
+
+// TutorialFocus opens the explanation of a lesson: what it teaches, such as
+// "Naučíte se: f, j, mezera."
+func TutorialFocus(chars []rune) string {
+	names := make([]string, len(chars))
+	for i, r := range chars {
+		names[i] = string(r)
+		if r == ' ' {
+			names[i] = "mezera"
+		}
+	}
+	return "Naučíte se: " + strings.Join(names, ", ") + "."
+}
