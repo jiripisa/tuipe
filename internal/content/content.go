@@ -44,11 +44,32 @@ type ChapterDef struct {
 	Lessons     []LessonDef `toml:"lesson"`
 }
 
+// CourseLesson is one lesson of the course. A lesson with Focus drills those
+// characters, a Review one practises earlier characters only, and one with
+// Lang types real code of that language.
+type CourseLesson struct {
+	ID     string     `toml:"id"`
+	Title  string     `toml:"title"`
+	Focus  string     `toml:"focus"`
+	Lang   string     `toml:"lang"`
+	Intro  string     `toml:"intro"`
+	Review bool       `toml:"review"`
+	Speed  [3]float64 `toml:"speed"` // WPM for one, two and three stars
+}
+
+// CourseChapter is a group of course lessons.
+type CourseChapter struct {
+	ID      string         `toml:"id"`
+	Title   string         `toml:"title"`
+	Lessons []CourseLesson `toml:"lesson"`
+}
+
 // Library is all embedded typing material.
 type Library struct {
 	WordsCS, WordsEN, CommitsCS []string
 	Snippets                    []Snippet
 	Chapters                    []ChapterDef
+	Course                      []CourseChapter
 }
 
 // Load reads the embedded material.
@@ -73,6 +94,9 @@ func Load() (*Library, error) {
 		return nil, err
 	}
 	lib.Chapters = chapters
+	if lib.Course, err = loadCourse(); err != nil {
+		return nil, err
+	}
 	if lib.Snippets, err = loadSnippets(); err != nil {
 		return nil, err
 	}
@@ -122,6 +146,24 @@ func loadChapters() ([]ChapterDef, error) {
 	}
 	if u := md.Undecoded(); len(u) > 0 {
 		return nil, fmt.Errorf("content: curriculum.toml: unknown keys %v", u)
+	}
+	return f.Chapter, nil
+}
+
+func loadCourse() ([]CourseChapter, error) {
+	data, err := dataFS.ReadFile("data/course.toml")
+	if err != nil {
+		return nil, fmt.Errorf("content: %w", err)
+	}
+	var f struct {
+		Chapter []CourseChapter `toml:"chapter"`
+	}
+	md, err := toml.Decode(string(data), &f)
+	if err != nil {
+		return nil, fmt.Errorf("content: course.toml: %w", err)
+	}
+	if u := md.Undecoded(); len(u) > 0 {
+		return nil, fmt.Errorf("content: course.toml: unknown keys %v", u)
 	}
 	return f.Chapter, nil
 }

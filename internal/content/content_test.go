@@ -262,3 +262,28 @@ func TestLessonOnBNamesTheRightHand(t *testing.T) {
 		t.Errorf("ch03-04 is titled %q, but b is typed with the left index finger", title)
 	}
 }
+
+func TestCourseLoadsStrictly(t *testing.T) {
+	lib := load(t)
+	if len(lib.Course) != 12 {
+		t.Fatalf("%d course chapters, want 12", len(lib.Course))
+	}
+	first := lib.Course[0].Lessons[0]
+	if first.ID != "ch01-01" || first.Focus != "fj " || first.Speed != [3]float64{6, 9, 12} {
+		t.Errorf("first lesson = %+v", first)
+	}
+	langs := map[string]bool{}
+	for _, s := range lib.Snippets {
+		langs[s.Lang] = true
+	}
+	for _, ch := range lib.Course {
+		for _, ls := range ch.Lessons {
+			if (ls.Focus == "") == (ls.Lang == "") {
+				t.Errorf("%s: needs exactly one of focus and lang", ls.ID)
+			}
+			if ls.Lang != "" && !langs[ls.Lang] {
+				t.Errorf("%s: no snippets of language %q", ls.ID, ls.Lang)
+			}
+		}
+	}
+}

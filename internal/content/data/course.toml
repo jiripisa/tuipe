@@ -1,0 +1,160 @@
+# The course: chapters and lessons in the order they are taught.
+#
+# A lesson with `focus` teaches those characters. A lesson with `review = true`
+# teaches nothing new: it practises characters from earlier lessons. A lesson
+# with `lang` is real code, and its pool is the snippets of that language.
+# The order of the lessons defines "everything up to this lesson" for a Test.
+# `speed` holds the one, two and three star speeds in WPM.
+
+[[chapter]]
+id = "ch01"
+title = "Domovská řada"
+lesson = [
+  { id = "ch01-01", title = "f j", focus = "fj ", speed = [6, 9, 12] },
+  { id = "ch01-02", title = "d k", focus = "dk", speed = [10, 15, 20] },
+  { id = "ch01-03", title = "s l", focus = "sl", speed = [10, 15, 20] },
+  { id = "ch01-04", title = "a ů", focus = "aů", speed = [10, 15, 20] },
+  { id = "ch01-05", title = "řada bez g a h", focus = "asdfjklů", review = true, intro = "Spojíte všechny dosud probrané klávesy domovské řady. Po každém stisku vraťte prst na jeho místo.", speed = [11, 16, 21] },
+  { id = "ch01-06", title = "g h", focus = "gh", speed = [11, 16, 21] },
+  { id = "ch01-07", title = "celá řada", focus = "asdfghjklů", review = true, intro = "Celá domovská řada pohromadě. Ruce držte v klidu a pište bez dívání na klávesnici.", speed = [12, 18, 24] },
+]
+
+[[chapter]]
+id = "ch02"
+title = "Horní řada"
+lesson = [
+  { id = "ch02-01", title = "e i", focus = "ei", speed = [12, 18, 24] },
+  { id = "ch02-02", title = "r u", focus = "ru", speed = [12, 18, 24] },
+  { id = "ch02-03", title = "t y", focus = "ty", speed = [12, 18, 24] },
+  { id = "ch02-04", title = "w o", focus = "wo", speed = [13, 19, 25] },
+  { id = "ch02-05", title = "q p", focus = "qp", speed = [13, 19, 25] },
+  { id = "ch02-06", title = "celá horní řada", focus = "qwertyuiop", review = true, intro = "Celá horní řada pohromadě. Natáhněte se jen tím prstem, který píše, a hned ho vraťte zpět.", speed = [14, 20, 26] },
+  { id = "ch02-07", title = "horní a domovská řada", focus = "qwertyuiopasdfghjklů", review = true, intro = "Střídáte horní a domovskou řadu, tedy skoro všechna písmena běžného textu. Hlídejte si návrat prstů na domovskou řadu.", speed = [14, 20, 26] },
+]
+
+[[chapter]]
+id = "ch03"
+title = "Dolní řada"
+lesson = [
+  { id = "ch03-01", title = "v m", focus = "vm", speed = [14, 20, 26] },
+  { id = "ch03-02", title = "b n", focus = "bn", speed = [15, 21, 27] },
+  { id = "ch03-03", title = "c a čárka", focus = "c,", speed = [14, 20, 26] },
+  { id = "ch03-04", title = "x a tečka", focus = "x.", speed = [15, 21, 27] },
+  { id = "ch03-05", title = "z", focus = "z", speed = [15, 21, 27] },
+  { id = "ch03-06", title = "celá dolní řada", focus = "zxcvbnm,.", review = true, intro = "Celá dolní řada pohromadě, včetně čárky a tečky. Zápěstí držte v klidu a hýbejte jen prsty.", speed = [16, 23, 30] },
+  { id = "ch03-07", title = "celá abeceda", focus = "qwertyuiopasdfghjklůzxcvbnm", review = true, intro = "Všechna písmena ze tří řad pohromadě. Odtud už píšete skoro běžný text.", speed = [18, 25, 32] },
+]
+
+[[chapter]]
+id = "ch04"
+title = "Velká písmena a interpunkce"
+lesson = [
+  { id = "ch04-01", title = "F J D K", focus = "FJDK", speed = [16, 22, 29] },
+  { id = "ch04-02", title = "S L G H", focus = "SLGH", speed = [16, 22, 29] },
+  { id = "ch04-03", title = "E I R U", focus = "EIRU", speed = [16, 22, 29] },
+  { id = "ch04-04", title = "T Y W O", focus = "TYWO", speed = [16, 22, 29] },
+  { id = "ch04-05", title = "Q P A Z", focus = "QPAZ", speed = [16, 22, 29] },
+  { id = "ch04-06", title = "V M B N", focus = "VMBN", speed = [17, 23, 30] },
+  { id = "ch04-07", title = "C X", focus = "CX", speed = [17, 23, 30] },
+  { id = "ch04-08", title = "všechna velká písmena", focus = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", review = true, intro = "Všechna velká písmena pohromadě. Shift vždy mačkejte druhou rukou, než kterou píšete písmeno.", speed = [20, 28, 36] },
+  { id = "ch04-09", title = "spojovník a podtržítko", focus = "-_", speed = [13, 18, 24] },
+  { id = "ch04-10", title = "dvojtečka, otazník, vykřičník", focus = ":?!", speed = [13, 18, 24] },
+  { id = "ch04-11", title = "celá interpunkce", focus = "-_:?!,.", review = true, intro = "Všechna interpunkční znaménka pohromadě, včetně čárky a tečky. Jde hlavně o přesnost, rychlost přijde sama.", speed = [15, 21, 28] },
+]
+
+[[chapter]]
+id = "ch05"
+title = "Česká diakritika"
+lesson = [
+  { id = "ch05-01", title = "š á", focus = "šá", speed = [16, 22, 28] },
+  { id = "ch05-02", title = "ě í", focus = "ěí", speed = [16, 22, 28] },
+  { id = "ch05-03", title = "č ř", focus = "čř", speed = [16, 22, 28] },
+  { id = "ch05-04", title = "ž ý", focus = "žý", speed = [16, 22, 28] },
+  { id = "ch05-05", title = "é ú", focus = "éú", speed = [17, 23, 29] },
+  { id = "ch05-06", title = "ď ť ň", focus = "ďťň", speed = [12, 18, 24] },
+  { id = "ch05-07", title = "ó", focus = "ó", speed = [12, 18, 24] },
+  { id = "ch05-08", title = "malá písmena s diakritikou", focus = "ěščřžýáíéúůóďťň", review = true, intro = "Všechna malá písmena s diakritikou pohromadě. Po nich už zvládnete běžný český text.", speed = [20, 26, 34] },
+  { id = "ch05-09", title = "Á É Í Ó", focus = "ÁÉÍÓ", speed = [14, 20, 26] },
+  { id = "ch05-10", title = "Ú Ů Ý", focus = "ÚŮÝ", speed = [14, 20, 26] },
+  { id = "ch05-11", title = "Ě Š Č Ř", focus = "ĚŠČŘ", speed = [14, 20, 26] },
+  { id = "ch05-12", title = "Ž Ď Ť Ň", focus = "ŽĎŤŇ", speed = [14, 20, 26] },
+  { id = "ch05-13", title = "velká písmena s diakritikou", focus = "ĚŠČŘŽÝÁÍÉÚŮÓĎŤŇ", review = true, intro = "Všechna velká písmena s diakritikou pohromadě. U každého si předem rozmyslete, jak ho napíšete.", speed = [14, 20, 26] },
+]
+
+[[chapter]]
+id = "ch06"
+title = "Číslice"
+lesson = [
+  { id = "ch06-01", title = "4 7", focus = "47", speed = [12, 18, 24] },
+  { id = "ch06-02", title = "3 8", focus = "38", speed = [12, 18, 24] },
+  { id = "ch06-03", title = "2 9", focus = "29", speed = [12, 18, 24] },
+  { id = "ch06-04", title = "1 0", focus = "10", speed = [12, 18, 24] },
+  { id = "ch06-05", title = "5 6", focus = "56", speed = [12, 18, 24] },
+  { id = "ch06-06", title = "všechny číslice", focus = "0123456789", review = true, intro = "Všechny číslice pohromadě. Natáhněte se k číslici a hned se vraťte na domovskou řadu.", speed = [13, 19, 26] },
+]
+
+[[chapter]]
+id = "ch07"
+title = "Symboly se Shiftem"
+lesson = [
+  { id = "ch07-01", title = "plus a rovná se", focus = "+=", speed = [12, 18, 25] },
+  { id = "ch07-02", title = "procento a lomítko", focus = "%/", speed = [12, 18, 25] },
+  { id = "ch07-03", title = "kulaté závorky", focus = "()", speed = [12, 18, 25] },
+  { id = "ch07-04", title = "uvozovky a zpětný apostrof", focus = "\"`", speed = [12, 18, 25] },
+  { id = "ch07-05", title = "všechny symboly se Shiftem", focus = "+=%/()\"`", review = true, intro = "Všechny symboly z této kapitoly pohromadě. Nespěchejte, přesnost je tady důležitější než rychlost.", speed = [13, 19, 26] },
+]
+
+[[chapter]]
+id = "ch08"
+title = "Symboly I"
+lesson = [
+  { id = "ch08-01", title = "zavináč, mřížka, dolar", focus = "@#$", speed = [11, 17, 23] },
+  { id = "ch08-02", title = "středník a apostrof", focus = ";'", speed = [11, 17, 23] },
+  { id = "ch08-03", title = "složené závorky", focus = "{}", speed = [11, 17, 23] },
+  { id = "ch08-04", title = "hranaté závorky", focus = "[]", speed = [11, 17, 23] },
+  { id = "ch08-05", title = "všechny symboly I", focus = "@#${}[];'", review = true, intro = "Všechny symboly z této kapitoly pohromadě. Zkuste psát plynule a bez dívání na klávesnici.", speed = [12, 18, 25] },
+]
+
+[[chapter]]
+id = "ch09"
+title = "Symboly II"
+lesson = [
+  { id = "ch09-01", title = "vlnovka a stříška", focus = "~^", speed = [10, 16, 22] },
+  { id = "ch09-02", title = "ampersand a hvězdička", focus = "&*", speed = [10, 16, 22] },
+  { id = "ch09-03", title = "menší a větší", focus = "<>", speed = [10, 16, 22] },
+  { id = "ch09-04", title = "zpětné lomítko a svislítko", focus = "\\|", speed = [10, 16, 22] },
+  { id = "ch09-05", title = "všechny symboly II", focus = "~^&*<>\\|", review = true, intro = "Všechny symboly z této kapitoly pohromadě. Když se spletete, zpomalte a pokračujte v klidu.", speed = [12, 18, 25] },
+]
+
+[[chapter]]
+id = "ch10"
+title = "Vzácné a mrtvé klávesy"
+lesson = [
+  { id = "ch10-01", title = "stupeň a paragraf", focus = "°§", speed = [10, 15, 20] },
+  { id = "ch10-02", title = "háček a přehláska", focus = "ˇ¨", speed = [10, 15, 20] },
+  { id = "ch10-03", title = "všechny vzácné znaky", focus = "°ˇ¨§", review = true, intro = "Všechny vzácné znaky pohromadě. V textu je potkáte málokdy, o to víc se hodí je procvičit.", speed = [11, 16, 21] },
+]
+
+[[chapter]]
+id = "ch11"
+title = "Skutečný kód"
+lesson = [
+  { id = "ch11-01", title = "Go", lang = "go", intro = "V Go si hlídejte dvojici := a složené závorky. Odsazení dodržujte tak, jak je napsané.", speed = [15, 22, 30] },
+  { id = "ch11-02", title = "Python", lang = "python", intro = "V Pythonu rozhoduje odsazení, proto ho dodržujte přesně. Hlídejte si také dvojtečky na konci řádků.", speed = [15, 22, 30] },
+  { id = "ch11-03", title = "JavaScript", lang = "js", intro = "V JavaScriptu se střídají závorky všech tvarů, šipky a středníky. Hlídejte si, aby každá závorka měla svůj pár.", speed = [15, 22, 30] },
+  { id = "ch11-04", title = "TypeScript", lang = "ts", intro = "TypeScript přidává k JavaScriptu typy. Hlídejte si dvojtečky a špičaté závorky.", speed = [15, 22, 30] },
+  { id = "ch11-05", title = "Shell", lang = "shell", intro = "V shellu si hlídejte svislítka, uvozovky a znak dolaru. Jeden chybějící znak změní význam celého řádku.", speed = [14, 20, 28] },
+  { id = "ch11-06", title = "SQL", lang = "sql", intro = "V SQL se střídají velká a malá písmena. Hlídejte si Shift, čárky a apostrofy.", speed = [14, 20, 28] },
+  { id = "ch11-07", title = "Regulární výrazy", lang = "regex", intro = "Regulární výrazy jsou skoro samé symboly. Pište po jednom znaku a nespěchejte.", speed = [12, 18, 25] },
+]
+
+[[chapter]]
+id = "ch12"
+title = "Všechno dohromady"
+lesson = [
+  { id = "ch12-01", title = "všechny závorky", focus = "{}[]()", review = true, intro = "Všechny druhy závorek pohromadě. Hlídejte si, aby otevřená závorka nezůstala bez páru.", speed = [16, 23, 30] },
+  { id = "ch12-02", title = "číslice a početní znaménka", focus = "0123456789+=%/", review = true, intro = "Číslice a početní znaménka pohromadě. Hodí se pro ceny, procenta a jednoduché výpočty.", speed = [16, 23, 30] },
+  { id = "ch12-03", title = "diakritika a velká písmena", focus = "ěščřžýáíéúůĚŠČŘŽ", review = true, intro = "Česká diakritika a velká písmena pohromadě. Právě tady se pozná jistota na klávesnici.", speed = [17, 24, 32] },
+  { id = "ch12-04", title = "spojovníky, tečky a lomítka", focus = "_-./\\", review = true, intro = "Spojovníky, podtržítka, tečky a lomítka pohromadě. Potkáte je v názvech souborů a v adresách.", speed = [17, 24, 32] },
+  { id = "ch12-05", title = "méně obvyklé symboly", focus = "|&<>$~", review = true, intro = "Méně obvyklé symboly pohromadě. Nespěchejte a pište je stejně jistě jako písmena.", speed = [17, 24, 32] },
+]
