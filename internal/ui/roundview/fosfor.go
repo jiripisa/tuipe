@@ -117,11 +117,6 @@ func fosforBelow(s style.Style, f play.Frame, col int, altHelp string) []string 
 		plain(s, s.Accent).render(accuracyText(f)),
 		plain(s, s.Fg).render(text.RoundStreak + " " + strconv.Itoa(streak(f))),
 	}
-	if f.HasSLA {
-		fg := slaColour(s, f)
-		numbers = append(numbers, plain(s, fg).render(text.RoundSLA+" "+slaText(f.SLA)+" ")+
-			meter(s, slaLeft(f), 8, fg))
-	}
 	if f.Paused {
 		numbers = append([]string{pausedChip(s)}, numbers...)
 	}

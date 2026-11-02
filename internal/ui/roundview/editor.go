@@ -296,10 +296,6 @@ func editorStatus(s style.Style, f play.Frame, rows []row, w int) string {
 			look{fg: leadColour(s, f.Lead), bg: editorBar}.render(leadText(f.Lead)+" ")
 	}
 	right := ""
-	if f.HasSLA {
-		right = look{fg: s.Bg, bg: slaColour(s, f), bold: true}.
-			render(" " + text.RoundSLA + " " + slaText(f.SLA) + " ")
-	}
 	for _, optional := range []string{
 		item(s.Fg, editorBarHi, ruler(f, rows)),
 		item(s.Fg, editorBarHi, text.RoundStreak+" "+strconv.Itoa(streak(f))),

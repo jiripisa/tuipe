@@ -36,33 +36,24 @@ var (
 // a field is called in Go later. Changing one drops the user's data: add a
 // migration instead. testdata/profile-v1.json guards them.
 
-// IncidentResult is the outcome of an incident round.
-type IncidentResult struct {
-	Severity string  `json:"Severity"`
-	Won      bool    `json:"Won"`
-	SLA      float64 `json:"SLA"`
-	MTTRMs   int64   `json:"MTTRMs"`
-}
-
 // Run is one finished round in the history.
 type Run struct {
-	Schema       int             `json:"Schema"`
-	ID           string          `json:"ID"`
-	At           time.Time       `json:"At"`
-	Mode         string          `json:"Mode"`
-	LessonID     string          `json:"LessonID"`
-	TextHash     string          `json:"TextHash"`
-	LayoutID     string          `json:"LayoutID"`
-	Session      string          `json:"Session"` // how the round was started: quick, standup, sprint, career or practice; empty in old runs
-	WPM          float64         `json:"WPM"`
-	Accuracy     float64         `json:"Accuracy"`
-	Score        float64         `json:"Score"`
-	Stars        int             `json:"Stars"`
-	DurationMs   int64           `json:"DurationMs"`
-	Paused       bool            `json:"Paused"`
-	HintUsed     bool            `json:"HintUsed"`
-	GhostDeltaMs *int64          `json:"GhostDeltaMs"`
-	Incident     *IncidentResult `json:"Incident"`
+	Schema       int       `json:"Schema"`
+	ID           string    `json:"ID"`
+	At           time.Time `json:"At"`
+	Mode         string    `json:"Mode"`
+	LessonID     string    `json:"LessonID"`
+	TextHash     string    `json:"TextHash"`
+	LayoutID     string    `json:"LayoutID"`
+	Session      string    `json:"Session"` // how the round was started: quick, standup, sprint, career or practice; empty in old runs
+	WPM          float64   `json:"WPM"`
+	Accuracy     float64   `json:"Accuracy"`
+	Score        float64   `json:"Score"`
+	Stars        int       `json:"Stars"`
+	DurationMs   int64     `json:"DurationMs"`
+	Paused       bool      `json:"Paused"`
+	HintUsed     bool      `json:"HintUsed"`
+	GhostDeltaMs *int64    `json:"GhostDeltaMs"`
 }
 
 // Ghost is the best recorded replay of one text.
@@ -83,10 +74,9 @@ type Resume struct {
 // Profile is the mastery and progress of the user.
 type Profile struct {
 	Schema          int                     `json:"Schema"`
-	Stats           map[string]*stats.Stats `json:"Stats"`        // by layout id
-	Stars           map[string]int          `json:"Stars"`        // by lesson id
-	Completed       map[string]bool         `json:"Completed"`    // by chapter id
-	IncidentBest    map[string]string       `json:"IncidentBest"` // by incident id: best severity won
+	Stats           map[string]*stats.Stats `json:"Stats"`     // by layout id
+	Stars           map[string]int          `json:"Stars"`     // by lesson id
+	Completed       map[string]bool         `json:"Completed"` // by chapter id
 	FirstRunDone    bool                    `json:"FirstRunDone"`
 	FocusTerminals  map[string]bool         `json:"FocusTerminals"` // by terminal key: reports focus changes
 	LastUpdateCheck string                  `json:"LastUpdateCheck"`
@@ -119,9 +109,6 @@ func (p *Profile) fillMaps() {
 	}
 	if p.FocusTerminals == nil {
 		p.FocusTerminals = map[string]bool{}
-	}
-	if p.IncidentBest == nil {
-		p.IncidentBest = map[string]string{}
 	}
 	if p.SkipNoted == nil {
 		p.SkipNoted = map[string]bool{}

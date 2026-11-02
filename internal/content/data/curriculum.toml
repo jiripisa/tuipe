@@ -7,8 +7,7 @@
 # the `focus` of itself and the lessons before it, so early lessons stay small.
 #
 # Drill lessons use `length` = 6 x the two-star speed, about 72 s at that pace.
-# Snippet lessons name snippet ids that Task 11 writes. Incident ids are
-# "INC-" and 4 digits, and the incidents themselves are Task 11's too.
+# Snippet lessons name snippet ids that Task 11 writes.
 
 [[chapter]]
 id = "ch00"
@@ -28,7 +27,6 @@ number = 1
 title = "Domovská řada"
 rank = "Intern"
 introduces = "asdfjklů gh"
-incident = "INC-1001"
 test_out_seed = 9001
 lesson = [
   { id = "ch01-01", title = "Prostředníky", focus = "dk", seed = 101, length = 90, speed = [10, 15, 20] },
@@ -47,7 +45,6 @@ number = 2
 title = "Horní řada"
 rank = "Intern"
 introduces = "qwertyuiop"
-incident = "INC-1002"
 test_out_seed = 9002
 lesson = [
   { id = "ch02-01", title = "E a I", focus = "ei", seed = 201, length = 108, speed = [12, 18, 24] },
@@ -66,7 +63,6 @@ number = 3
 title = "Dolní řada"
 rank = "Intern"
 introduces = "zxcvbnm,."
-incident = "INC-1003"
 test_out_seed = 9003
 lesson = [
   { id = "ch03-01", title = "V a M", focus = "vm", seed = 301, length = 120, speed = [14, 20, 26] },
@@ -85,7 +81,6 @@ number = 4
 title = "Velká písmena a interpunkce"
 rank = "Junior"
 introduces = "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_:?!"
-incident = "INC-1004"
 test_out_seed = 9004
 lesson = [
   { id = "ch04-01", title = "Shift: levá ruka", focus = "ASDFGQWERT", seed = 401, length = 132, speed = [16, 22, 29] },
@@ -105,7 +100,6 @@ number = 5
 title = "Česká diakritika"
 rank = "Junior"
 introduces = "ěščřžýáíéúóďťňĚŠČŘŽÝÁÍÉÚÓĎŤŇŮ"
-incident = "INC-1005"
 test_out_seed = 9005
 lesson = [
   { id = "ch05-01", title = "Ě a Š", focus = "ěš", seed = 501, length = 132, speed = [16, 22, 28] },
@@ -125,7 +119,6 @@ number = 6
 title = "Číslice"
 rank = "Medior"
 introduces = "0123456789"
-incident = "INC-1006"
 test_out_seed = 9006
 lesson = [
   { id = "ch06-01", title = "Jedna a dvojka", focus = "12", seed = 601, length = 108, speed = [12, 18, 24] },
@@ -144,7 +137,6 @@ number = 7
 title = "Symboly se Shiftem"
 rank = "Medior"
 introduces = "+=%/()\"`"
-incident = "INC-1007"
 test_out_seed = 9007
 lesson = [
   { id = "ch07-01", title = "Plus a rovná se", focus = "+=", seed = 701, length = 108, speed = [12, 18, 25] },
@@ -163,7 +155,6 @@ number = 8
 title = "Symboly s Option I"
 rank = "Senior"
 introduces = "@#${}[];'"
-incident = "INC-1008"
 test_out_seed = 9008
 lesson = [
   { id = "ch08-01", title = "Zavináč a mřížka", focus = "@#", seed = 801, length = 102, speed = [11, 17, 23] },
@@ -183,7 +174,6 @@ number = 9
 title = "Symboly s Option II"
 rank = "Senior"
 introduces = "~^&*<>\\|"
-incident = "INC-1009"
 test_out_seed = 9009
 lesson = [
   { id = "ch09-01", title = "Vlnovka a stříška", focus = "~^", seed = 901, length = 96, speed = [10, 16, 22] },
@@ -203,7 +193,6 @@ number = 10
 title = "Vzácné a mrtvé klávesy"
 rank = "Senior"
 introduces = "°ˇ¨§"
-incident = "INC-1010"
 test_out_seed = 9010
 lesson = [
   { id = "ch10-01", title = "Stupeň", focus = "°", seed = 1001, length = 90, speed = [10, 15, 20] },
@@ -221,7 +210,6 @@ number = 11
 title = "Skutečný kód"
 rank = "Staff"
 introduces = "\n"
-incident = "INC-1011"
 test_out_seed = 9011
 lesson = [
   { id = "ch11-01", title = "Go: funkce a chyby", snippets = ["go-1"], speed = [15, 22, 30] },
@@ -243,7 +231,6 @@ number = 12
 title = "Všechno dohromady"
 rank = "Principal"
 introduces = ""
-incident = "INC-1012"
 test_out_seed = 9012
 lesson = [
   { id = "ch12-01", title = "Slova a symboly", focus = "{}[]()", seed = 1201, length = 138, speed = [16, 23, 30] },

@@ -32,11 +32,11 @@ func TestOfferSkippedAgreesWithItsNumber(t *testing.T) {
 }
 
 func TestSkippedContentNamesWhatIsThere(t *testing.T) {
-	if got := text.SkippedContent("X", 0, 0); got != "" {
+	if got := text.SkippedContent("X", 0); got != "" {
 		t.Errorf("nothing skipped: %q", got)
 	}
-	want := "Rozložení X neumí některé znaky. Přeskočeno: 5 lekcí a 1 incident."
-	if got := text.SkippedContent("X", 5, 1); got != want {
+	want := "Rozložení X neumí některé znaky. Přeskočeno: 5 lekcí."
+	if got := text.SkippedContent("X", 5); got != want {
 		t.Errorf("got %q", got)
 	}
 }

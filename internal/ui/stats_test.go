@@ -82,8 +82,7 @@ func TestGitLogShowsHashWPMAccuracyStarsAndDelta(t *testing.T) {
 	addRun(t, st, store.Run{ID: "a3f9c1e", At: daysAgo(clk, 0), Mode: "lesson", LessonID: id,
 		WPM: 62, Accuracy: 0.981, Stars: 2, GhostDeltaMs: &delta})
 	addRun(t, st, store.Run{ID: "b7d20aa", At: daysAgo(clk, 1), Mode: "code", WPM: 40, Accuracy: 0.9, Stars: 0})
-	addRun(t, st, store.Run{ID: "c0ffee1", At: daysAgo(clk, 1).Add(-time.Hour), Mode: "incident", WPM: 30, Accuracy: 0.8,
-		Incident: &store.IncidentResult{Severity: "SEV2", Won: false}})
+	addRun(t, st, store.Run{ID: "c0ffee1", At: daysAgo(clk, 1).Add(-time.Hour), Mode: "drill", WPM: 30, Accuracy: 0.8})
 	openStats(t, a)
 	s := screen(a)
 
@@ -93,12 +92,6 @@ func TestGitLogShowsHashWPMAccuracyStarsAndDelta(t *testing.T) {
 	}
 	if !strings.Contains(s, "b7d20aa") || !strings.Contains(s, text.StatsModeCode) {
 		t.Errorf("a non-lesson run must show its mode:\n%s", s)
-	}
-	if l := nthLine(s, "c0ffee1", 0); !strings.Contains(l, text.StatsLost) {
-		t.Errorf("a lost incident must be marked with %q: %q", text.StatsLost, l)
-	}
-	if l := nthLine(s, "a3f9c1e", 0); strings.Contains(l, text.StatsLost) {
-		t.Errorf("an ordinary run must not be marked lost: %q", l)
 	}
 	if !(strings.Index(s, "a3f9c1e") < strings.Index(s, "b7d20aa") && strings.Index(s, "b7d20aa") < strings.Index(s, "c0ffee1")) {
 		t.Errorf("runs are not newest first:\n%s", s)
@@ -355,10 +348,8 @@ func TestTrendsOverallAndPerGroup(t *testing.T) {
 	run(0, digits, 25, 0.95)
 	run(0, shift, 26, 0.96)
 	run(0, option, 27, 0.97)
-	// A drill has no chapter: overall only. A lost incident is no WPM sample.
+	// A drill has no chapter: overall only.
 	addRun(t, st, store.Run{ID: "drill", At: daysAgo(clk, 3), Mode: "drill", WPM: 20, Accuracy: 0.9})
-	addRun(t, st, store.Run{ID: "lost", At: daysAgo(clk, 4), Mode: "incident", WPM: 99, Accuracy: 0.5,
-		Incident: &store.IncidentResult{Severity: "SEV1", Won: false}})
 	openTrends(t, a)
 	s := screen(a)
 
@@ -385,13 +376,12 @@ func TestTrendsOverallAndPerGroup(t *testing.T) {
 			t.Errorf("accuracy trend of %s is missing:\n%s", label, s)
 		}
 	}
-	// Overall: the drill day and the three lesson days; the lost incident is no WPM sample.
+	// Overall: the drill day and the three lesson days.
 	if got := glyphs(nthLine(s, text.StatsGroupOverall, 0)); len([]rune(got)) != 4 {
-		t.Errorf("overall WPM trend = %q, want 4 days (drill included, lost incident excluded):\n%s", got, s)
+		t.Errorf("overall WPM trend = %q, want 4 days (drill included):\n%s", got, s)
 	}
-	// Accuracy does take the lost incident into account: five days.
-	if got := glyphs(nthLine(s, text.StatsGroupOverall, 1)); len([]rune(got)) != 5 {
-		t.Errorf("overall accuracy trend = %q, want 5 days:\n%s", got, s)
+	if got := glyphs(nthLine(s, text.StatsGroupOverall, 1)); len([]rune(got)) != 4 {
+		t.Errorf("overall accuracy trend = %q, want 4 days:\n%s", got, s)
 	}
 	if !strings.Contains(nthLine(s, text.StatsGroupDiacritics, 0), "30") {
 		t.Errorf("the latest WPM should be shown: %q", nthLine(s, text.StatsGroupDiacritics, 0))
@@ -448,10 +438,6 @@ func TestPersonalBestsPerMode(t *testing.T) {
 	add(store.Run{ID: "l1", Mode: "lesson", LessonID: id, WPM: 50, Accuracy: 0.97, Score: 44})
 	add(store.Run{ID: "l2", Mode: "lesson", LessonID: id, WPM: 55, Accuracy: 0.96, Score: 46.7}) // best
 	add(store.Run{ID: "l3", Mode: "lesson", LessonID: id, WPM: 90, Accuracy: 0.99, Score: 86, Paused: true})
-	add(store.Run{ID: "i1", Mode: "incident", WPM: 45, Accuracy: 0.95, Score: 36.7,
-		Incident: &store.IncidentResult{Severity: "SEV3", Won: true}})
-	add(store.Run{ID: "i2", Mode: "incident", WPM: 80, Accuracy: 0.99, Score: 76.8,
-		Incident: &store.IncidentResult{Severity: "SEV1", Won: false}})
 	add(store.Run{ID: "c1", Mode: "code", WPM: 33, Accuracy: 0.931, Score: 24.8})
 	openStats(t, a)
 	for range 3 {
@@ -459,16 +445,15 @@ func TestPersonalBestsPerMode(t *testing.T) {
 	}
 	s := screen(a)
 	for mode, want := range map[string]string{
-		text.StatsModeLesson:   "55 wpm  96.0 %",
-		text.StatsModeIncident: "45 wpm  95.0 %",
-		text.StatsModeCode:     "33 wpm  93.1 %",
+		text.StatsModeLesson: "55 wpm  96.0 %",
+		text.StatsModeCode:   "33 wpm  93.1 %",
 	} {
 		if l := nthLine(s, mode, 0); !strings.Contains(l, want) {
 			t.Errorf("record of %s = %q, want it to contain %q:\n%s", mode, l, want, s)
 		}
 	}
-	if strings.Contains(s, "90 wpm") || strings.Contains(s, "80 wpm") {
-		t.Errorf("a paused run or a lost incident counted as a record:\n%s", s)
+	if strings.Contains(s, "90 wpm") {
+		t.Errorf("a paused run counted as a record:\n%s", s)
 	}
 	if l := nthLine(s, text.StatsSessionStandup, 0); l != "" {
 		t.Errorf("a mode without runs must not be listed: %q", l)
@@ -529,16 +514,6 @@ func TestFinishWritesTheSessionOfEveryWayToStartARound(t *testing.T) {
 		a, st, clk := playApp(t)
 		tall(a)
 		openFromHome(t, a, homeCareer, "career")
-		a.Update(enter)
-		typeKeys(a, clk, -1)
-		if got := onlyRun(t, st).Session; got != "career" {
-			t.Errorf("Session = %q, want career", got)
-		}
-	})
-	t.Run("incident from the list", func(t *testing.T) {
-		a, st, clk := playApp(t)
-		openIncidentList(a)
-		a.Update(enter)
 		a.Update(enter)
 		typeKeys(a, clk, -1)
 		if got := onlyRun(t, st).Session; got != "career" {
@@ -612,12 +587,10 @@ func TestGitLogNamesTheSessionAndAlignsAccuracy(t *testing.T) {
 func TestRecordLabelsAreCapitalised(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
 	id, _ := lessonOf(t, a, 1)
-	inc := &store.IncidentResult{Severity: "SEV3", Won: true}
 	for i, r := range []store.Run{
 		{Session: "quick", Mode: "drill"},
 		{Session: "career", Mode: "lesson", LessonID: id},
 		{Session: "career", Mode: "code"},
-		{Session: "career", Mode: "incident", Incident: inc},
 		{Session: "standup", Mode: "drill"},
 		{Session: "sprint", Mode: "drill"},
 	} {
@@ -629,12 +602,12 @@ func TestRecordLabelsAreCapitalised(t *testing.T) {
 		a.Update(tab)
 	}
 	s := screen(a)
-	for _, row := range []string{"Rychlovka", "Lekce", "Kód", "Incident", "Standup", "Sprint"} {
+	for _, row := range []string{"Rychlovka", "Lekce", "Kód", "Standup", "Sprint"} {
 		if !strings.Contains(s, "│"+row+" ") && !strings.Contains(s, row+"  ") {
 			t.Errorf("no record row %q:\n%s", row, s)
 		}
 	}
-	for _, bad := range []string{"lekce", "kód", "incident ", "drill"} {
+	for _, bad := range []string{"lekce", "kód", "drill"} {
 		if strings.Contains(s, bad) {
 			t.Errorf("record rows must be capitalised, found %q:\n%s", bad, s)
 		}

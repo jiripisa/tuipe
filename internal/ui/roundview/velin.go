@@ -115,21 +115,16 @@ func box(s style.Style, w, h int, title, right, footer string, body []string) []
 
 func caption(s style.Style, name string) string { return plain(s, velinLabel).render(name) }
 
-// velinFirst is the big SLA meter of an incident, and the progress elsewhere.
+// velinFirst is the progress panel.
 func velinFirst(s style.Style, f play.Frame, w, h int) []string {
 	done, total := progress(f)
-	title, value, note := text.RoundPanelProgress, percent(progressShare(f)), fmt.Sprintf("%d / %d", done, total)
-	share, fg := progressShare(f), s.OK
-	if f.HasSLA {
-		title, value, note = text.RoundSLA, slaText(f.SLA), fmt.Sprintf("SLO %.0f", f.SLO)
-		share, fg = slaLeft(f), slaColour(s, f)
-	}
+	value, note := percent(progressShare(f)), fmt.Sprintf("%d / %d", done, total)
 	inner := w - 4
-	body := []string{spread(look{fg: fg, bg: s.Bg, bold: true}.render(value), caption(s, note), inner, plain(s, s.Fg))}
+	body := []string{spread(look{fg: s.OK, bg: s.Bg, bold: true}.render(value), caption(s, note), inner, plain(s, s.Fg))}
 	for len(body) < h-2 {
-		body = append(body, meter(s, share, inner, fg))
+		body = append(body, meter(s, progressShare(f), inner, s.OK))
 	}
-	return box(s, w, h, caption(s, title), "", "", body)
+	return box(s, w, h, caption(s, text.RoundPanelProgress), "", "", body)
 }
 
 // velinThroughput is the current speed over its recent history.

@@ -25,9 +25,6 @@ const (
 	testOutStars = 2 // stars that pass a test-out
 )
 
-// outcomeLost reports an incident that was not won: it never earns a ghost or a star.
-func outcomeLost(r play.Result) bool { return r.Incident != nil && !r.Incident.Won }
-
 // Finish records a finished round: statistics, the best stars of the lesson,
 // the ghost, the run and the chapter. A failed save is shown on the status
 // line and also returned; the run itself is always returned.
@@ -36,7 +33,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	p := a.Store.Profile()
 	a.stats().Record(r.Text, r.Log, now)
 
-	if spec.LessonID != "" && !outcomeLost(r) && r.Stars > p.Stars[spec.LessonID] {
+	if spec.LessonID != "" && r.Stars > p.Stars[spec.LessonID] {
 		p.Stars[spec.LessonID] = r.Stars
 	}
 	a.completeChapter(spec, r)
@@ -51,7 +48,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 
 	var errs []error
 	hash := r.Text.Hash
-	if !outcomeLost(r) && !testOut && !placement { // neither is a text to beat
+	if !testOut && !placement { // neither is a text to beat
 		old, err := a.Store.Ghost(hash)
 		errs = append(errs, err)
 		if ghost.ShouldReplace(old, r.Metrics, r.Paused, spec.GhostIsPace) {
@@ -72,11 +69,6 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 		d := r.GhostDelta.Milliseconds()
 		run.GhostDeltaMs = &d
 	}
-	if r.Incident != nil {
-		run.Incident = &store.IncidentResult{
-			Severity: spec.Severity, Won: r.Incident.Won, SLA: r.Incident.SLA, MTTRMs: r.Incident.MTTR.Milliseconds(),
-		}
-	}
 	errs = append(errs, a.Store.AppendRun(run), a.Store.SaveProfile())
 
 	err := errors.Join(errs...)
@@ -84,9 +76,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	return run, err
 }
 
-// completeChapter completes the chapter of a lesson that earned a star: one
-// without an incident once its last lesson has a star, one with an incident when
-// that was won earlier and this was the last lesson it waited for.
+// completeChapter completes the chapter of the last lesson when it earned a star.
 func (a *App) completeChapter(spec play.Spec, r play.Result) {
 	if spec.LessonID == "" || r.Stars == 0 {
 		return
@@ -96,14 +86,19 @@ func (a *App) completeChapter(spec play.Spec, r play.Result) {
 		if !slices.ContainsFunc(ch.Lessons, func(l content.LessonDef) bool { return l.ID == spec.LessonID }) {
 			continue
 		}
-		inc, hasIncident := a.Curr.IncidentDef(ch.ID)
-		switch {
-		case hasIncident && p.IncidentBest[inc.ID] != "" && a.lessonsDone(ch.ID):
-			a.Curr.CompleteChapter(p, ch.ID)
-		case !hasIncident && ch.Lessons[len(ch.Lessons)-1].ID == spec.LessonID:
+		if ch.Lessons[len(ch.Lessons)-1].ID == spec.LessonID {
 			a.Curr.CompleteChapter(p, ch.ID)
 		}
 	}
+}
+
+func (a *App) chapterTitle(id string) string {
+	for _, ch := range a.Curr.Chapters() {
+		if ch.ID == id {
+			return ch.Title
+		}
+	}
+	return id
 }
 
 // skippedBy lists the chapter of a passed test-out and every earlier chapter
@@ -132,8 +127,8 @@ const (
 	sessionPlacement = "placement"
 )
 
-// sessionOf says how the round of spec was started: from the career or
-// incident list, or by placement. Old runs without a session count as quick runs.
+// sessionOf says how the round of spec was started: from the career list, or by
+// placement. Old runs without a session count as quick runs.
 func (a *App) sessionOf(spec play.Spec) string {
 	if spec.Session != "" {
 		return spec.Session
@@ -155,8 +150,6 @@ func modeName(spec play.Spec) string {
 		return "lesson"
 	case play.KindCode:
 		return "code"
-	case play.KindIncident:
-		return "incident"
 	case play.KindTestOut:
 		return "testout"
 	case play.KindPlacement:
@@ -181,17 +174,14 @@ func (a *App) uptime() streak.Status {
 	return streak.Compute(days, a.Now().Local().Format(dateLayout))
 }
 
-// lostIncident reports a stored run of an incident that was not won.
-func lostIncident(r store.Run) bool { return r.Incident != nil && !r.Incident.Won }
-
-// previousBest is the best earlier run on the same text that did not pause and
-// was not a lost incident: the one the ghost was recorded from.
+// previousBest is the best earlier run on the same text that did not pause: the
+// one the ghost was recorded from.
 func (a *App) previousBest(hash string) *store.Run {
 	runs, _ := a.Store.Runs()
 	var best *store.Run
 	for i := range runs {
 		r := &runs[i]
-		if r.TextHash == hash && !r.Paused && !lostIncident(*r) && (best == nil || r.Score > best.Score) {
+		if r.TextHash == hash && !r.Paused && (best == nil || r.Score > best.Score) {
 			best = r
 		}
 	}
@@ -229,7 +219,7 @@ func NewResultsScreen(a *App, r play.Result, spec play.Spec, next func(*App) Scr
 		}
 	}
 	if after := a.Curr.RankOf(p); after != rank {
-		s.rank = fmt.Sprintf(text.IncidentRank, rank, after)
+		s.rank = fmt.Sprintf(text.ResultsRank, rank, after)
 	}
 	return s
 }
@@ -298,17 +288,13 @@ func (s *resultsScreen) View(a *App, w, h int) string {
 	}
 	var verdict []string
 	switch {
-	case s.res.Incident != nil && s.res.Incident.Won:
-		verdict = append(verdict, fmt.Sprintf(text.ResultsWon, s.res.Incident.SLA))
-	case outcomeLost(s.res):
-		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.ResultsLost))
 	case s.spec.Kind == play.KindTestOut && s.res.Stars >= testOutStars:
 		verdict = append(verdict, st.Base().Foreground(st.OK).Render(text.TestOutPassed(len(s.closed))))
 	case s.spec.Kind == play.KindTestOut:
 		verdict = append(verdict, st.Base().Foreground(st.Bad).Render(text.TestOutFailed))
 	default:
 		for _, id := range s.closed {
-			verdict = append(verdict, st.Base().Foreground(st.Accent).Render(fmt.Sprintf(text.IncidentPromoted, a.chapterTitle(id))))
+			verdict = append(verdict, st.Base().Foreground(st.Accent).Render(fmt.Sprintf(text.ResultsChapterClosed, a.chapterTitle(id))))
 		}
 	}
 	if s.res.Paused {

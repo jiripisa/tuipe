@@ -3,7 +3,6 @@ package text
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Plural picks the Czech form for n: one for 1, few for 2 to 4, many otherwise.
@@ -29,18 +28,11 @@ func Rounds(n int) string {
 
 // SkippedContent is the note about what a layout cannot type, told once. It is
 // empty when nothing is skipped.
-func SkippedContent(layout string, lessons, incidents int) string {
-	var parts []string
-	if lessons > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s", lessons, Plural(lessons, "lekce", "lekce", "lekcí")))
-	}
-	if incidents > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s", incidents, Plural(incidents, "incident", "incidenty", "incidentů")))
-	}
-	if len(parts) == 0 {
+func SkippedContent(layout string, lessons int) string {
+	if lessons == 0 {
 		return ""
 	}
-	return fmt.Sprintf("Rozložení %s neumí některé znaky. Přeskočeno: %s.", layout, strings.Join(parts, " a "))
+	return fmt.Sprintf("Rozložení %s neumí některé znaky. Přeskočeno: %d %s.", layout, lessons, Plural(lessons, "lekce", "lekce", "lekcí"))
 }
 
 // Usage is printed by `tuipe help`.
@@ -144,19 +136,19 @@ const (
 	ResultsStars    = "hvězdy"
 	ResultsPaused   = "pauza: kolo se nezapisuje do ducha"
 	ResultsHintUsed = "nápověda použita: třetí hvězda není možná"
-	ResultsLost     = "SLA porušeno, incident prohrán"
-	ResultsWon      = "incident vyřešen, SLA %.2f %%"
 	ResultsNoStars  = "bez hvězdy"
+
+	ResultsChapterClosed = "Kapitola „%s“ uzavřena. Nikdo nepanikaří."
+	ResultsRank          = "Hodnost: %s → %s. HR byla informována."
 )
 
-// Labels of the round screen. HEAD~1, SLA and wpm are the app's own terms.
+// Labels of the round screen. HEAD~1 and wpm are the app's own terms.
 const (
 	RoundGhost      = "HEAD~1"
 	RoundYou        = "ty"
 	RoundAhead      = "před duchem"
 	RoundBehind     = "za duchem"
 	RoundStreak     = "série"
-	RoundSLA        = "SLA"
 	RoundWPM        = "wpm"
 	RoundAccuracy   = "přes."
 	RoundTyping     = "PSANÍ"
@@ -191,7 +183,6 @@ const (
 	CareerTestOut   = "test-out: přeskočit kapitolu"
 	CareerDone      = "hotovo"
 	CareerLocked    = "zamčeno"
-	CareerBoss      = "incident: %s %s"
 	HintCareer      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
 	TestOutTitle    = "test-out: %s"
 	TestOutFailed   = "test-out nesplněn: nic se nezměnilo"
@@ -208,48 +199,10 @@ func TestOutPassed(n int) string {
 	return fmt.Sprintf("test-out splněn: %s %s, bez hvězd", Plural(n, "uzavřena", "uzavřeny", "uzavřeno"), Chapters(n))
 }
 
-// Incidents: the severity picker, the list, the round and the two endings.
-const (
-	IncidentTitle     = "Incident v produkci"
-	IncidentSeverity  = "Závažnost incidentu"
-	IncidentBaseWPM   = "tvé základní tempo: %.0f wpm"
-	IncidentSev3      = "SEV3  běžné tempo, nikdo nevolá"
-	IncidentSev2      = "SEV2  o 5 % rychleji, někdo už píše do chatu"
-	IncidentSev1      = "SEV1  o 15 % rychleji, volá ředitel"
-	IncidentListEmpty = "Žádný odemčený incident. V produkci je zatím klid."
-	IncidentListBest  = "[%s]"
-	IncidentListNone  = "[ ]"
-	HintIncident      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
-	RoundIncidentInfo = "%s  %d/%d  %d:%02d"
-
-	IncidentWon      = "INCIDENT VYŘEŠEN"
-	IncidentMTTR     = "MTTR      %.1f s"
-	IncidentSLALeft  = "SLA       %.2f %%"
-	IncidentSevShown = "závažnost %s"
-	IncidentFirst    = "první řešení tohoto incidentu, není s čím srovnávat"
-	IncidentPrev     = "minule: %s, MTTR %.1f s, SLA %.2f %%"
-	IncidentAhead    = "duch: o %.1f s před minulým řešením"
-	IncidentBehind   = "duch: o %.1f s za minulým řešením"
-	IncidentPromoted = "Kapitola „%s“ uzavřena. Nikdo nepanikaří."
-	IncidentRank     = "Hodnost: %s → %s. HR byla informována."
-
-	PostmortemTitle    = "POSTMORTEM (bez hledání viníka)"
-	PostmortemSummary  = "Souhrn: SLA kleslo na SLO, služba je nedostupná."
-	PostmortemImpact   = "Dopad: tyto znaky selhaly, píšou se takto:"
-	PostmortemCause    = "Příčina: prsty, ne lidé. Nikdo nebude potrestán."
-	PostmortemSlow     = "Příčina: pomalost, ne chyby. Nikdo nebude potrestán."
-	PostmortemAction   = "Opatření: drill na tyto znaky. Termín: hned."
-	PostmortemDrill    = "trénink po incidentu: %s"
-	HintPostmortem     = "d drill na znaky · Enter další · Esc domů · Ctrl+T styl"
-	HintPostmortemBare = "Enter další · Esc domů · Ctrl+T styl"
-	HintIncidentWon    = "Enter další · Esc domů · Ctrl+T styl"
-)
-
 // Statistics.
 const (
 	StatsEmpty           = "Zatím žádná kola. Odehrajte první a tady se objeví historie."
 	StatsHeatEmpty       = "Zatím není co ukázat: klávesy se obarví, až se nasbírá pár kol."
-	StatsLost            = "prohráno"
 	StatsWeakestFinger   = "nejslabší prst: %s"
 	StatsGroupOverall    = "celkem"
 	StatsGroupLetters    = "písmena"
@@ -260,7 +213,6 @@ const (
 	StatsGroupCode       = "kód"
 	StatsModeLesson      = "Lekce"
 	StatsModeCode        = "Kód"
-	StatsModeIncident    = "Incident"
 	StatsModeDrill       = "Drill"
 )
 

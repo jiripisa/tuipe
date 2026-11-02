@@ -73,28 +73,21 @@ type Curriculum struct {
 	texts    map[string]string    // lesson id to text
 	errs     map[string]error     // lesson id to why it has no text
 	targets  map[string][3]float64
-	incident map[string]content.Incident // chapter id to a typable incident
-	dropped  int                         // chapter incidents the layout cannot type
 }
 
 // New resolves the curriculum of lib against l. A lesson whose text cannot be
-// built or typed on l is left out, and so is an incident with untypable text.
+// built or typed on l is left out.
 func New(lib *content.Library, l *layout.Layout) *Curriculum {
 	c := &Curriculum{
 		lib: lib, lay: l, raw: lib.Chapters,
-		index:    map[string]int{},
-		texts:    map[string]string{},
-		errs:     map[string]error{},
-		targets:  map[string][3]float64{},
-		incident: map[string]content.Incident{},
+		index:   map[string]int{},
+		texts:   map[string]string{},
+		errs:    map[string]error{},
+		targets: map[string][3]float64{},
 	}
 	snippets := map[string]content.Snippet{}
 	for _, s := range lib.Snippets {
 		snippets[s.ID] = s
-	}
-	incidents := map[string]content.Incident{}
-	for _, inc := range lib.Incidents {
-		incidents[inc.ID] = inc
 	}
 
 	cumulative := map[rune]bool{}
@@ -128,14 +121,6 @@ func New(lib *content.Library, l *layout.Layout) *Curriculum {
 			out.Lessons = append(out.Lessons, ls)
 		}
 		c.chapters = append(c.chapters, out)
-
-		if inc, ok := incidents[ch.IncidentID]; ok {
-			if c.typable(incidentText(inc)) {
-				c.incident[ch.ID] = inc
-			} else {
-				c.dropped++
-			}
-		}
 	}
 	return c
 }
@@ -146,14 +131,6 @@ func cloneSet(m map[rune]bool) map[rune]bool {
 		out[r] = true
 	}
 	return out
-}
-
-func incidentText(inc content.Incident) string {
-	var sb strings.Builder
-	for _, s := range inc.Steps {
-		sb.WriteString(s.Text)
-	}
-	return sb.String()
 }
 
 func (c *Curriculum) typable(text string) bool {
@@ -197,9 +174,9 @@ func (c *Curriculum) lessonText(ls content.LessonDef, known map[rune]bool, snipp
 	return text, nil
 }
 
-// Skipped counts what was left out because it cannot be built or typed on this
-// layout: lessons and chapter incidents.
-func (c *Curriculum) Skipped() (lessons, incidents int) { return len(c.errs), c.dropped }
+// Skipped counts the lessons left out because they cannot be built or typed on
+// this layout.
+func (c *Curriculum) Skipped() (lessons int) { return len(c.errs) }
 
 // Chapters returns the chapters in order, with the lessons that cannot be
 // built or typed removed.
@@ -445,47 +422,18 @@ func symbolShare(s string) float64 {
 	return float64(symbols) / float64(max(all, 1))
 }
 
-// IncidentDef returns the incident that ends a chapter. It is false for a
-// chapter without one, for an incident that does not exist, and for one that
-// cannot be typed on the layout; such a chapter completes through its lessons.
-func (c *Curriculum) IncidentDef(chapterID string) (content.Incident, bool) {
-	inc, ok := c.incident[chapterID]
-	return inc, ok
-}
+// empty reports whether a chapter has no lesson to play. Progress must never
+// wait on such a chapter.
+func (c *Curriculum) empty(i int) bool { return len(c.chapters[i].Lessons) == 0 }
 
-// empty reports whether a chapter has nothing to play: no lesson and no
-// incident. Progress must never wait on such a chapter.
-func (c *Curriculum) empty(i int) bool {
-	ch := c.chapters[i]
-	_, hasIncident := c.incident[ch.ID]
-	return len(ch.Lessons) == 0 && !hasIncident
-}
-
-// done reports whether the chapter at position i is completed. A chapter with
-// an incident is done when the incident was won (at SEV3 or harder, which is
-// all the profile records) and its lessons have stars. Otherwise its last lesson needs one star. A
-// chapter with nothing to play counts as done.
+// done reports whether the chapter at position i is completed: its last lesson
+// has a star. A chapter with no lesson counts as done.
 func (c *Curriculum) done(p *store.Profile, i int) bool {
 	ch := c.chapters[i]
 	if p.Completed[ch.ID] || c.empty(i) {
 		return true
 	}
-	if inc, ok := c.incident[ch.ID]; ok {
-		// A win before the lessons (free play) is recorded but closes nothing.
-		return p.IncidentBest[inc.ID] != "" && allStarred(p, ch.Lessons)
-	}
-	n := len(ch.Lessons)
-	return p.Stars[ch.Lessons[n-1].ID] >= 1
-}
-
-// allStarred reports whether every lesson has a star.
-func allStarred(p *store.Profile, lessons []content.LessonDef) bool {
-	for _, l := range lessons {
-		if p.Stars[l.ID] == 0 {
-			return false
-		}
-	}
-	return true
+	return p.Stars[ch.Lessons[len(ch.Lessons)-1].ID] >= 1
 }
 
 // earned is done without the vacuous case: the chapter was really completed.
@@ -523,8 +471,7 @@ func (c *Curriculum) CurrentChapter(p *store.Profile) content.ChapterDef {
 }
 
 // NextLesson is the first lesson without a star in the current chapter. It is
-// false when the current chapter has no lesson left, which means its incident
-// is owed (see IncidentDef), or when the curriculum is finished.
+// false when the curriculum is finished.
 func (c *Curriculum) NextLesson(p *store.Profile) (content.LessonDef, bool) {
 	i := c.current(p)
 	if i < 0 || c.done(p, i) {

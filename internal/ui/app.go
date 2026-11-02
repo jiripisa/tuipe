@@ -143,8 +143,8 @@ func (a *App) fillBanner() {
 	a.Banner = append(a.Banner, notices[a.noticesRead:]...)
 	a.noticesRead = len(notices)
 	p := a.Store.Profile()
-	lessons, incidents := a.Curr.Skipped()
-	if note := text.SkippedContent(a.Layout.Name, lessons, incidents); note != "" && !p.SkipNoted[a.Layout.ID] {
+	lessons := a.Curr.Skipped()
+	if note := text.SkippedContent(a.Layout.Name, lessons); note != "" && !p.SkipNoted[a.Layout.ID] {
 		a.Banner = append(a.Banner, note)
 		p.SkipNoted[a.Layout.ID] = true
 		a.SaveErr(a.Store.SaveProfile())

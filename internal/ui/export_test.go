@@ -10,7 +10,6 @@ import (
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/stats"
-	"github.com/jiripisa/tuipe/internal/store"
 )
 
 // TickMsg returns the tick of the round that is on screen, or nil.
@@ -32,12 +31,6 @@ func ScreenName(a *App) string {
 		return "home"
 	case *careerScreen:
 		return "career"
-	case *severityScreen:
-		return "severity"
-	case *incidentListScreen:
-		return "incident-list"
-	case *incidentResultsScreen:
-		return "incident-results"
 	case *statsScreen:
 		return "stats"
 	case *firstRunScreen:
@@ -176,9 +169,6 @@ func ChapterTestOutRound(a *App, chapterID string) (Screen, error) {
 	}
 	return nil, fmt.Errorf("unknown chapter %q", chapterID)
 }
-
-// BaseWPM is the speed an incident is calibrated against.
-func BaseWPM(runs []store.Run) float64 { return baseWPM(runs) }
 
 // SnippetRound builds a round on a snippet of the library, which no lesson of
 // the course has to use.

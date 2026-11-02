@@ -1,5 +1,5 @@
 // Package content holds the text embedded in the binary: word lists, Czech
-// commit messages, code snippets, incident scripts and the curriculum.
+// commit messages, code snippets and the curriculum.
 package content
 
 import (
@@ -16,15 +16,6 @@ var dataFS embed.FS
 
 // Snippet is a piece of code to type.
 type Snippet struct{ ID, Lang, Text string }
-
-// Step is one prompt and the text typed in answer to it.
-type Step struct{ Prompt, Text, Lang string }
-
-// Incident is a scripted on-call scenario.
-type Incident struct {
-	ID, Title, Chapter string
-	Steps              []Step
-}
 
 // LessonDef describes one lesson of a chapter. A lesson either drills Focus
 // with generated text of at least Length characters, or types the Snippets.
@@ -49,7 +40,6 @@ type ChapterDef struct {
 	Rank        string      `toml:"rank"`
 	Introduces  string      `toml:"introduces"`
 	Allowed     string      `toml:"allowed"`
-	IncidentID  string      `toml:"incident"`
 	TestOutSeed int64       `toml:"test_out_seed"`
 	Lessons     []LessonDef `toml:"lesson"`
 }
@@ -58,7 +48,6 @@ type ChapterDef struct {
 type Library struct {
 	WordsCS, WordsEN, CommitsCS []string
 	Snippets                    []Snippet
-	Incidents                   []Incident
 	Chapters                    []ChapterDef
 }
 
@@ -85,9 +74,6 @@ func Load() (*Library, error) {
 	}
 	lib.Chapters = chapters
 	if lib.Snippets, err = loadSnippets(); err != nil {
-		return nil, err
-	}
-	if lib.Incidents, err = loadIncidents(); err != nil {
 		return nil, err
 	}
 	return lib, nil
@@ -118,42 +104,6 @@ func loadSnippets() ([]Snippet, error) {
 				Text: strings.TrimSuffix(string(data), "\n"),
 			})
 		}
-	}
-	return out, nil
-}
-
-func loadIncidents() ([]Incident, error) {
-	data, err := dataFS.ReadFile("data/incidents.toml")
-	if err != nil {
-		return nil, fmt.Errorf("content: %w", err)
-	}
-	type step struct {
-		Prompt string `toml:"prompt"`
-		Text   string `toml:"text"`
-		Lang   string `toml:"lang"`
-	}
-	var f struct {
-		Incident []struct {
-			ID      string `toml:"id"`
-			Title   string `toml:"title"`
-			Chapter string `toml:"chapter"`
-			Step    []step `toml:"step"`
-		} `toml:"incident"`
-	}
-	md, err := toml.Decode(string(data), &f)
-	if err != nil {
-		return nil, fmt.Errorf("content: incidents.toml: %w", err)
-	}
-	if u := md.Undecoded(); len(u) > 0 {
-		return nil, fmt.Errorf("content: incidents.toml: unknown keys %v", u)
-	}
-	out := make([]Incident, 0, len(f.Incident))
-	for _, in := range f.Incident {
-		inc := Incident{ID: in.ID, Title: in.Title, Chapter: in.Chapter}
-		for _, s := range in.Step {
-			inc.Steps = append(inc.Steps, Step(s))
-		}
-		out = append(out, inc)
 	}
 	return out, nil
 }

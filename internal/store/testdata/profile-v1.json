@@ -28,9 +28,6 @@
   "Completed": {
     "ch01": true
   },
-  "IncidentBest": {
-    "INC-1001": "SEV2"
-  },
   "FirstRunDone": true,
   "FocusTerminals": {
     "ghostty|tmux=false": true

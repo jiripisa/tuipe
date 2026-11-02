@@ -124,14 +124,13 @@ func sample(name string) roundview.View {
 		v.Frame.Weak = []rune{'{', '}', '~', '\\'}
 		v.Title, v.Lang = "kapitola 6 / symboly  ::  lekce 4", "go"
 		v.Throughput = []float64{41, 44, 47, 52, 55, 58, 54, 60, 63, 59, 62}
-	case "incident":
+	case "prompt":
 		v.Frame = frame(shellSource, "logs deploy")
-		v.Frame.HasSLA, v.Frame.SLA, v.Frame.SLO = true, 99.72, 99
 		v.Frame.HasGhost, v.Frame.Lead = true, 1400*time.Millisecond
 		v.Frame.GhostPos = v.Frame.Pos - 8
 		v.Frame.Weak = []rune{'|', '-', ' '}
-		v.Title, v.Lang = "INC-2041", "shell"
-		v.Prompt = "INC-2041  Přihlašovací služba vrací 500. Monitoring to hlásí od rána, zákazníci už volají. Podívej se, co se stalo."
+		v.Title, v.Lang = "kapitola 2 / shell  ::  lekce 3", "shell"
+		v.Prompt = "Přihlašovací služba vrací 500. Monitoring to hlásí od rána, zákazníci už volají. Podívej se, co se stalo."
 		v.RightInfo = "krok 2/3  zbývá 00:47"
 		v.Throughput = []float64{58, 60, 57, 62, 66, 64, 61}
 	case "paused":
@@ -181,7 +180,7 @@ func golden(t *testing.T, id style.ID, sz [2]int, name, got string) {
 func TestSizes(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range append(fullSizes, [2]int{50, 12}) {
-			for _, f := range []string{"plain", "ghost", "hint", "incident", "paused"} {
+			for _, f := range []string{"plain", "ghost", "hint", "prompt", "paused"} {
 				out := roundview.Render(st, sample(f), sz[0], sz[1])
 				assertFits(t, out, sz[0], sz[1])
 				golden(t, st.ID, sz, f, ansi.Strip(out))
@@ -191,7 +190,7 @@ func TestSizes(t *testing.T) {
 }
 
 func TestEveryWindowSizeFitsExactly(t *testing.T) {
-	v := sample("incident")
+	v := sample("prompt")
 	v.Title = strings.Repeat("velmi dlouhý nadpis ", 12)
 	v.RightInfo = strings.Repeat("zbývá ", 30)
 	wide := sample("hint")
@@ -221,15 +220,15 @@ func TestEveryWindowSizeFitsExactly(t *testing.T) {
 func TestSmallWindowsUseTheCompactStrip(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range [][2]int{{59, 40}, {120, 17}, {50, 12}, {40, 8}} {
-			v := sample("incident")
+			v := sample("prompt")
 			v.Frame.Hint = hintFor('{')
 			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-			for _, want := range []string{"62 wpm", "98.1 %", "+1.4 s", "SLA 99.72 %", "logs", v.Frame.Hint.Text} {
+			for _, want := range []string{"62 wpm", "98.1 %", "+1.4 s", "logs", v.Frame.Hint.Text} {
 				if !strings.Contains(s, want) {
 					t.Errorf("%s %v lacks %q:\n%s", st.ID, sz, want, s)
 				}
 			}
-			for _, no := range []string{"⌥", "⇧", "mezera", "krok", "INC-2041", text.RoundGhost} {
+			for _, no := range []string{"⌥", "⇧", "mezera", "krok", "Přihlašovací", text.RoundGhost} {
 				if strings.Contains(s, no) {
 					t.Errorf("%s %v shows %q, compact has text and core numbers only:\n%s", st.ID, sz, no, s)
 				}
@@ -258,7 +257,7 @@ func TestCompactHintIsOneLineCutToWidth(t *testing.T) {
 func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 	for _, st := range style.All() {
 		for h := 1; h <= 8; h++ {
-			v := sample("incident")
+			v := sample("prompt")
 			v.Frame.Hint = hintFor('{')
 			v.Frame.AltWarning = true
 			out := roundview.Render(st, v, 50, h)
@@ -269,7 +268,7 @@ func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 			}
 			for from, want := range map[int]string{
 				1: "kubectl",       // the text and the cursor always
-				2: "SLA 99.72 %",   // then the numbers
+				2: "62 wpm",        // then the numbers
 				4: "levý Option",   // then the hint
 				5: "Option je Alt", // and last the warning
 			} {
@@ -299,12 +298,12 @@ func TestCompactHintAndWarningDoNotMoveTheText(t *testing.T) {
 	}
 }
 
-func TestCompactPausedKeepsSLAAtNarrowestWidth(t *testing.T) {
+func TestCompactPausedKeepsTheNumbersAtNarrowestWidth(t *testing.T) {
 	for _, st := range style.All() {
-		v := sample("incident")
+		v := sample("prompt")
 		v.Frame.Paused = true
 		s := ansi.Strip(roundview.Render(st, v, 40, 8))
-		for _, want := range []string{text.RoundPaused, "SLA 99.72 %", "+1.4 s"} {
+		for _, want := range []string{text.RoundPaused, "62 wpm", "+1.4 s"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%s lacks %q:\n%s", st.ID, want, s)
 			}
@@ -666,62 +665,11 @@ func TestAltWarningIsOneLineInEveryLayout(t *testing.T) {
 	}
 }
 
-func TestSLAIsShownAndChangesColour(t *testing.T) {
-	ok := func(s style.Style) color.Color { return s.OK }
-	warn := func(s style.Style) color.Color { return s.Warn }
-	bad := func(s style.Style) color.Color { return s.Bad }
-	cases := []struct {
-		sla, slo float64
-		pick     func(style.Style) color.Color
-	}{
-		{99.92, 99, ok}, {99.60, 99, warn}, {99.12, 99, bad},
-		// The steps follow the SLO of the frame, not a fixed number.
-		{95.00, 90, ok}, {90.60, 90, warn}, {90.12, 90, bad},
-	}
-	for _, st := range style.All() {
-		for _, sz := range append(fullSizes, [2]int{50, 12}) {
-			for _, c := range cases {
-				v := sample("incident")
-				v.Frame.SLA, v.Frame.SLO = c.sla, c.slo
-				out := roundview.Render(st, v, sz[0], sz[1])
-				label := fmt.Sprintf("%.2f %%", c.sla)
-				if !strings.Contains(ansi.Strip(out), label) {
-					t.Fatalf("%s %v: no %q:\n%s", st.ID, sz, label, ansi.Strip(out))
-				}
-				got := cellOfText(t, out, label)
-				if got.fg != rgb(c.pick(st)) && got.bg != rgb(c.pick(st)) {
-					t.Errorf("%s %v: SLA %v of SLO %v drawn %+v, want %s", st.ID, sz, c.sla, c.slo, got, rgb(c.pick(st)))
-				}
-			}
-			v := sample("plain")
-			if s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1])); strings.Contains(s, text.RoundSLA+" ") {
-				t.Errorf("%s %v: SLA outside an incident:\n%s", st.ID, sz, s)
-			}
-		}
-	}
-}
-
-func TestVelinHasTheBigMeter(t *testing.T) {
-	st := style.ByID(style.Velin)
-	half := regexp.MustCompile(`█{12,13}░{12,13}`)
-	for _, c := range [][2]float64{{99.5, 99}, {95, 90}} {
-		v := sample("incident")
-		v.Frame.SLA, v.Frame.SLO = c[0], c[1]
-		s := ansi.Strip(roundview.Render(st, v, 80, 24))
-		if !half.MatchString(s) {
-			t.Errorf("SLA %v of SLO %v: no meter half way along:\n%s", c[0], c[1], s)
-		}
-		if want := fmt.Sprintf("SLO %.0f", c[1]); !strings.Contains(s, want) {
-			t.Errorf("no %q:\n%s", want, s)
-		}
-	}
-}
-
-func TestIncidentTextsAreShown(t *testing.T) {
+func TestPromptAndRightInfoAreShown(t *testing.T) {
 	for _, st := range style.All() {
 		for _, sz := range fullSizes {
-			v := sample("incident")
-			v.Prompt = "INC-2041 auth handler vrací 500, oprav to"
+			v := sample("prompt")
+			v.Prompt = "auth handler vrací 500, oprav to"
 			v.RightInfo = "zbývá 00:47"
 			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
 			for _, want := range []string{v.Prompt, v.RightInfo} {
@@ -735,11 +683,11 @@ func TestIncidentTextsAreShown(t *testing.T) {
 
 func TestLongPromptIsNotLost(t *testing.T) {
 	for _, st := range style.All() {
-		s := ansi.Strip(roundview.Render(st, sample("incident"), 60, 18))
+		s := ansi.Strip(roundview.Render(st, sample("prompt"), 60, 18))
 		joined := strings.Join(strings.Fields(s), " ")
-		// Two rows hold the start of the story, whatever the frame around it.
+		// Two rows hold the start of the prompt, whatever the frame around it.
 		if !strings.Contains(joined, "Přihlašovací služba") || !strings.Contains(s, "Monitoring") {
-			t.Errorf("%s: story cut too short:\n%s", st.ID, s)
+			t.Errorf("%s: prompt cut too short:\n%s", st.ID, s)
 		}
 	}
 }

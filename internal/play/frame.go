@@ -29,19 +29,8 @@ type Frame struct {
 	Paused        bool
 	ManualPause   bool // Esc pause: only Resume ends it
 	AltWarning    bool
-	SLA, SLO      float64
-	HasSLA        bool
-	Breached      bool
 	Done          bool
 	Weak          []rune // up to weakCount characters with the most wrong presses
-}
-
-// IncidentOutcome is the result of an incident scenario.
-type IncidentOutcome struct {
-	Won         bool
-	SLA         float64
-	MTTR        time.Duration
-	DamageChars []rune
 }
 
 // Result is the outcome of a finished (or inspected) round.
@@ -53,13 +42,9 @@ type Result struct {
 	Log        []engine.Keystroke
 	Text       engine.Text
 	GhostDelta *time.Duration
-	Incident   *IncidentOutcome
 }
 
-const (
-	weakCount   = 4
-	damageCount = 5
-)
+const weakCount = 4
 
 // Frame reports the state at the given time. It never changes the session.
 func (s *Session) Frame(at time.Time) Frame {
@@ -75,7 +60,6 @@ func (s *Session) Frame(at time.Time) Frame {
 		ManualPause: s.pause == pauseManual,
 		AltWarning:  s.altWarning,
 		Done:        s.Done(),
-		Breached:    s.breached(),
 		Weak:        topWrong(s.wrong, weakCount),
 	}
 	for _, k := range s.round.Log() {
@@ -87,11 +71,6 @@ func (s *Session) Frame(at time.Time) Frame {
 		f.HasGhost = true
 		f.GhostPos = s.ghost.PosAt(elapsed)
 		f.Lead = s.ghost.Lead(f.Pos, elapsed)
-	}
-	if s.meter != nil {
-		f.HasSLA = true
-		f.SLA = s.meter.SLA()
-		f.SLO = s.meter.SLO()
 	}
 	// Never evaluate later than the last Tick or Key, so the hint shown and
 	// HintUsed always agree.
@@ -138,18 +117,7 @@ func (s *Session) Result(at time.Time) Result {
 		d := s.ghost.Lead(s.round.Pos(), elapsed)
 		r.GhostDelta = &d
 	}
-	won := true
-	if s.meter != nil {
-		won = !s.breached() && s.round.Done()
-		out := &IncidentOutcome{Won: won, SLA: s.meter.SLA(), MTTR: elapsed}
-		if !won {
-			out.DamageChars = topWrong(s.wrong, damageCount)
-		}
-		r.Incident = out
-	}
-	if won {
-		r.Stars = score.Stars(m, s.spec.Targets, s.hintUsed)
-	}
+	r.Stars = score.Stars(m, s.spec.Targets, s.hintUsed)
 	return r
 }
 

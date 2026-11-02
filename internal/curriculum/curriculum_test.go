@@ -48,10 +48,9 @@ func curr(t *testing.T) *curriculum.Curriculum {
 
 func newProfile() *store.Profile {
 	return &store.Profile{
-		Stats:        map[string]*stats.Stats{},
-		Stars:        map[string]int{},
-		Completed:    map[string]bool{},
-		IncidentBest: map[string]string{},
+		Stats:     map[string]*stats.Stats{},
+		Stars:     map[string]int{},
+		Completed: map[string]bool{},
 	}
 }
 
@@ -354,7 +353,7 @@ func TestNextLessonFollowsStarsAndChapters(t *testing.T) {
 		t.Errorf("current chapter = %s", got.ID)
 	}
 
-	p.Stars[chs[0].Lessons[0].ID] = 1 // chapter 0 has no incident: done
+	p.Stars[chs[0].Lessons[0].ID] = 1 // the only lesson of chapter 0: done
 	l, _ = c.NextLesson(p)
 	if l.ID != chs[1].Lessons[0].ID {
 		t.Errorf("after onboarding next = %q, want %q", l.ID, chs[1].Lessons[0].ID)
@@ -423,24 +422,8 @@ func TestTestOutText(t *testing.T) {
 	}
 }
 
-func TestIncidentDefIsFalseWhenIncidentDoesNotExist(t *testing.T) {
-	lib := loadLib(t)
-	lib.Chapters[1].IncidentID = "INC-9999" // no such incident
-	c := curriculum.New(lib, czech(t))
-	if _, ok := c.IncidentDef("ch01"); ok {
-		t.Error("an incident that does not exist was resolved")
-	}
-	if _, ok := c.IncidentDef("ch00"); ok {
-		t.Error("chapter 0 has no incident")
-	}
-	if _, ok := c.IncidentDef("nope"); ok {
-		t.Error("unknown chapter has no incident")
-	}
-}
-
-// incidentLib is a two-chapter library whose first chapter has an incident
-// that needs a brace.
-func incidentLib(t *testing.T) *content.Library {
+// smallLib is a two-chapter library: two lessons, then one.
+func smallLib(t *testing.T) *content.Library {
 	t.Helper()
 	lib := loadLib(t)
 	lesson := func(id string) content.LessonDef {
@@ -448,23 +431,16 @@ func incidentLib(t *testing.T) *content.Library {
 	}
 	lib.Chapters = []content.ChapterDef{
 		{
-			ID: "c1", Number: 1, Rank: "Intern", Introduces: "abcdefghijklmnopqrstuvwxyz ", IncidentID: "INC-1001",
+			ID: "c1", Number: 1, Rank: "Intern", Introduces: "abcdefghijklmnopqrstuvwxyz ",
 			Lessons: []content.LessonDef{lesson("c1-1"), lesson("c1-2")},
 		},
 		{ID: "c2", Number: 2, Rank: "Junior", Lessons: []content.LessonDef{lesson("c2-1")}},
 	}
-	lib.Incidents = []content.Incident{{
-		ID: "INC-1001", Title: "brace", Chapter: "c1",
-		Steps: []content.Step{{Prompt: "fix", Text: "ab {cd}", Lang: "go"}},
-	}}
 	return lib
 }
 
-func TestChapterWithUntypableIncidentCompletesThroughLessons(t *testing.T) {
-	c := curriculum.New(incidentLib(t), stubLayout(t))
-	if _, ok := c.IncidentDef("c1"); ok {
-		t.Fatal("incident needing '{' must be dropped on a layout without it")
-	}
+func TestChapterIsDoneWhenItsLastLessonHasAStar(t *testing.T) {
+	c := curriculum.New(smallLib(t), czech(t))
 	p := newProfile()
 	if l, _ := c.NextLesson(p); l.ID != "c1-1" {
 		t.Fatalf("next = %q", l.ID)
@@ -472,6 +448,9 @@ func TestChapterWithUntypableIncidentCompletesThroughLessons(t *testing.T) {
 	p.Stars["c1-1"] = 3
 	if l, _ := c.NextLesson(p); l.ID != "c1-2" {
 		t.Fatalf("next = %q, want the last lesson", l.ID)
+	}
+	if c.IsDone(p, "c1") || c.IsUnlocked(p, "c2") {
+		t.Error("the chapter closed before its last lesson had a star")
 	}
 	p.Stars["c1-2"] = 1
 	l, ok := c.NextLesson(p)
@@ -481,55 +460,13 @@ func TestChapterWithUntypableIncidentCompletesThroughLessons(t *testing.T) {
 	if got := c.RankOf(p); got != curriculum.Intern {
 		t.Errorf("rank = %v", got)
 	}
-	if !c.IsUnlocked(p, "c2") {
-		t.Error("c2 should be unlocked")
-	}
-}
-
-func TestChapterWithIncidentNeedsTheIncident(t *testing.T) {
-	c := curriculum.New(incidentLib(t), czech(t))
-	inc, ok := c.IncidentDef("c1")
-	if !ok || inc.ID != "INC-1001" {
-		t.Fatalf("IncidentDef = %v %v", inc, ok)
-	}
-	p := newProfile()
-	p.Stars["c1-1"], p.Stars["c1-2"] = 3, 3
-	if l, ok := c.NextLesson(p); ok {
-		t.Errorf("lessons done but incident owed: next = %q", l.ID)
-	}
-	if got := c.CurrentChapter(p); got.ID != "c1" {
-		t.Errorf("current = %s, want c1", got.ID)
-	}
-	if c.IsUnlocked(p, "c2") {
-		t.Error("c2 must stay locked until the incident is won")
-	}
-	p.IncidentBest["INC-1001"] = "SEV3"
-	if l, ok := c.NextLesson(p); !ok || l.ID != "c2-1" {
-		t.Errorf("after the win next = %q %v", l.ID, ok)
-	}
-	if got := c.RankOf(p); got != curriculum.Intern {
-		t.Errorf("rank = %v", got)
-	}
-}
-
-func TestIncidentWonBeforeTheLessonsDoesNotCloseTheChapter(t *testing.T) {
-	c := curriculum.New(incidentLib(t), czech(t))
-	p := newProfile()
-	p.IncidentBest["INC-1001"] = "SEV3" // a free-play win with lessons unplayed
-	if c.IsDone(p, "c1") || c.IsUnlocked(p, "c2") {
-		t.Error("the chapter closed with its lessons unplayed")
-	}
-	if l, ok := c.NextLesson(p); !ok || l.ID != "c1-1" {
-		t.Errorf("next = %q %v, want the first lesson of c1", l.ID, ok)
-	}
-	p.Stars["c1-1"], p.Stars["c1-2"] = 1, 1
 	if !c.IsDone(p, "c1") || !c.IsUnlocked(p, "c2") {
-		t.Error("lessons and incident are done, so the chapter is done")
+		t.Error("c1 should be done and c2 unlocked")
 	}
 }
 
 func TestChaptersDropsUnresolvableLessons(t *testing.T) {
-	lib := incidentLib(t)
+	lib := smallLib(t)
 	lib.Chapters[0].Lessons = append(lib.Chapters[0].Lessons,
 		content.LessonDef{ID: "c1-snip", Title: "snip", Snippets: []string{"missing"}, Speed: [3]float64{10, 15, 20}})
 	c := curriculum.New(lib, czech(t))
@@ -542,7 +479,7 @@ func TestChaptersDropsUnresolvableLessons(t *testing.T) {
 }
 
 func TestSnippetLessonJoinsSnippets(t *testing.T) {
-	lib := incidentLib(t)
+	lib := smallLib(t)
 	lib.Snippets = []content.Snippet{{ID: "s1", Lang: "go", Text: "a := 1"}, {ID: "s2", Lang: "go", Text: "b := 2"}}
 	lib.Chapters[0].Introduces += ":=1\n2"
 	lib.Chapters[0].Lessons = []content.LessonDef{
@@ -556,13 +493,12 @@ func TestSnippetLessonJoinsSnippets(t *testing.T) {
 }
 
 func TestEmptyChapterNeverBlocksProgress(t *testing.T) {
-	lib := incidentLib(t)
+	lib := smallLib(t)
 	lib.Chapters = append(lib.Chapters[:1], content.ChapterDef{ID: "c-empty", Number: 2, Rank: "Staff"},
 		content.ChapterDef{ID: "c3", Number: 3, Rank: "Principal", Lessons: lib.Chapters[1].Lessons})
 	c := curriculum.New(lib, czech(t))
 	p := newProfile()
 	p.Stars["c1-1"], p.Stars["c1-2"] = 1, 1
-	p.IncidentBest["INC-1001"] = "SEV3"
 	if l, ok := c.NextLesson(p); !ok || l.ID != "c2-1" {
 		t.Fatalf("next = %q %v, want to skip the empty chapter", l.ID, ok)
 	}
@@ -596,10 +532,6 @@ func walk(t *testing.T, c *curriculum.Curriculum) {
 			p.Stars[l.ID] = 1
 			continue
 		}
-		if inc, ok := c.IncidentDef(cur.ID); ok && p.IncidentBest[inc.ID] == "" {
-			p.IncidentBest[inc.ID] = "SEV3"
-			continue
-		}
 		// Nothing left to do: everything must be finished.
 		if last != 12 && last != len(c.Chapters())-1 {
 			t.Fatalf("stuck in chapter %d", last)
@@ -618,31 +550,16 @@ func TestWalkFromOnboardingToTheEnd(t *testing.T) {
 	walk(t, curr(t))
 }
 
-func TestWalkWithIncidents(t *testing.T) {
-	lib := loadLib(t)
-	for _, ch := range lib.Chapters {
-		if ch.IncidentID != "" {
-			lib.Incidents = append(lib.Incidents, content.Incident{
-				ID: ch.IncidentID, Chapter: ch.ID, Steps: []content.Step{{Prompt: "p", Text: "ab", Lang: "sh"}},
-			})
-		}
-	}
-	c := curriculum.New(lib, czech(t))
-	if _, ok := c.IncidentDef("ch05"); !ok {
-		t.Fatal("test incidents were not picked up")
-	}
-	walk(t, c)
+func TestRankAfterEveryLessonIsPrincipal(t *testing.T) {
+	c := curr(t)
 	p := newProfile()
 	for _, ch := range c.Chapters() {
 		for _, l := range ch.Lessons {
 			p.Stars[l.ID] = 1
 		}
-		if ch.IncidentID != "" {
-			p.IncidentBest[ch.IncidentID] = "SEV3"
-		}
 	}
 	if got := c.RankOf(p); got != curriculum.Principal {
-		t.Errorf("rank after every incident = %v", got)
+		t.Errorf("rank after every lesson = %v", got)
 	}
 }
 
@@ -666,7 +583,7 @@ func TestTestOutWorksForEveryChapter(t *testing.T) {
 }
 
 func TestTestOutTargetsFallBackToEarlierChapter(t *testing.T) {
-	lib := incidentLib(t)
+	lib := smallLib(t)
 	lib.Chapters = append(lib.Chapters, content.ChapterDef{ID: "c3", Number: 3, Rank: "Junior", Introduces: "x", TestOutSeed: 5})
 	c := curriculum.New(lib, czech(t))
 	_, tg := c.TestOutText("c3")
@@ -691,13 +608,14 @@ func TestIsDoneFollowsCompletion(t *testing.T) {
 		t.Error("an unknown chapter is not done")
 	}
 	other := chs[3]
-	if _, hasInc := c.IncidentDef(other.ID); !hasInc {
-		t.Skip("chapter 3 has no incident")
-	}
 	n := len(other.Lessons)
-	p.Stars[other.Lessons[n-1].ID] = 3
+	p.Stars[other.Lessons[0].ID] = 3
 	if c.IsDone(p, other.ID) {
-		t.Error("a star on the last lesson does not finish a chapter whose incident is owed")
+		t.Error("a star on the first lesson finishes the chapter")
+	}
+	p.Stars[other.Lessons[n-1].ID] = 3
+	if !c.IsDone(p, other.ID) {
+		t.Error("a star on the last lesson does not finish the chapter")
 	}
 }
 
@@ -838,13 +756,11 @@ func TestUnlockedAtListsTheDrillableKeys(t *testing.T) {
 }
 
 func TestSkippedCountsWhatTheLayoutCannotType(t *testing.T) {
-	lessons, incidents := curr(t).Skipped()
-	if lessons != 0 || incidents != 0 {
-		t.Errorf("the built-in layout skips %d lessons and %d incidents", lessons, incidents)
+	if lessons := curr(t).Skipped(); lessons != 0 {
+		t.Errorf("the built-in layout skips %d lessons", lessons)
 	}
-	lessons, incidents = curriculum.New(loadLib(t), stubLayout(t)).Skipped()
-	if lessons == 0 || incidents == 0 {
-		t.Errorf("a letters-only layout skips %d lessons and %d incidents", lessons, incidents)
+	if lessons := curriculum.New(loadLib(t), stubLayout(t)).Skipped(); lessons == 0 {
+		t.Error("a letters-only layout skips no lessons")
 	}
 }
 

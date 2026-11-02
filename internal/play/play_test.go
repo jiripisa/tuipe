@@ -1,12 +1,10 @@
 package play_test
 
 import (
-	"slices"
 	"testing"
 	"time"
 
 	"github.com/jiripisa/tuipe/internal/ghost"
-	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -359,99 +357,16 @@ func TestResultGhostDeltaNilWithoutGhost(t *testing.T) {
 	eq(t, s.Result(at(300)).GhostDelta == nil, true)
 }
 
-func incidentSpec() play.Spec {
-	p := incident.NewParams(incident.SEV3, 30, 4)
-	return play.Spec{Kind: play.KindIncident, Incident: &p}
-}
-
-func TestIncidentBreachEndsRound(t *testing.T) {
-	s := newSession(t, incidentSpec(), true)
+func TestWrongPressesNeverEndTheRound(t *testing.T) {
+	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 50; i++ {
 		press(s, 'z', 100+i*10) // 'b' expected: wrong
 	}
-	press(s, 'q', 400)
-	press(s, 'b', 500) // ignored after the breach
-	f := s.Frame(at(500))
-	eq(t, f.HasSLA, true)
-	eq(t, f.Breached, true)
-	eq(t, f.Done, true)
-	eq(t, s.Done(), true)
-	r := s.Result(at(500))
-	if r.Incident == nil {
-		t.Fatal("expected an incident outcome")
-	}
-	eq(t, r.Incident.Won, false)
-	eq(t, r.Stars, 0)
-	if !slices.Equal(r.Incident.DamageChars, []rune{'b'}) {
-		t.Fatalf("damage chars: %q", string(r.Incident.DamageChars))
-	}
-}
-
-func TestIncidentDamageCharsAreRankedAndCapped(t *testing.T) {
-	// Wrong presses are counted against the expected character.
-	p := incident.Params{Start: 100, SLO: 99, BurnPerSec: 0, ErrorBurn: 0.1}
-	s := newSession(t, play.Spec{Text: "abcdefgh", Incident: &p}, true)
-	ms := 0
-	step := func(r rune) { ms += 10; press(s, r, ms) }
-	for _, c := range []struct {
-		expected rune
-		wrong    int
-	}{{'a', 1}, {'b', 2}, {'c', 3}, {'d', 1}, {'e', 1}, {'f', 1}, {'g', 1}} {
-		for i := 0; i < c.wrong; i++ {
-			step('#')
-		}
-		step(c.expected)
-	}
-	eq(t, s.Done(), true) // the tenth wrong press (at g) breached the SLO
-	r := s.Result(at(ms))
-	eq(t, r.Incident.Won, false)
-	if got := string(r.Incident.DamageChars); got != "cbade" {
-		t.Fatalf("damage chars: %q", got)
-	}
-}
-
-func TestIncidentWinReportsMTTR(t *testing.T) {
-	s := newSession(t, incidentSpec(), true)
-	for i, r := range "abcd" {
-		press(s, r, i*100)
-	}
-	eq(t, s.Done(), true)
-	r := s.Result(at(300))
-	if r.Incident == nil {
-		t.Fatal("expected an incident outcome")
-	}
-	eq(t, r.Incident.Won, true)
-	eq(t, r.Incident.MTTR, 300*time.Millisecond)
-	eq(t, r.Incident.SLA > 99 && r.Incident.SLA <= 100, true)
-	eq(t, len(r.Incident.DamageChars), 0)
-}
-
-func TestSLABurnsWithActiveTimeOnly(t *testing.T) {
-	s := newSession(t, incidentSpec(), true)
-	press(s, 'a', 0)
-	s.Tick(at(1000))
-	before := s.Frame(at(1000)).SLA
-	s.Pause(at(1000))
-	s.Tick(at(30000))
-	eq(t, s.Frame(at(30000)).SLA, before)
-	s.Resume(at(30000))
-	s.Tick(at(31000))
-	eq(t, s.Frame(at(31000)).SLA < before, true)
-}
-
-func TestWrongPressBurnsSLA(t *testing.T) {
-	s := newSession(t, incidentSpec(), true)
-	press(s, 'a', 0)
-	before := s.Frame(at(0)).SLA
-	press(s, 'x', 0)
-	eq(t, s.Frame(at(0)).SLA < before, true)
-}
-
-func TestNoSLAOutsideIncident(t *testing.T) {
-	s := newSession(t, play.Spec{}, true)
-	eq(t, s.Frame(at(0)).HasSLA, false)
-	eq(t, s.Result(at(0)).Incident == nil, true)
+	eq(t, s.Done(), false)
+	eq(t, s.Frame(at(1000)).Done, false)
+	press(s, 'b', 1100)
+	eq(t, s.Frame(at(1100)).Pos, 2)
 }
 
 func TestFrameMetricsAndWeak(t *testing.T) {
@@ -552,48 +467,6 @@ func TestSleepThenPauseFirstIsStillAGap(t *testing.T) {
 	eq(t, r.Metrics.Duration, 1500*time.Millisecond)
 }
 
-func TestSleepThenFocusDoesNotBreachIncident(t *testing.T) {
-	s, wake := sleepThen(t, incidentSpec(), func(s *play.Session, wake int) { s.Focus(true, at(wake)) })
-	press(s, 'b', wake+1000)
-	f := s.Frame(at(wake + 1000))
-	eq(t, f.Breached, false)
-	eq(t, f.Done, false)
-	eq(t, f.Pos, 2)
-	eq(t, f.SLA > 99.5, true)
-}
-
-func TestFrameCarriesTheSLOOfItsMeter(t *testing.T) {
-	p := incident.Params{Start: 100, SLO: 90, BurnPerSec: 1, ErrorBurn: 0}
-	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, true)
-	eq(t, s.Frame(at(0)).SLO, 90.0)
-	s = newSession(t, play.Spec{Text: "abcd"}, true)
-	eq(t, s.Frame(at(0)).SLO, 0.0)
-}
-
-func TestIdleRetroactivePauseRefundsSLA(t *testing.T) {
-	p := incident.Params{Start: 100, SLO: 90, BurnPerSec: 1, ErrorBurn: 0}
-	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, false)
-	press(s, 'a', 0)
-	press(s, 'b', 1000)
-	for ms := 2000; ms <= 5000; ms += 1000 {
-		s.Tick(at(ms))
-	}
-	eq(t, s.Frame(at(5000)).SLA, 95.0)
-	s.Tick(at(6000)) // idle for 5 s: paused retroactively from the last key
-	f := s.Frame(at(6000))
-	eq(t, f.Paused, true)
-	eq(t, f.SLA, 99.0) // only the 1 s of active time burned
-}
-
-func TestOutageCannotLandDuringAPause(t *testing.T) {
-	p := incident.Params{Start: 100, SLO: 99, BurnPerSec: 1, ErrorBurn: 0}
-	s := newSession(t, play.Spec{Text: "abcd", Incident: &p}, true)
-	press(s, 'a', 0)
-	s.Pause(at(2000)) // 2 s burned since the last tick: breached before pausing
-	eq(t, s.Done(), true)
-	eq(t, s.Result(at(2000)).Incident.Won, false)
-}
-
 func TestNonPrintableKeyDoesNothing(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)
@@ -617,14 +490,6 @@ func TestFrameDoesNotShowAHintTickHasNotRecorded(t *testing.T) {
 	eq(t, n.Result(at(0)).HintUsed, true)
 }
 
-func TestUnfinishedIncidentIsNotWon(t *testing.T) {
-	s := newSession(t, incidentSpec(), true)
-	press(s, 'a', 0)
-	r := s.Result(at(100))
-	eq(t, r.Incident.Won, false)
-	eq(t, r.Stars, 0)
-}
-
 func TestFirstKeyAfterPauseIsMarked(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)
@@ -634,76 +499,6 @@ func TestFirstKeyAfterPauseIsMarked(t *testing.T) {
 	log := s.Result(at(5100)).Log
 	eq(t, log[1].AfterPause, true)
 	eq(t, log[2].AfterPause, false)
-}
-
-func graceSpec(grace time.Duration) play.Spec {
-	p := incident.NewParams(incident.SEV3, 15, 600)
-	return play.Spec{
-		Kind: play.KindIncident, Text: "ab\ncd", Incident: &p,
-		Graces: map[int]time.Duration{3: grace},
-	}
-}
-
-func TestGraceHoldsTheMeterUntilTheFirstKeyOfTheNextStep(t *testing.T) {
-	s := newSession(t, graceSpec(4*time.Second), true)
-	press(s, 'a', 0)
-	press(s, 'b', 100)
-	press(s, '\n', 200)
-	atNewline := s.Frame(at(200)).SLA
-	s.Tick(at(2200)) // reading the prompt
-	eq(t, s.Frame(at(2200)).SLA, atNewline)
-	press(s, 'c', 3200) // 3 s later, still inside the 4 s grace
-	eq(t, s.Frame(at(3200)).SLA, atNewline)
-	press(s, 'd', 3400) // ordinary time burns again
-	eq(t, s.Frame(at(3400)).SLA < atNewline, true)
-	// MTTR stays the real active time.
-	eq(t, s.Result(at(3400)).Incident.MTTR, 3400*time.Millisecond)
-}
-
-func TestGraceBeyondTheCapBurnsNormally(t *testing.T) {
-	held := newSession(t, graceSpec(2*time.Second), true)
-	free := newSession(t, graceSpec(0), true)
-	for _, s := range []*play.Session{held, free} {
-		press(s, 'a', 0)
-		press(s, 'b', 100)
-		press(s, '\n', 200)
-		press(s, 'c', 5200) // 5 s of reading
-	}
-	h, f := held.Frame(at(5200)).SLA, free.Frame(at(5200)).SLA
-	eq(t, h > f, true) // 2 s were held
-	burn := incident.NewParams(incident.SEV3, 15, 600).BurnPerSec
-	eq(t, f-h > -2.1*burn && f-h < -1.9*burn, true)
-}
-
-func TestIdlePauseWaitsForTheGraceWindow(t *testing.T) {
-	s := newSession(t, graceSpec(20*time.Second), false) // no focus reporting
-	press(s, 'a', 0)
-	press(s, 'b', 100)
-	press(s, '\n', 200)
-	for ms := 1200; ms <= 15200; ms += 1000 {
-		s.Tick(at(ms))
-	}
-	eq(t, s.Frame(at(15200)).Paused, false)
-	for ms := 16200; ms <= 30200; ms += 1000 { // the window ended at 20.2 s
-		s.Tick(at(ms))
-	}
-	eq(t, s.Frame(at(30200)).Paused, true)
-	press(s, 'c', 31000)
-	r := s.Result(at(31000))
-	eq(t, r.Paused, true)
-	// The pause starts when the window ends, not at the last key.
-	eq(t, r.Metrics.Duration > 20*time.Second, true)
-}
-
-func TestFirstKeyEndsTheGraceWindow(t *testing.T) {
-	s := newSession(t, graceSpec(10*time.Second), false)
-	press(s, 'a', 0)
-	press(s, 'b', 100)
-	press(s, '\n', 200)
-	press(s, 'c', 1200)
-	s.Tick(at(4000))
-	s.Tick(at(7000)) // 5.8 s after the key: the normal idle rule applies again
-	eq(t, s.Frame(at(7000)).Paused, true)
 }
 
 func TestHintsReadMasteryDecayedByTheClock(t *testing.T) {

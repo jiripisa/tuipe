@@ -1,4 +1,4 @@
-// Package play combines the engine, ghost, hints and incident meter into one
+// Package play combines the engine, ghost and hints into one
 // session that the terminal UI drives. It never reads the clock.
 package play
 
@@ -8,7 +8,6 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/ghost"
-	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
@@ -22,7 +21,6 @@ const (
 	KindLesson Kind = iota
 	KindDrill
 	KindCode
-	KindIncident
 	KindTestOut
 	KindPlacement
 )
@@ -39,9 +37,6 @@ type Spec struct {
 	HintsOff              bool
 	Ghost                 *ghost.Ghost
 	GhostIsPace           bool
-	Incident              *incident.Params
-	Severity              string                // the incident's severity, for the run record
-	Graces                map[int]time.Duration // reading time held back at a step boundary, by the cell where the next step begins
 }
 
 // Input is one key press. Alt is set when the terminal reported Alt/Option held.
@@ -71,7 +66,6 @@ type Session struct {
 
 	round *engine.Round
 	ghost *ghost.Ghost
-	meter *incident.Meter
 
 	pause      pauseKind
 	pausedFrom time.Time
@@ -80,25 +74,13 @@ type Session struct {
 	hesBase    time.Time // start of the current hesitation, shifted by pauses
 	inited     bool
 
-	meterElapsed time.Duration // the active time the meter has been advanced to
-
-	// Reading grace: after the Enter that ends an incident step the meter is
-	// held until the first key of the next step, for at most the grace.
-	inGrace     bool          // from that Enter to the next key
-	graceLeft   time.Duration // grace not yet used
-	graceTaken  time.Duration // grace used in this window, to undo after a retroactive pause
-	graceLastE  time.Duration // active time at the last sync
-	held        time.Duration // active time the meter did not burn
-	graceEnd    time.Time     // when the window ends, moved by pauses
-	logLen      int
-	wrong       map[rune]int // wrong presses by expected character
-	hintUsed    bool
-	lastSeen    time.Time // last Tick or Key: Frame never evaluates a hint later than this
-	seen        bool
-	altWarning  bool
-	altIgnored  int // Alt presses that were not the expected character
-	lost        bool
-	lostElapsed time.Duration
+	logLen     int
+	wrong      map[rune]int // wrong presses by expected character
+	hintUsed   bool
+	lastSeen   time.Time // last Tick or Key: Frame never evaluates a hint later than this
+	seen       bool
+	altWarning bool
+	altIgnored int // Alt presses that were not the expected character
 }
 
 // New starts a session. focusEvents tells whether the terminal reports focus changes.
@@ -106,7 +88,7 @@ func New(spec Spec, l *layout.Layout, st *stats.Stats, focusEvents bool) *Sessio
 	if st == nil {
 		st = stats.New()
 	}
-	s := &Session{
+	return &Session{
 		spec:        spec,
 		layout:      l,
 		stats:       st,
@@ -115,28 +97,17 @@ func New(spec Spec, l *layout.Layout, st *stats.Stats, focusEvents bool) *Sessio
 		ghost:       spec.Ghost,
 		wrong:       map[rune]int{},
 	}
-	if spec.Incident != nil {
-		s.meter = incident.NewMeter(*spec.Incident)
-	}
-	return s
 }
 
-// Done reports whether the round is over: finished, or lost to an SLA breach.
-func (s *Session) Done() bool { return s.round.Done() || s.lost }
-
-func (s *Session) breached() bool { return s.meter != nil && s.meter.Breached() }
+// Done reports whether the round is over: every character was typed.
+func (s *Session) Done() bool { return s.round.Done() }
 
 // PartialLog returns the text and the keystrokes made so far, for abandoned rounds.
 func (s *Session) PartialLog() (engine.Text, []engine.Keystroke) {
 	return s.round.Text(), s.round.Log()
 }
 
-func (s *Session) elapsed(at time.Time) time.Duration {
-	if s.lost {
-		return s.lostElapsed
-	}
-	return s.round.Elapsed(at)
-}
+func (s *Session) elapsed(at time.Time) time.Duration { return s.round.Elapsed(at) }
 
 // touch records the first time the session is driven, which starts the hesitation clock.
 func (s *Session) touch(at time.Time) {
@@ -184,9 +155,6 @@ func (s *Session) endPause(at time.Time) {
 	if s.inited {
 		s.hesBase = s.hesBase.Add(max(at.Sub(s.pausedFrom), 0))
 	}
-	if s.inGrace {
-		s.graceEnd = s.graceEnd.Add(max(at.Sub(s.pausedFrom), 0))
-	}
 	s.pause = pauseNone
 	s.round.Resume(at)
 	s.lastActive = at
@@ -198,49 +166,12 @@ func (s *Session) checkGaps(at time.Time) {
 	if s.pause != pauseNone || s.Done() {
 		return
 	}
-	// While a reading window is open, silence is reading and not idleness.
-	// Once it has ended the idle rule counts from its end.
-	idleFrom := s.lastActive
-	if s.inGrace && s.graceEnd.After(idleFrom) {
-		idleFrom = s.graceEnd
-	}
-	if !s.focusEvents && !s.focusSeen && s.round.Started() && at.Sub(idleFrom) >= gapIsSleep {
-		s.startPause(pauseAuto, idleFrom)
+	if !s.focusEvents && !s.focusSeen && s.round.Started() && at.Sub(s.lastActive) >= gapIsSleep {
+		s.startPause(pauseAuto, s.lastActive)
 		return
 	}
 	if at.Sub(s.lastTick) > gapIsSleep {
 		s.startPause(pauseAuto, s.lastTick)
-	}
-}
-
-// syncMeter burns SLA for the active time since the last sync.
-func (s *Session) syncMeter(at time.Time) {
-	if s.meter == nil || s.lost {
-		return
-	}
-	e := s.round.Elapsed(at)
-	if s.inGrace {
-		switch grow := e - s.graceLastE; {
-		case grow > 0:
-			take := min(grow, s.graceLeft)
-			s.graceLeft -= take
-			s.graceTaken += take
-			s.held += take
-		case grow < 0: // a retroactive pause took back time that was held
-			undo := min(-grow, s.graceTaken)
-			s.graceLeft += undo
-			s.graceTaken -= undo
-			s.held -= undo
-		}
-		s.graceLastE = e
-	}
-	if d := e - s.held - s.meterElapsed; d != 0 { // negative after a retroactive pause
-		s.meter.Advance(d)
-		s.meterElapsed += d
-	}
-	if s.meter.Breached() {
-		s.lost = true
-		s.lostElapsed = e
 	}
 }
 
@@ -256,7 +187,6 @@ func (s *Session) Tick(at time.Time) {
 	s.touch(at)
 	s.checkGaps(at)
 	s.lastTick = at
-	s.syncMeter(at)
 	s.see(at)
 	s.noteHint(at)
 }
@@ -286,11 +216,6 @@ func (s *Session) Key(in Input, at time.Time) {
 	}
 	s.altWarning = false
 	s.endPause(at)
-	s.syncMeter(at)
-	s.inGrace = false // any key ends the reading window
-	if s.lost {
-		return
-	}
 	pos := s.round.Pos()
 	expected := s.round.Text().Cells[pos].R
 	correct := s.round.Press(in.Rune, at)
@@ -301,16 +226,8 @@ func (s *Session) Key(in Input, at time.Time) {
 			s.hesBase = at
 		} else {
 			s.wrong[expected]++
-			if s.meter != nil {
-				s.meter.Error()
-			}
 		}
 	}
-	if g := s.spec.Graces[s.round.Pos()]; correct && g > 0 && s.meter != nil && !s.round.Done() {
-		s.inGrace, s.graceLeft, s.graceTaken = true, g, 0
-		s.graceLastE, s.graceEnd = s.round.Elapsed(at), at.Add(g)
-	}
-	s.syncMeter(at)
 	s.see(at)
 	s.noteHint(at)
 }
@@ -333,7 +250,6 @@ func (s *Session) Focus(focused bool, at time.Time) {
 	s.checkGaps(at)
 	s.focusSeen = true
 	s.lastTick = at
-	s.syncMeter(at)
 	if !focused {
 		s.startPause(pauseAuto, at)
 	}
@@ -344,7 +260,6 @@ func (s *Session) Pause(at time.Time) {
 	s.touch(at)
 	s.checkGaps(at)
 	s.lastTick = at
-	s.syncMeter(at)
 	s.startPause(pauseManual, at)
 }
 

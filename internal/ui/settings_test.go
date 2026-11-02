@@ -15,10 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/hint"
-	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
@@ -310,60 +307,6 @@ var fitCases = []fitCase{
 	{"stats-heatmap", statsTab(1)},
 	{"stats-trends", statsTab(2)},
 	{"stats-records", statsTab(3)},
-	{"incident-win", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		ch, inc := longestBoss(a)
-		readyForBoss(a, st, ch)
-		// An earlier win and its ghost, so the win compares with both.
-		hash := engine.Prepare(joined(inc)).Hash
-		addRun(t, st, store.Run{ID: "aaaaaaa", At: daysAgo(clk, 2), Mode: "incident", TextHash: hash, WPM: 30, Accuracy: 0.97,
-			Score: 20, Incident: &store.IncidentResult{Severity: "SEV3", Won: true, SLA: 99.91, MTTRMs: 61000}})
-		n := len(engine.Prepare(joined(inc)).Cells)
-		times := make([]int64, n)
-		for i := range times {
-			times[i] = int64(i+1) * 900
-		}
-		if err := st.SaveGhost(store.Ghost{TextHash: hash, Score: 20, TimesMs: times}); err != nil {
-			t.Fatal(err)
-		}
-		startIncident(t, a, inc, incident.SEV1)
-		typeKeys(a, clk, -1)
-		wantScreen(t, a, "incident-results")
-		wantText(t, a, text.IncidentWon)
-		wantText(t, a, strings.Fields(fmt.Sprintf(text.IncidentPromoted, ""))[0])
-		wantText(t, a, "duch")
-		wantText(t, a, "SEV1")
-	})},
-	{"postmortem", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		ch, boss := longestBoss(a)
-		readyForBoss(a, st, ch)
-		targets := longestHints(a, "ČĎĚŇŘŠŽŤÚŮÝÁÉÍÓÖÜÄ", 5)
-		var steps []string
-		for _, r := range targets {
-			steps = append(steps, string(r)+"x")
-		}
-		inc := content.Incident{ID: boss.ID, Title: boss.Title, Chapter: ch.ID,
-			Steps: []content.Step{{Prompt: "p", Text: strings.Join(steps, " "), Lang: "go"}}}
-		startIncident(t, a, inc, incident.SEV3)
-		keys := ui.RoundKeys(a)
-		i := 0
-		for _, target := range targets {
-			for keys[i] != target {
-				a.Update(key(keys[i]))
-				i++
-			}
-			for range 3 {
-				a.Update(wrongFor(target))
-			}
-		}
-		for ui.ScreenName(a) == "round" { // the last character takes the rest of the budget
-			a.Update(wrongFor(targets[len(targets)-1]))
-		}
-		wantScreen(t, a, "incident-results")
-		for _, r := range targets {
-			wantText(t, a, hint.Text(a.Layout, r))
-		}
-		wantText(t, a, "d drill")
-	})},
 	{"pause", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id, _ := longestLesson(a)
 		ui.SetScreen(a, lessonRound(t, a, id, nil))
@@ -478,18 +421,6 @@ func longestLesson(a *ui.App) (id, title string) {
 		}
 	}
 	return id, title
-}
-
-// longestBoss is the chapter with the longest title that has an incident.
-func longestBoss(a *ui.App) (content.ChapterDef, content.Incident) {
-	var best content.ChapterDef
-	var inc content.Incident
-	for _, ch := range a.Curr.Chapters() {
-		if i, ok := a.Curr.IncidentDef(ch.ID); ok && utf8.RuneCountInString(ch.Title) > utf8.RuneCountInString(best.Title) {
-			best, inc = ch, i
-		}
-	}
-	return best, inc
 }
 
 // longestHints are the n characters of cand whose typing hints read longest.

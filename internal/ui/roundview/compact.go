@@ -7,7 +7,6 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/ui/style"
-	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 const (
@@ -53,7 +52,7 @@ func compact(s style.Style, v View, w, h int) []string {
 
 // compactNumbers joins the numbers on one row of at most w cells. The paused
 // mark stays, and in a narrow window the numbers go from the left, so what
-// matters most in the race and the incident is the last to leave.
+// matters most in the race is the last to leave.
 func compactNumbers(s style.Style, f play.Frame, w int) string {
 	numbers := []string{
 		plain(s, s.Accent).render(wpmText(f.WPM)),
@@ -61,9 +60,6 @@ func compactNumbers(s style.Style, f play.Frame, w int) string {
 	}
 	if f.HasGhost {
 		numbers = append(numbers, plain(s, leadColour(s, f.Lead)).render(leadText(f.Lead)))
-	}
-	if f.HasSLA {
-		numbers = append(numbers, plain(s, slaColour(s, f)).render(text.RoundSLA+" "+slaText(f.SLA)))
 	}
 	if f.Paused {
 		w -= ansi.StringWidth(pausedChip(s)) + 1

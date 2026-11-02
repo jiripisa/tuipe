@@ -1,13 +1,13 @@
-╭─ SLA ────────────╮╭─ PROPUSTNOST ────╮╭─ HEAD~1 ─────────╮
-│ 99.72 %   SLO 99 ││ 62 wpm           ││ +1.4 s           │
-│ ████████████░░░░ ││          ▁▃▁▅█▇▄ ││ série 59  98.1 % │
+╭─ POSTUP ─────────╮╭─ PROPUSTNOST ────╮╭─ HEAD~1 ─────────╮
+│ 46 %    59 / 128 ││ 62 wpm           ││ +1.4 s           │
+│ ███████░░░░░░░░░ ││          ▁▃▁▅█▇▄ ││ série 59  98.1 % │
 ╰──────────────────╯╰──────────────────╯╰──────────────────╯
-╭─ INC-2041 ────────────────── krok 2/3  zbývá 00:47  ★★☆ ─╮
-│ INC-2041  Přihlašovací služba vrací 500. Monitoring to   │
-│ hlásí od rána, zákazníci už volají. Podívej se, co se    │
-│ stalo.                                                   │
+╭─ kapitola 2 / shell  ::  l…─ krok 2/3  zbývá 00:47  ★★☆ ─╮
+│ Přihlašovací služba vrací 500. Monitoring to hlásí od    │
+│ rána, zákazníci už volají. Podívej se, co se stalo.      │
 │ kubectl -n auth get pods | grep -v Running↵              │
 │ kubectl -n auth logs deploy/auth --since=10m↵            │
+│ kubectl -n auth rollout undo deploy/auth                 │
 ╰──────────────────────────────────────────────────────────╯
 ╭─ PŘEHLED ────────────────────────────╮╭─ DALŠÍ ZNAK ─────╮
 │ postup     ████████░░░░░░░░░░  46 %  ││                  │

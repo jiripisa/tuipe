@@ -16,7 +16,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/incident"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -29,7 +28,7 @@ import (
 // PNGs. Without the variable it is skipped.
 //
 // Nothing here is drawn by hand. A simulated typist plays about four weeks of
-// real rounds through the real app on a fake clock, so the ghost, the SLA, the
+// real rounds through the real app on a fake clock, so the ghost, the
 // heatmap and the history on the pictures are what the app computes.
 func TestScreenshots(t *testing.T) {
 	dir := os.Getenv("TUIPE_SHOTS")
@@ -46,7 +45,6 @@ func TestScreenshots(t *testing.T) {
 	s.playWeeks()
 	s.shootRound()
 	s.shootHint()
-	s.shootIncident()
 	s.shootShared()
 	newPlacementShots(t, dir)
 }
@@ -55,12 +53,12 @@ const (
 	shotW, shotH = 80, 24
 	shotLayout   = "macos-czech-qwerty"
 	firstDay     = 8  // October 2026
-	skippedDay   = 29 // a Thursday: the error budget of the last week
+	skippedDay   = 29 // a Thursday: a day without typing
 	lastDay      = 32 // 1 November
 	startWPM     = 34.0
 	wpmPerDay    = 0.9
 	roundsADay   = 3
-	endingWait   = time.Second // longer than the lock on an incident's ending
+	endingWait   = time.Second // the pause before leaving a results screen
 )
 
 // session is the app of the simulated user.
@@ -128,7 +126,6 @@ func (s *session) playWeeks() {
 			s.careerRound()
 		}
 	}
-	s.loseIncident()
 	s.startSnippet("go-1") // the ghost of shootRound
 	s.playRound()
 	s.clk.advance(endingWait)
@@ -142,15 +139,12 @@ func (s *session) careerRound() {
 	ui.SetScreen(s.a, ui.NewHomeScreen(s.a))
 	s.a.Update(enter) // Kariéra
 	s.a.Update(enter) // the selected row
-	if ui.ScreenName(s.a) == "severity" {
-		s.a.Update(enter)
-	}
 	s.playRound()
 	s.clk.advance(endingWait)
 	s.a.Update(esc)
 }
 
-// playRound types the rest of the round, or until an incident is lost.
+// playRound types the rest of the round, or until it ends.
 func (s *session) playRound() {
 	s.a.Update(ui.TickMsg(s.a))
 	for _, r := range ui.RoundKeys(s.a) {
@@ -189,6 +183,14 @@ func (s *session) press(r rune) {
 	}
 	s.clk.advance(gap)
 	s.a.Update(key(r))
+}
+
+// wrongFor is a key that is not expected.
+func wrongFor(expected rune) tea.KeyPressMsg {
+	if expected == 'x' {
+		return key('y')
+	}
+	return key('x')
 }
 
 // typeUpTo types until the cursor stands on the first occurrence of mark in
@@ -269,49 +271,6 @@ func (s *session) shootHint() {
 	s.a.Update(down)
 	s.a.Update(down)
 	s.a.Update(enter) // the pause menu: leave
-}
-
-// shootIncident is a boss incident in its third step, with the SLA burning.
-func (s *session) shootIncident() {
-	inc := s.incident("INC-1011")
-	ui.SetScreen(s.a, ui.NewIncidentScreen(s.a, inc, incident.SEV2, nil))
-	s.a.Update(ui.TickMsg(s.a))
-	s.bad = 2.5
-	s.typeUpTo("http.Error(w,")
-	s.bad = 1
-	s.a.Update(ui.TickMsg(s.a))
-	for _, st := range []style.ID{style.Editor, style.Fosfor, style.Velin} {
-		s.shoot("incident-"+string(st), st)
-	}
-	s.a.Update(esc)
-	s.a.Update(down)
-	s.a.Update(down)
-	s.a.Update(enter)
-}
-
-// loseIncident lets the SLA run out, for the postmortem and a lost run in the
-// history.
-func (s *session) loseIncident() {
-	ui.SetScreen(s.a, ui.NewIncidentScreen(s.a, s.incident("INC-1008"), incident.SEV1, nil))
-	s.wpm, s.bad = s.wpm/2.5, 4
-	s.playRound()
-	s.wpm, s.bad = s.wpm*2.5, 1
-	s.clk.advance(endingWait)
-	if ui.ScreenName(s.a) != "incident-results" {
-		s.t.Fatalf("after the lost incident: %s", ui.ScreenName(s.a))
-	}
-	s.shoot("postmortem", style.Editor)
-	s.a.Update(esc)
-}
-
-func (s *session) incident(id string) content.Incident {
-	for _, inc := range s.a.Lib.Incidents {
-		if inc.ID == id {
-			return inc
-		}
-	}
-	s.t.Fatalf("no incident %s", id)
-	return content.Incident{}
 }
 
 // shootShared draws the screens every style shares.

@@ -169,8 +169,6 @@ func modeLabel(mode string) string {
 		return text.StatsModeLesson
 	case "code":
 		return text.StatsModeCode
-	case "incident":
-		return text.StatsModeIncident
 	case "drill":
 		return text.StatsModeDrill
 	case "practice":
@@ -207,9 +205,6 @@ func (s *statsScreen) gitLog(a *App, rows int) []string {
 			line = paint(st.Accent, true, "> "+line)
 		} else {
 			line = paint(st.Fg, false, "  "+line)
-		}
-		if lostIncident(r) {
-			line += "  " + paint(st.Bad, false, text.StatsLost)
 		}
 		lines = append(lines, line)
 	}
@@ -374,7 +369,6 @@ func charGroup(r rune, route layout.Route) string {
 type series struct{ wpm, acc []float64 }
 
 // trendSeries gathers the daily medians per group over the last 30 active days.
-// Lost incidents are partial, so they are no WPM sample.
 func (s *statsScreen) trendSeries() map[string]series {
 	type day struct{ wpm, acc []float64 }
 	days := map[string]map[string]*day{} // group -> date -> samples
@@ -387,9 +381,7 @@ func (s *statsScreen) trendSeries() map[string]series {
 			d = &day{}
 			days[group][date] = d
 		}
-		if !lostIncident(r) {
-			d.wpm = append(d.wpm, r.WPM)
-		}
+		d.wpm = append(d.wpm, r.WPM)
 		d.acc = append(d.acc, r.Accuracy*100)
 	}
 	for _, r := range s.runs {
@@ -521,7 +513,7 @@ func sessionLabel(session string) string {
 
 // recordRow is a personal best category: a run belongs to the one of its
 // session (quick run, Standup, Sprint) and to the one of its mode (lesson,
-// code, incident).
+// code).
 type recordRow struct {
 	label string
 	has   func(store.Run) bool
@@ -531,13 +523,11 @@ var recordRows = []recordRow{
 	{text.StatsSessionQuick, func(r store.Run) bool { return sessionOfRun(r) == sessionQuick }},
 	{text.StatsModeLesson, func(r store.Run) bool { return r.Mode == "lesson" }},
 	{text.StatsModeCode, func(r store.Run) bool { return r.Mode == "code" }},
-	{text.StatsModeIncident, func(r store.Run) bool { return r.Mode == "incident" }},
 	{text.StatsSessionStandup, func(r store.Run) bool { return sessionOfRun(r) == sessionStandup }},
 	{text.StatsSessionSprint, func(r store.Run) bool { return sessionOfRun(r) == sessionSprint }},
 }
 
-// records lists the best run of each category by Score. Paused runs and lost
-// incidents do not count.
+// records lists the best run of each category by Score. Paused runs do not count.
 func (s *statsScreen) records(a *App) []string {
 	st := a.Style
 	var out []string
@@ -545,7 +535,7 @@ func (s *statsScreen) records(a *App) []string {
 		var best *store.Run
 		for i := range s.runs {
 			r := &s.runs[i]
-			if r.Paused || lostIncident(*r) || !row.has(*r) {
+			if r.Paused || !row.has(*r) {
 				continue
 			}
 			if best == nil || r.Score > best.Score {

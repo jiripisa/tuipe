@@ -772,20 +772,6 @@ func TestCtrlRCarriesFocusKnowledge(t *testing.T) {
 	}
 }
 
-func lastLessonOf(t *testing.T, a *ui.App, withIncident bool) (chapter, lesson string) {
-	t.Helper()
-	for _, ch := range a.Curr.Chapters() {
-		if len(ch.Lessons) == 0 {
-			continue
-		}
-		if _, has := a.Curr.IncidentDef(ch.ID); has == withIncident {
-			return ch.ID, ch.Lessons[len(ch.Lessons)-1].ID
-		}
-	}
-	t.Fatal("no such chapter")
-	return "", ""
-}
-
 func syntheticResult(stars int) play.Result {
 	return play.Result{
 		Stars: stars, Text: engine.Prepare("ab"),
@@ -795,19 +781,28 @@ func syntheticResult(stars int) play.Result {
 
 func TestFinishCompletesAChapterOnItsLastLessonOnly(t *testing.T) {
 	a, st, _ := playApp(t)
-	chapter, last := lastLessonOf(t, a, false)
+	ch := a.Curr.Chapters()[1]
+	if len(ch.Lessons) < 2 {
+		t.Fatalf("chapter %s has %d lessons, want at least 2", ch.ID, len(ch.Lessons))
+	}
+	if _, err := a.Finish(play.Spec{LessonID: ch.Lessons[0].ID, Kind: play.KindLesson}, syntheticResult(1)); err != nil {
+		t.Fatal(err)
+	}
+	if st.Profile().Completed[ch.ID] {
+		t.Error("a star on the first lesson completed the chapter")
+	}
+	last := ch.Lessons[len(ch.Lessons)-1].ID
+	if _, err := a.Finish(play.Spec{LessonID: last, Kind: play.KindLesson}, syntheticResult(0)); err != nil {
+		t.Fatal(err)
+	}
+	if st.Profile().Completed[ch.ID] {
+		t.Error("a round without a star completed the chapter")
+	}
 	if _, err := a.Finish(play.Spec{LessonID: last, Kind: play.KindLesson}, syntheticResult(1)); err != nil {
 		t.Fatal(err)
 	}
-	if !st.Profile().Completed[chapter] {
-		t.Errorf("chapter %s not completed", chapter)
-	}
-	incChapter, incLast := lastLessonOf(t, a, true)
-	if _, err := a.Finish(play.Spec{LessonID: incLast, Kind: play.KindLesson}, syntheticResult(1)); err != nil {
-		t.Fatal(err)
-	}
-	if st.Profile().Completed[incChapter] {
-		t.Error("a chapter with an incident must wait for the incident")
+	if !st.Profile().Completed[ch.ID] {
+		t.Errorf("chapter %s not completed by a star on its last lesson", ch.ID)
 	}
 }
 

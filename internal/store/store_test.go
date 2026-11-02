@@ -39,7 +39,6 @@ func TestProfileRoundTrip(t *testing.T) {
 	p.Stats["mac-cs"] = st
 	p.Stars["l1"] = 3
 	p.Completed["c1"] = true
-	p.IncidentBest["i1"] = "sev2"
 	p.FirstRunDone = true
 	p.Resume = &Resume{Kind: "lesson", LessonID: "l1", Day: "2026-10-31"}
 	if err := s.SaveProfile(); err != nil {
@@ -66,7 +65,7 @@ func TestRunsAppendAndSkipBrokenLine(t *testing.T) {
 	defer s.Close()
 	delta := int64(-120)
 	r1 := Run{ID: "1", At: time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC), Mode: "lesson", WPM: 40, Accuracy: 97, Stars: 2, GhostDeltaMs: &delta}
-	r2 := Run{ID: "2", At: time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC), Mode: "incident", Incident: &IncidentResult{Severity: "sev1", Won: true, SLA: 99.5, MTTRMs: 4000}}
+	r2 := Run{ID: "2", At: time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC), Mode: "drill"}
 	if err := s.AppendRun(r1); err != nil {
 		t.Fatal(err)
 	}
@@ -475,8 +474,8 @@ func TestGoldenV1ProfileLoads(t *testing.T) {
 	if b := p.Stats["macos-czech-qwerty"].Bigrams["st"]; b == nil || b.Samples != 12 {
 		t.Errorf("bigram entry = %+v", b)
 	}
-	if p.Stars["ch01-01"] != 2 || !p.Completed["ch01"] || p.IncidentBest["INC-1001"] != "SEV2" {
-		t.Errorf("progress = %+v %+v %+v", p.Stars, p.Completed, p.IncidentBest)
+	if p.Stars["ch01-01"] != 2 || !p.Completed["ch01"] {
+		t.Errorf("progress = %+v %+v", p.Stars, p.Completed)
 	}
 	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] ||
 		p.LastUpdateCheck != "2026-10-30" || p.LatestSeen != "v1.0.0" || !p.SkipNoted["user-layout"] {
@@ -537,7 +536,7 @@ func TestSavingKeepsEveryKeyOfTheGoldenProfile(t *testing.T) {
 
 // Every field carries a JSON tag, so that a later rename in Go cannot drop data.
 func TestPersistedStructsHaveJSONTags(t *testing.T) {
-	for _, v := range []any{Profile{}, Resume{}, Run{}, IncidentResult{}, Ghost{}, stats.Stats{}, stats.Entry{}} {
+	for _, v := range []any{Profile{}, Resume{}, Run{}, Ghost{}, stats.Stats{}, stats.Entry{}} {
 		ty := reflect.TypeOf(v)
 		for i := range ty.NumField() {
 			f := ty.Field(i)

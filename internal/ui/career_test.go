@@ -325,7 +325,7 @@ func TestPassingTestOutCompletesChapterWithoutStars(t *testing.T) {
 	if strings.ContainsAny(view(a), "★☆") {
 		t.Errorf("a test-out shows stars:\n%s", view(a))
 	}
-	if !strings.Contains(view(a), fmt.Sprintf(text.IncidentRank, "Intern", "Junior")) {
+	if !strings.Contains(view(a), fmt.Sprintf(text.ResultsRank, "Intern", "Junior")) {
 		t.Errorf("results do not name the new rank:\n%s", view(a))
 	}
 	if !p.Completed[ch.ID] {
@@ -457,22 +457,31 @@ func TestCareerOpensOnTheNextLesson(t *testing.T) {
 	}
 }
 
-func TestCareerOpensOnTheOwedBossWhenNoLessonIsOwed(t *testing.T) {
+func TestCareerListHasNoIncidentRows(t *testing.T) {
 	a, st, _ := playApp(t)
-	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	tall(a)
 	p := st.Profile()
 	chs := a.Curr.Chapters()
 	a.Curr.CompleteChapter(p, chs[0].ID)
 	for _, l := range chs[1].Lessons {
 		p.Stars[l.ID] = 1
 	}
-	if _, ok := a.Curr.NextLesson(p); ok {
-		t.Fatal("precondition: the incident of chapter 1 is owed, no lesson")
-	}
 	openFromHome(t, a, homeCareer, "career")
-	inc, _ := a.Curr.IncidentDef(chs[1].ID)
-	if !strings.Contains(selectedLine(a), inc.ID) {
-		t.Errorf("selected line %q, want the owed incident %s", selectedLine(a), inc.ID)
+	if v := view(a); strings.Contains(v, "INC-") {
+		t.Errorf("the career list shows an incident row:\n%s", v)
+	}
+	// Chapter 1 is done, so the list opens on the first lesson of chapter 2.
+	if want := chs[2].Lessons[0].Title; !strings.Contains(selectedLine(a), want) {
+		t.Errorf("selected line %q, want the next lesson %q", selectedLine(a), want)
+	}
+	for range 60 {
+		a.Update(down)
+		if got := ui.ScreenName(a); got != "career" {
+			t.Fatalf("pressing Down left the list for %s", got)
+		}
+		if strings.Contains(selectedLine(a), "INC-") {
+			t.Fatalf("an incident row was selected: %q", selectedLine(a))
+		}
 	}
 }
 

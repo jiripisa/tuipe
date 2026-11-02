@@ -117,7 +117,6 @@ func (a *App) withReplay(spec play.Spec) (play.Spec, error) {
 type roundScreen struct {
 	spec  play.Spec
 	next  func(*App) Screen
-	story *story        // set for an incident
 	ctl   *roundControl // set when a controller such as the placement test owns the round's end
 	sess  *play.Session
 	gen   int
@@ -287,9 +286,6 @@ func (r *roundScreen) finish(a *App, now time.Time) Screen {
 	if r.ctl != nil {
 		return r.ctl.done(a, r.sess.Result(now), now)
 	}
-	if r.story != nil {
-		return NewIncidentResultsScreen(a, r.sess.Result(now), r.spec, r.story, r.next)
-	}
 	return NewResultsScreen(a, r.sess.Result(now), r.spec, r.next)
 }
 
@@ -321,9 +317,6 @@ func (r *roundScreen) View(a *App, w, h int) string {
 	}
 	if f.AltWarning {
 		v.AltHelp = altHelp()
-	}
-	if r.story != nil {
-		v.Prompt, v.Lang, v.RightInfo = r.story.view(f.Pos, r.sess.Result(r.now).Metrics.Duration)
 	}
 	view := roundview.Render(a.Style, v, w, h)
 	if f.ManualPause {
