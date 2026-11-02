@@ -42,7 +42,7 @@ Použití:
   tuipe                   spustí trenažér
   tuipe upgrade           aktualizuje na nejnovější verzi
   tuipe upgrade --check   jen zjistí, zda je dostupná novější verze
-  tuipe reset --score     smaže postup, historii kol a duchy
+  tuipe reset --score     smaže postup a historii kol
   tuipe reset --settings  smaže nastavení a vlastní rozložení klávesnice
   tuipe reset --all       smaže obojí, jako by tuipe běžel poprvé
   tuipe version           vypíše verzi
@@ -134,7 +134,7 @@ const (
 	ResultsAccuracy = "přes."
 	ResultsTime     = "čas  "
 	ResultsStars    = "hvězdy"
-	ResultsPaused   = "pauza: kolo se nezapisuje do ducha"
+	ResultsPaused   = "pauza: kolo se nesrovnává s dřívějšími"
 	ResultsHintUsed = "nápověda použita: třetí hvězda není možná"
 	ResultsNoStars  = "bez hvězdy"
 

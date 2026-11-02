@@ -18,7 +18,7 @@ import (
 // ResetScope says what `tuipe reset` removes.
 type ResetScope struct {
 	Settings bool // settings and the user's layouts
-	Score    bool // progress, history and ghosts
+	Score    bool // progress and history
 }
 
 // Only what tuipe wrote is removed, so a folder shared with anything else
