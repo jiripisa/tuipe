@@ -325,7 +325,7 @@ func TestPassingTestOutCompletesChapterWithoutStars(t *testing.T) {
 	if strings.ContainsAny(view(a), "★☆") {
 		t.Errorf("a test-out shows stars:\n%s", view(a))
 	}
-	if !strings.Contains(view(a), fmt.Sprintf(text.ResultsRank, "Intern", "Junior")) {
+	if !strings.Contains(view(a), fmt.Sprintf(text.ResultsRank, "Junior")) {
 		t.Errorf("results do not name the new rank:\n%s", view(a))
 	}
 	if !p.Completed[ch.ID] {

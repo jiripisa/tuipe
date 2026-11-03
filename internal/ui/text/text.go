@@ -143,7 +143,7 @@ const (
 	ResultsNoStars  = "bez hvězdy"
 
 	ResultsChapterClosed = "Kapitola „%s“ uzavřena. Nikdo nepanikaří."
-	ResultsRank          = "Hodnost: %s → %s. HR byla informována."
+	ResultsRank          = "Nová hodnost: %s"
 )
 
 // Labels of the round screen. wpm is the app's own term.

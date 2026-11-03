@@ -212,7 +212,7 @@ func NewResultsScreen(a *App, r play.Result, spec play.Spec, next func(*App) Scr
 		}
 	}
 	if after := a.Curr.RankOf(p); after != rank {
-		s.rank = fmt.Sprintf(text.ResultsRank, rank, after)
+		s.rank = fmt.Sprintf(text.ResultsRank, after)
 	}
 	return s
 }

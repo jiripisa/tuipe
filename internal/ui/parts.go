@@ -101,7 +101,7 @@ func newPartResults(a *App, part lessonPart, spec play.Spec, res play.Result) Sc
 		stars: spec.Kind == play.KindTest, missed: res.Missed(missedShown),
 	}
 	if after := a.Course.Rank(stars); after > before {
-		s.rank = fmt.Sprintf(text.ResultsRank, before, after)
+		s.rank = fmt.Sprintf(text.ResultsRank, after)
 	}
 	return s
 }

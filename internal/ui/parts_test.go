@@ -446,18 +446,19 @@ func TestRankLineOnPromotion(t *testing.T) {
 	id := firstTeachLesson
 	starsBelow(t, a, st, id, course.Junior)
 	playPart(t, a, clk, id, partTest)
-	showsAll(t, a, fmt.Sprintf(text.ResultsRank, course.Intern, course.Junior))
+	showsAll(t, a, "Nová hodnost: Junior")
+	showsNone(t, a, "Intern", "HR")
 
 	a.Update(enter)
 	playPart(t, a, clk, id, partTest) // the same stars again: no rise
-	showsNone(t, a, "Hodnost")
+	showsNone(t, a, "Nová hodnost")
 }
 
 func TestTrainingNeverShowsARank(t *testing.T) {
 	a, st, clk := playApp(t)
 	starsBelow(t, a, st, firstTeachLesson, course.Junior)
 	playPart(t, a, clk, firstTeachLesson, partTraining)
-	showsNone(t, a, "Hodnost")
+	showsNone(t, a, "Nová hodnost")
 }
 
 func TestEarlierLessonOpenedLaterStillWorks(t *testing.T) {
