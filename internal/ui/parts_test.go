@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -261,15 +262,31 @@ func TestResultsCompareWithLastAndBest(t *testing.T) {
 	playPart(t, a, clk, id, partTest)
 	runs := runsOf(t, st)
 	cpm := math.Round(5 * runs[len(runs)-1].WPM)
+	if cpm <= 200 || cpm >= 400 {
+		t.Fatalf("the round ran at %.0f zn/min, between last and best was expected", cpm)
+	}
 	showsAll(t, a,
-		text.PartCompare(cpm-200, 5, text.PartVsLast),
-		text.PartCompare(cpm-400, 1, text.PartVsBest),
-		fmt.Sprintf("%+.0f zn/min oproti minule", cpm-200),
-		fmt.Sprintf("%.0f zn/min oproti nejlepšímu", cpm-400),
+		text.PartNow, text.PartLast, text.PartBest,
+		"200", "400", "95,0 %", "99,0 %",
+		text.PartDelta(cpm-200, false), text.PartDelta(cpm-400, false),
+		text.PartDelta(5, true), text.PartDelta(1, true),
+		text.PartFaster,
 	)
-	for _, old := range []string{"+++", "---", "HEAD~1", "/dev/null", runs[len(runs)-1].ID} {
+	if !strings.HasPrefix(text.PartDelta(cpm-200, false), "▲ +") || !strings.HasPrefix(text.PartDelta(cpm-400, false), "▼ ") {
+		t.Errorf("deltas %q and %q do not point the right way", text.PartDelta(cpm-200, false), text.PartDelta(cpm-400, false))
+	}
+	for _, old := range []string{"+++", "---", "HEAD~1", "/dev/null", "p. b.", "oproti", runs[len(runs)-1].ID, text.PartRecord} {
 		showsNone(t, a, old)
 	}
+}
+
+func TestResultsAnnounceANewRecord(t *testing.T) {
+	a, st, clk := playApp(t)
+	id := firstTeachLesson
+	addRun(t, st, store.Run{ID: "old", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 20, Accuracy: 0.9, Score: 18})
+	playPart(t, a, clk, id, partTest)
+	showsAll(t, a, text.PartRecord)
+	showsNone(t, a, text.PartFaster, text.PartSlower, text.PartSame)
 }
 
 func TestResultsCompareTheSameLength(t *testing.T) {
@@ -278,14 +295,14 @@ func TestResultsCompareTheSameLength(t *testing.T) {
 	addRun(t, st, store.Run{ID: "long", At: daysAgo(clk, 1), Mode: store.ModeTraining, Length: "long", LessonID: id, WPM: 40, Accuracy: 1, Score: 40})
 	addRun(t, st, store.Run{ID: "test", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 40, Accuracy: 1, Score: 40})
 	playPart(t, a, clk, id, partTraining) // střední
-	showsNone(t, a, text.PartVsLast, text.PartVsBest)
+	showsNone(t, a, text.PartLast, text.PartBest)
 }
 
 func TestResultsOfFirstAttempt(t *testing.T) {
 	for _, row := range []int{partTraining, partTest} {
 		a, _, clk := playApp(t)
 		playPart(t, a, clk, firstTeachLesson, row)
-		showsNone(t, a, text.PartVsLast, text.PartVsBest, "zn/min oproti")
+		showsNone(t, a, text.PartNow, text.PartLast, text.PartBest, text.PartRecord, text.PartFaster, text.PartSlower, text.PartSame, "▲", "▼")
 		showsAll(t, a, text.PartSpeed, text.PartAccuracy, text.PartTime, "zn/min")
 	}
 }
@@ -304,7 +321,8 @@ func TestSecondAttemptComparesWithTheFirst(t *testing.T) {
 	if diff >= 0 {
 		t.Fatalf("the slower run compares as %.0f", diff)
 	}
-	showsAll(t, a, text.PartCompare(diff, 0, text.PartVsLast), text.PartCompare(diff, 0, text.PartVsBest))
+	showsAll(t, a, text.PartSlower, text.PartDelta(diff, false), text.PartDelta(0, true))
+	showsNone(t, a, text.PartRecord, text.PartFaster)
 }
 
 func TestPausedRunIsNeverBest(t *testing.T) {
@@ -318,12 +336,12 @@ func TestPausedRunIsNeverBest(t *testing.T) {
 	clk.advance(time.Minute)
 	a.Update(esc)
 	finishRound(t, a, clk, typingStep)
-	showsAll(t, a, text.ResultsPaused, text.PartVsLast)
-	showsNone(t, a, text.PartVsBest) // nothing earlier counts as best
+	showsAll(t, a, text.ResultsPaused, text.PartLast)
+	showsNone(t, a, text.PartBest, text.PartRecord) // nothing earlier counts as best
 
 	a.Update(enter)
 	playPart(t, a, clk, id, partTest)
-	showsNone(t, a, text.PartVsBest, text.ResultsPaused) // nor does the paused round above
+	showsNone(t, a, text.PartBest, text.ResultsPaused, text.PartRecord) // nor does the paused round above
 }
 
 func TestResultsListMissedCharacters(t *testing.T) {
@@ -345,7 +363,7 @@ func TestResultsListMissedCharacters(t *testing.T) {
 			t.Fatalf("%q was missed %d times too few", r, n)
 		}
 	}
-	showsAll(t, a, text.PartMissedList([]rune{' ', 'd', 'k'}), "mezera, d, k")
+	showsAll(t, a, text.PartMissed, text.PartMissedList([]rune{' ', 'd', 'k'}), "mezera · d · k")
 	showsNone(t, a, "§")
 }
 
@@ -377,7 +395,7 @@ func TestRRepeatsWithNewText(t *testing.T) {
 		if got := len(runsOf(t, st)); got != 2 {
 			t.Errorf("row %d: %d runs", row, got)
 		}
-		showsAll(t, a, text.PartVsLast)
+		showsAll(t, a, text.PartLast)
 	}
 }
 
@@ -534,40 +552,74 @@ func finishedWithHistory(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 func TestResultsShedRowsInOrder(t *testing.T) {
 	a, st, clk := playApp(t)
 	finishedWithHistory(t, a, st, clk)
-	showsAll(t, a, text.PartVsLast, text.PartVsBest, text.PartMissed, text.PartTime)
+	runs := runsOf(t, st)
+	cpm := math.Round(5 * runs[len(runs)-1].WPM)
+	arrows := []string{text.PartDelta(cpm-150, false), text.PartDelta(cpm-200, false)} // minule 30, nejlepší 40 wpm
+	everything := append([]string{text.PartRecord, text.PartNow, text.PartMissed, text.PartTime}, arrows...)
 
-	// The body is seven rows and two gaps, and the frame takes three more.
+	// The body is eleven rows: the verdict, a gap, the table of seven rows, a gap
+	// and the missed characters. The frame takes three more.
+	frame := func(r rune) bool { return unicode.IsSpace(r) || strings.ContainsRune("│┃║|", r) }
 	blank := func() int {
 		lines := strings.Split(screen(a), "\n")
 		n := 0
 		for _, l := range lines[1 : len(lines)-2] {
-			if strings.IndexFunc(l, unicode.IsLetter) < 0 {
+			if strings.IndexFunc(l, func(r rune) bool { return !frame(r) }) < 0 {
 				n++
 			}
 		}
 		return n
 	}
-	a.Update(tea.WindowSizeMsg{Width: 60, Height: 12})
-	showsAll(t, a, text.PartVsLast, text.PartVsBest)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 14})
+	showsAll(t, a, everything...)
 	if got := blank(); got != 2 {
 		t.Errorf("%d blank rows with room for the gaps:\n%s", got, screen(a))
 	}
 
-	a.Update(tea.WindowSizeMsg{Width: 60, Height: 10}) // the gaps go first
-	showsAll(t, a, text.PartVsLast, text.PartVsBest, text.PartMissed, text.PartTime)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 12}) // the gaps go first
+	showsAll(t, a, everything...)
 	if got := blank(); got != 0 {
 		t.Errorf("%d blank rows in a full window:\n%s", got, screen(a))
 	}
 
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 10}) // then the arrows
+	showsAll(t, a, text.PartRecord, text.PartNow, text.PartMissed, text.PartTime)
+	showsNone(t, a, arrows...)
+
 	a.Update(tea.WindowSizeMsg{Width: 60, Height: 9})
-	showsAll(t, a, text.PartVsLast, text.PartMissed, text.PartTime)
-	showsNone(t, a, text.PartVsBest)
+	showsAll(t, a, text.PartTime)
+	showsNone(t, a, text.PartMissed)
 
 	for _, s := range style.All() {
 		a.Style = s
 		a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
-		showsAll(t, a, text.PartSpeed, text.PartAccuracy, text.PartStars, "★")
-		showsNone(t, a, text.PartVsLast, text.PartVsBest)
+		showsAll(t, a, text.PartSpeed, text.PartAccuracy, text.PartStars, "★", text.PartNow)
+		showsNone(t, a, text.PartTime)
+	}
+}
+
+func TestResultsTableKeepsItsColumns(t *testing.T) {
+	a, st, clk := playApp(t)
+	finishedWithHistory(t, a, st, clk)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	lines := strings.Split(screen(a), "\n")
+	// col is the screen column where value starts, in the row that holds label.
+	col := func(label, value string) int {
+		for _, l := range lines {
+			if strings.Contains(l, label) {
+				if i := strings.Index(l, value); i >= 0 {
+					return utf8.RuneCountInString(l[:i])
+				}
+			}
+		}
+		t.Fatalf("no row with %q and %q:\n%s", label, value, screen(a))
+		return 0
+	}
+	if col(text.PartNow, text.PartLast) != col(text.PartSpeed, "150") || col(text.PartNow, text.PartBest) != col(text.PartSpeed, "200") {
+		t.Errorf("the speed row is not under its headers:\n%s", screen(a))
+	}
+	if col(text.PartNow, text.PartLast) != col(text.PartAccuracy, "80,0 %") {
+		t.Errorf("the accuracy row is not under its headers:\n%s", screen(a))
 	}
 }
 

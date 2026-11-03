@@ -380,7 +380,7 @@ var fitCases = []fitCase{
 		worstRound(t, a, clk)
 		wantText(t, a, "Principal")
 		wantText(t, a, text.ResultsPaused)
-		wantText(t, a, text.PartVsBest)
+		wantText(t, a, text.PartBest)
 		wantText(t, a, text.PartMissed)
 	})},
 	{"results-training", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
@@ -390,7 +390,7 @@ var fitCases = []fitCase{
 		openPart(t, a, id, partTraining)
 		worstRound(t, a, clk)
 		wantText(t, a, text.ResultsPaused)
-		wantText(t, a, text.PartVsBest)
+		wantText(t, a, text.PartBest)
 		wantText(t, a, text.PartMissed)
 	})},
 	{"lessons", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {

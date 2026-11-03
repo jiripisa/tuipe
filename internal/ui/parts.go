@@ -21,7 +21,8 @@ import (
 
 const (
 	missedShown = 3  // characters the results name as missed most
-	figureLabel = 10 // width of the labels of the figures on the results
+	figureLabel = 13 // width of the labels of the figures on the results
+	figureCell  = 10 // width of a column of the results table
 )
 
 // trainingSpec is a Trénink of a lesson on new text. It has no targets: stars
@@ -122,15 +123,15 @@ func (s *partResults) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return s, nil
 }
 
-// What goes when the window is short, first to last. The speed, the accuracy
-// and the stars never go.
+// What goes when the window is short, first to last. The head of the table,
+// the speed, the accuracy and the stars never go.
 const (
 	goesGap = iota
-	goesBest
-	goesLast
+	goesArrows
 	goesNote
 	goesMissed
 	goesTime
+	goesVerdict
 	goesRank
 	goesNever
 )
@@ -157,21 +158,100 @@ func fitLines(lines []partLine, rows int) []string {
 	return out
 }
 
-// compareLine says how the run differs from an earlier one, from the figures as
-// they are shown, so that the difference agrees with them.
-func compareLine(run store.Run, was *store.Run, against string) string {
-	accuracy := func(r store.Run) float64 { return math.Round(r.Accuracy*1000) / 10 }
-	cpm := math.Round(score.CPM(run.WPM)) - math.Round(score.CPM(was.WPM))
-	return text.PartCompare(cpm, accuracy(run)-accuracy(*was), against)
+// The figures as they are shown, so that every difference agrees with them.
+func shownCPM(r *store.Run) float64      { return math.Round(score.CPM(r.WPM)) }
+func shownAccuracy(r *store.Run) float64 { return math.Round(r.Accuracy*1000) / 10 }
+
+// column is one earlier attempt the results compare with.
+type column struct {
+	head string
+	run  *store.Run
+}
+
+// columns are the earlier attempts there are: minule, then nejlepší.
+func (s *partResults) columns() []column {
+	var cols []column
+	if s.last != nil {
+		cols = append(cols, column{text.PartLast, s.last})
+	}
+	if s.best != nil {
+		cols = append(cols, column{text.PartBest, s.best})
+	}
+	return cols
+}
+
+// verdict is the line above the table: a new record of speed, or how the speed
+// compares with the last attempt. A paused round never sets a record.
+func (s *partResults) verdict(st style.Style) (string, color.Color) {
+	now := shownCPM(&s.run)
+	switch {
+	case s.best != nil && !s.run.Paused && now > shownCPM(s.best):
+		return text.PartRecord, st.Accent
+	case s.last == nil:
+		return "", nil
+	case now > shownCPM(s.last):
+		return text.PartFaster, st.OK
+	case now < shownCPM(s.last):
+		return text.PartSlower, st.Bad
+	}
+	return text.PartSame, st.Dim
 }
 
 func (s *partResults) View(a *App, w, h int) string {
 	st := a.Style
-	paint := func(col color.Color, t string) string {
-		return st.Base().Foreground(col).Render(ansi.Truncate(t, max(w-3, 1), "…"))
+	fit := func(t string) string { return ansi.Truncate(t, max(w-3, 1), "…") }
+	paint := func(col color.Color, t string) string { return st.Base().Foreground(col).Render(t) }
+	pad := func(t string, n int) string { return t + strings.Repeat(" ", max(n-ansi.StringWidth(t), 1)) }
+	cols := s.columns()
+
+	// row lays out one line of the table: the label, this round, then the
+	// earlier attempts, each in its own column.
+	row := func(label string, now string, earlier []string, colour []color.Color, unit string) string {
+		line := paint(st.Dim, pad(label, figureLabel))
+		cells := append([]string{now}, earlier...)
+		for i, c := range cells {
+			if i < len(cells)-1 || unit != "" {
+				c = pad(c, figureCell)
+			}
+			ink := st.Fg
+			if i == 0 {
+				line += st.Base().Foreground(ink).Bold(true).Render(c)
+				continue
+			}
+			if colour != nil {
+				ink = colour[i-1]
+			}
+			line += paint(ink, c)
+		}
+		if unit != "" {
+			line += paint(st.Dim, unit)
+		}
+		return fit(line)
 	}
-	figure := func(label, value string, col color.Color) string {
-		return paint(st.Dim, fmt.Sprintf("%-*s", figureLabel, label)) + paint(col, value)
+	// arrows is the row under a figure: how this round beats each earlier one.
+	arrows := func(delta func(*store.Run) float64, percent bool) partLine {
+		var cells []string
+		var ink []color.Color
+		for _, c := range cols {
+			d := delta(c.run)
+			cells = append(cells, text.PartDelta(d, percent))
+			switch {
+			case d > 0:
+				ink = append(ink, st.OK)
+			case d < 0:
+				ink = append(ink, st.Bad)
+			default:
+				ink = append(ink, st.Dim)
+			}
+		}
+		return partLine{row("", "", cells, ink, ""), goesArrows}
+	}
+	earlier := func(f func(*store.Run) string) []string {
+		var out []string
+		for _, c := range cols {
+			out = append(out, f(c.run))
+		}
+		return out
 	}
 
 	var lines []partLine
@@ -185,42 +265,57 @@ func (s *partResults) View(a *App, w, h int) string {
 		lines = append(lines, rows...)
 	}
 
-	figures := []partLine{
-		{figure(text.PartSpeed, speedText(&s.run), st.Fg), goesNever},
-		{figure(text.PartAccuracy, text.PartPercent(s.run.Accuracy), st.Fg), goesNever},
-		{figure(text.PartTime, text.PartClock(int(math.Round(float64(s.run.DurationMs)/1000))), st.Fg), goesTime},
+	if v, ink := s.verdict(st); v != "" {
+		block(partLine{fit(paint(ink, v)), goesVerdict})
 	}
+
+	cpm := func(r *store.Run) string { return fmt.Sprintf("%.0f", shownCPM(r)) }
+	accuracy := func(r *store.Run) string { return text.PartPercent(r.Accuracy) }
+	var table []partLine
+	if len(cols) > 0 {
+		heads := earlier(func(*store.Run) string { return "" })
+		for i, c := range cols {
+			heads[i] = c.head
+		}
+		head := row("", text.PartNow, heads, nil, "")
+		// The head is dim, as labels are.
+		table = append(table, partLine{fit(paint(st.Dim, ansi.Strip(head))), goesNever})
+	}
+	if len(cols) > 0 {
+		table = append(table, partLine{row(text.PartSpeed, cpm(&s.run), earlier(cpm), nil, text.PartCPMUnit), goesNever})
+	} else {
+		table = append(table, partLine{row(text.PartSpeed, speedText(&s.run), nil, nil, ""), goesNever})
+	}
+	if len(cols) > 0 {
+		table = append(table, arrows(func(r *store.Run) float64 { return shownCPM(&s.run) - shownCPM(r) }, false))
+	}
+	table = append(table, partLine{row(text.PartAccuracy, accuracy(&s.run), earlier(accuracy), nil, ""), goesNever})
+	if len(cols) > 0 {
+		table = append(table, arrows(func(r *store.Run) float64 { return shownAccuracy(&s.run) - shownAccuracy(r) }, true))
+	}
+	table = append(table, partLine{row(text.PartTime, text.PartClock(int(math.Round(float64(s.run.DurationMs)/1000))), nil, nil, ""), goesTime})
 	if s.stars {
 		line := starBar(s.run.Stars)
 		if s.run.Stars == 0 {
 			line += "  " + text.ResultsNoStars
 		}
-		figures = append(figures, partLine{figure(text.PartStars, line, st.Accent), goesNever})
+		table = append(table, partLine{fit(paint(st.Dim, pad(text.PartStars, figureLabel)) + paint(st.Accent, line)), goesNever})
 	}
-	block(figures...)
-
-	var compare []partLine
-	if s.last != nil {
-		compare = append(compare, partLine{paint(st.Fg, compareLine(s.run, s.last, text.PartVsLast)), goesLast})
-	}
-	if s.best != nil {
-		compare = append(compare, partLine{paint(st.Fg, compareLine(s.run, s.best, text.PartVsBest)), goesBest})
-	}
-	block(compare...)
+	block(table...)
 
 	if len(s.missed) > 0 {
-		block(partLine{paint(st.Fg, text.PartMissedList(s.missed)), goesMissed})
+		block(partLine{fit(paint(st.Dim, pad(text.PartMissed, figureLabel)) + paint(st.Fg, text.PartMissedList(s.missed))), goesMissed})
 	}
 
 	var notes []partLine
 	if s.rank != "" {
-		notes = append(notes, partLine{paint(st.Accent, s.rank), goesRank})
+		notes = append(notes, partLine{fit(paint(st.Accent, s.rank)), goesRank})
 	}
 	if s.run.Paused {
-		notes = append(notes, partLine{paint(st.Dim, text.ResultsPaused), goesNote})
+		notes = append(notes, partLine{fit(paint(st.Dim, text.ResultsPaused)), goesNote})
 	}
 	if s.note != "" {
-		notes = append(notes, partLine{paint(st.Dim, s.note), goesNote})
+		notes = append(notes, partLine{fit(paint(st.Dim, s.note)), goesNote})
 	}
 	block(notes...)
 

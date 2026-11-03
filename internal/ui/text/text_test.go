@@ -34,18 +34,21 @@ func TestOfferPassedAgreesWithItsNumber(t *testing.T) {
 	}
 }
 
-func TestPartCompare(t *testing.T) {
+func TestPartDeltaShowsDirectionAndSize(t *testing.T) {
 	for _, c := range []struct {
-		cpm, points float64
-		against     string
-		want        string
+		v       float64
+		percent bool
+		want    string
 	}{
-		{12, 1.5, text.PartVsLast, "+12 zn/min oproti minule · přesnost +1,5 p. b."},
-		{-30, -0.4, text.PartVsBest, "-30 zn/min oproti nejlepšímu · přesnost -0,4 p. b."},
-		{0, 0, text.PartVsLast, "0 zn/min oproti minule · přesnost 0 p. b."},
+		{68, false, "▲ +68"},
+		{-12, false, "▼ −12"},
+		{0, false, "= 0"},
+		{0.8, true, "▲ +0,8 %"},
+		{-0.7, true, "▼ −0,7 %"},
+		{0, true, "= 0 %"},
 	} {
-		if got := text.PartCompare(c.cpm, c.points, c.against); got != c.want {
-			t.Errorf("PartCompare(%v, %v) = %q, want %q", c.cpm, c.points, got, c.want)
+		if got := text.PartDelta(c.v, c.percent); got != c.want {
+			t.Errorf("PartDelta(%v, %v) = %q, want %q", c.v, c.percent, got, c.want)
 		}
 	}
 }
@@ -65,7 +68,7 @@ func TestPartFigures(t *testing.T) {
 }
 
 func TestPartMissedListNamesWhatCannotBeSeen(t *testing.T) {
-	want := text.PartMissed + ": mezera, Enter, čárka"
+	want := "mezera · Enter · čárka"
 	if got := text.PartMissedList([]rune{' ', '\n', ','}); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

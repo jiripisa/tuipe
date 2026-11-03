@@ -3,6 +3,7 @@ package text
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -400,8 +401,17 @@ const (
 	PartTime     = "Čas"
 	PartStars    = "Hvězdy"
 	PartMissed   = "Nejvíc chyb"
-	PartVsLast   = "oproti minule"
-	PartVsBest   = "oproti nejlepšímu"
+	// The columns of the results: this round, the last one and the best one.
+	PartNow  = "teď"
+	PartLast = "minule"
+	PartBest = "nejlepší"
+	// PartCPMUnit follows the speeds of the table.
+	PartCPMUnit = "zn/min"
+	// The verdict above the results, on speed.
+	PartRecord = "★ Nový rekord rychlosti"
+	PartFaster = "▲ Rychlejší než minule"
+	PartSlower = "▼ Pomalejší než minule"
+	PartSame   = "= Stejně rychle jako minule"
 	// PartNotReady is shown when the text of a round cannot be made.
 	PartNotReady    = "Text tohoto kola se nepodařilo připravit."
 	HintPartResults = "Enter zpět · R znovu · Ctrl+T styl"
@@ -420,24 +430,26 @@ func PartClock(seconds int) string {
 	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
 }
 
-// PartMissedList names the characters missed most.
-func PartMissedList(chars []rune) string { return PartMissed + ": " + charNames(chars) }
+// PartMissedList names the characters missed most, such as "h · mezera · e".
+func PartMissedList(chars []rune) string {
+	return strings.ReplaceAll(charNames(chars), ", ", " · ")
+}
 
-// PartCompare says how a round differs from an earlier one, in characters per
-// minute and percentage points of accuracy; against is PartVsLast or PartVsBest.
-func PartCompare(cpm, points float64, against string) string {
-	speed := fmt.Sprintf("%.0f", cpm)
-	if cpm > 0 {
-		speed = "+" + speed
+// PartDelta is how much this round beats an earlier one, with an arrow: up when
+// it is better, down when worse. Speed is whole characters per minute; with
+// percent it is accuracy in percent with one decimal place.
+func PartDelta(v float64, percent bool) string {
+	size, unit := fmt.Sprintf("%.0f", math.Abs(v)), ""
+	if percent {
+		size, unit = decimal(math.Abs(v)), " %"
 	}
-	accuracy := "0"
-	if points != 0 {
-		accuracy = decimal(points)
-		if points > 0 {
-			accuracy = "+" + accuracy
-		}
+	switch {
+	case v > 0:
+		return "▲ +" + size + unit
+	case v < 0:
+		return "▼ −" + size + unit
 	}
-	return fmt.Sprintf("%s zn/min %s · přesnost %s p. b.", speed, against, accuracy)
+	return "= 0" + unit
 }
 
 // decimal writes v with one decimal place and a Czech decimal comma.
