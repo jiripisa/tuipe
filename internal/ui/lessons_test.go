@@ -262,6 +262,20 @@ func TestListMarksRecommended(t *testing.T) {
 	}
 }
 
+// A lesson both begun and recommended says doporučeno first, so a window of 60
+// columns, which cuts the end of the row, still shows it.
+func TestListKeepsRecommendedInNarrowWindows(t *testing.T) {
+	a, st, _ := playApp(t)
+	id := a.Course.Lessons()[0].ID
+	st.Profile().Recommended = id
+	st.Profile().Taught[id] = true
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	openLessons(a)
+	if line := lineWith(t, a, "> "); !strings.Contains(line, text.LessonRecommended) {
+		t.Errorf("row %q lacks %q", line, text.LessonRecommended)
+	}
+}
+
 func TestListStartsAtTheNextLesson(t *testing.T) {
 	a, st, _ := playApp(t)
 	ls := a.Course.Lessons()

@@ -234,18 +234,19 @@ func (l *lessonsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 
 // status is what the right-hand side of a lesson row says: for a lesson with
 // a star, the speed of the best Test, the one its stars come from; else whether
-// the lesson is recommended or begun.
+// the lesson is recommended or begun. Recommended comes first, so a narrow
+// window that cuts the end of the row still shows it.
 func (l *lessonsScreen) status(p *store.Profile, ls course.Lesson) string {
 	rec := l.recs[ls.ID]
 	if best := rec.Best["test"]; best != nil && rec.Grade.Total() > 0 {
 		return speedText(best)
 	}
 	var parts []string
-	if p.Taught[ls.ID] || len(rec.Last) > 0 {
-		parts = append(parts, text.LessonStarted)
-	}
 	if p.Recommended == ls.ID {
 		parts = append(parts, text.LessonRecommended)
+	}
+	if p.Taught[ls.ID] || len(rec.Last) > 0 {
+		parts = append(parts, text.LessonStarted)
 	}
 	return strings.Join(parts, " · ")
 }
