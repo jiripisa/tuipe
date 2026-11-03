@@ -2,18 +2,15 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"slices"
 	"strings"
 	"time"
 	"unicode"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/course"
-	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -200,7 +197,10 @@ func (t *teachScreen) View(a *App, w, h int) string {
 		body[i] = " " + l
 	}
 
-	title := fmt.Sprintf(text.TeachTitle, max(t.step+1, 0), len(t.tut.Lines), t.lesson.Title)
+	title := fmt.Sprintf(text.TeachTitleExplain, t.lesson.Title)
+	if t.step != explainStep {
+		title = fmt.Sprintf(text.TeachTitle, t.step+1, len(t.tut.Lines), t.lesson.Title)
+	}
 	return style.Frame(st, w, h, title, strings.Join(body, "\n"), t.footer(a, w-2))
 }
 
@@ -220,8 +220,8 @@ func (t *teachScreen) footer(a *App, w int) string {
 }
 
 // currentRows draws the line being typed, wrapped to width cells. A line taller
-// than max rows scrolls to keep the cursor in view.
-func (t *teachScreen) currentRows(st style.Style, width, max int) []string {
+// than limit rows scrolls to keep the cursor in view.
+func (t *teachScreen) currentRows(st style.Style, width, limit int) []string {
 	f := t.sess.Frame(t.now)
 	spans := roundview.WrapSpans(f.Cells, width)
 	cursor := len(spans) - 1
@@ -231,62 +231,13 @@ func (t *teachScreen) currentRows(st style.Style, width, max int) []string {
 			break
 		}
 	}
-	if len(spans) > max {
-		start := min(cursor-1, len(spans)-max)
-		start = slices.Max([]int{start, 0})
-		spans = spans[start:][:max]
+	if len(spans) > limit {
+		start := max(min(cursor-1, len(spans)-limit), 0)
+		spans = spans[start:][:limit]
 	}
 	out := make([]string, len(spans))
 	for i, sp := range spans {
-		var b strings.Builder
-		for c := sp[0]; c < sp[1]; c++ {
-			b.WriteString(teachCell(st, f, c))
-		}
-		out[i] = b.String()
+		out[i] = roundview.Span(st, f, sp[0], sp[1])
 	}
 	return out
-}
-
-// teachCell draws one character of the line: typed, untyped, wrong or under
-// the cursor. A wrong press is the style's bad colour, underlined.
-func teachCell(st style.Style, f play.Frame, i int) string {
-	c := f.Cells[i]
-	fg, bg := st.Fg, st.Bg
-	var bold, underline bool
-	if i < f.Pos {
-		fg = st.OK
-	}
-	if c.Auto || c.R == '\n' {
-		fg = st.Dim
-	}
-	wrong := f.WrongPos[i] && !c.Auto
-	if wrong {
-		fg, underline = st.Bad, true
-		if c.R == ' ' {
-			bg = st.Bad
-		}
-	}
-	if i == f.Pos && !f.Done {
-		fg, bg, bold, underline = st.Bg, st.Accent, true, false
-		if wrong {
-			bg = st.Bad
-		}
-	}
-	return paint(fg, bg, bold, underline, teachGlyph(c))
-}
-
-func paint(fg, bg color.Color, bold, underline bool, s string) string {
-	return lipgloss.NewStyle().Foreground(fg).Background(bg).Bold(bold).Underline(underline).Render(s)
-}
-
-// teachGlyph is what a cell shows: a newline as a mark the user knows to press
-// Enter for, and a tab as its width.
-func teachGlyph(c engine.Cell) string {
-	switch c.R {
-	case '\n':
-		return "↵"
-	case '\t':
-		return "    "
-	}
-	return string(c.R)
 }

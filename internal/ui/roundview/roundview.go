@@ -135,6 +135,15 @@ func wrap(cells []engine.Cell, width int) []row {
 	return rows
 }
 
+// Span draws the cells from..to-1 of a frame as the compact round does: typed
+// cells in the OK colour, untyped ones in the text colour, wrong presses in the
+// bad colour and the cursor as an inverted cell. Other screens that show a line
+// of a round use it, so a change to how the round draws a cell reaches them.
+func Span(s style.Style, f play.Frame, from, to int) string {
+	paint := ink{s: s, f: f, base: typedThen(f, s.OK, s.Fg)}
+	return paint.row(row{from: from, to: to}, s.Bg)
+}
+
 // WrapSpans breaks cells into rows at most width cells wide, as the round does,
 // and returns each row as the half-open range [from, to) of cell indexes.
 func WrapSpans(cells []engine.Cell, width int) [][2]int {

@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -56,7 +57,10 @@ func TestTeachWalksThroughTheLines(t *testing.T) {
 	if ui.TeachStep(a) != -1 {
 		t.Fatalf("step = %d, want the explanation first", ui.TeachStep(a))
 	}
-	showsAll(t, a, tu.Explain[0], fmt.Sprintf("krok 0/%d", len(tu.Lines)), text.HintTeachExplain)
+	showsAll(t, a, tu.Explain[0], text.HintTeachExplain)
+	if strings.Contains(screen(a), "krok") {
+		t.Errorf("the explanation shows a step count:\n%s", screen(a))
+	}
 	a.Update(key('f')) // nothing is typed before Enter
 	if ui.TeachStep(a) != -1 {
 		t.Fatal("a letter left the explanation")
@@ -345,5 +349,31 @@ func TestCourseIsRebuiltWhenTheLayoutChanges(t *testing.T) {
 	}
 	if a.Course == nil || a.Course == before {
 		t.Error("the course was not rebuilt for the new layout")
+	}
+}
+
+func TestTeachMarksTheNextCharacter(t *testing.T) {
+	for _, st := range style.All() {
+		a, _, _ := playApp(t)
+		a.Style = st
+		openTeach(t, a, firstTeachLesson)
+		a.Update(enter)
+		a.Update(key('f')) // "f f f f f f f f": the cursor is on the space at 1, between two letters
+		raw := a.View().Content
+		cells := strings.Split(raw, "\n")
+		var row string
+		for _, l := range cells {
+			if strings.Contains(ansi.Strip(l), "f f f f") {
+				row = l
+			}
+		}
+		if row == "" {
+			t.Fatalf("%s: no line in the view", st.ID)
+		}
+		// The cursor cell is drawn on the accent colour, no other cell of the line is.
+		accent := "48;" + colourParam(st.Accent)
+		if n := strings.Count(row, accent); n != 1 {
+			t.Errorf("%s: %d cells on the accent background, want the cursor only", st.ID, n)
+		}
 	}
 }
