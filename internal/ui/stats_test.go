@@ -710,6 +710,21 @@ func TestHistoryShowsStarsOnATestOnly(t *testing.T) {
 	}
 }
 
+// A Test of a lesson that is not in the course, such as one a layout skips,
+// has no targets to be graded against, so its row shows no stars.
+func TestHistoryShowsNoStarsForALessonOutsideTheCourse(t *testing.T) {
+	a, st, clk := statsApp(t, 100, 30)
+	addRun(t, st, store.Run{ID: "x", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: "ch99-99", WPM: 30, Accuracy: 0.9})
+	openStats(t, a)
+	lines := historyLines(screen(a))
+	if len(lines) != 1 {
+		t.Fatalf("lines = %q", lines)
+	}
+	if strings.ContainsAny(lines[0], "★☆") {
+		t.Errorf("a Test of an unknown lesson shows stars: %q", lines[0])
+	}
+}
+
 // Code chapters train everything at once, so neither letters nor any other
 // group of keys is the right place for them.
 func TestCodeChaptersHaveATrendOfTheirOwn(t *testing.T) {

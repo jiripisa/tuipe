@@ -246,11 +246,12 @@ const (
 // runLine is a run as a plain line: date, part, speed, accuracy, stars, and
 // last what was typed: the length of a Trénink and the lesson. Only a Test has
 // stars, both rows; the other parts judge nothing and leave the column blank,
-// as does a paused Test, which never counts.
+// as does a paused Test, which never counts, and a Test of a lesson that is not
+// in the course, which has no targets to be graded against.
 func (s *statsScreen) runLine(r store.Run) string {
 	stars := strings.Repeat(" ", gradeBarsWidth)
-	if r.Mode == store.ModeTest && !r.Paused {
-		stars = gradeBars(gradeOf(&r, s.targets[r.LessonID]))
+	if targets, ok := s.targets[r.LessonID]; ok && r.Mode == store.ModeTest && !r.Paused {
+		stars = gradeBars(gradeOf(&r, targets))
 	}
 	line := fmt.Sprintf("%-*s  %-*s  %*s  %7s  %s", dateCol, r.At.Local().Format("2. 1. 2006"), partCol, modeLabel(r.Mode),
 		speedCol, text.LessonSpeed(score.CPM(r.WPM)), text.PartPercent(r.Accuracy), stars)
