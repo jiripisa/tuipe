@@ -196,7 +196,7 @@ func (p *placementScreen) View(a *App, w, h int) string {
 		}
 		if p.last != nil {
 			body = append(body, "")
-			body = append(body, prose(fmt.Sprintf(text.PlacementPrevOK, p.last.WPM, p.last.Accuracy*100), dim)...)
+			body = append(body, prose(fmt.Sprintf(text.PlacementPrevOK, score.CPM(p.last.WPM), p.last.Accuracy*100), dim)...)
 		}
 		return frame(text.PlacementTitle, body, text.PlacementStageHint)
 	}

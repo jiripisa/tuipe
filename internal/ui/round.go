@@ -15,7 +15,6 @@ const (
 	tickEvery   = 100 * time.Millisecond
 	sampleEvery = time.Second // throughput sample spacing, in active time
 	maxSamples  = 30
-	runIDLen    = 7
 	dateLayout  = "2006-01-02"
 )
 

@@ -213,7 +213,7 @@ func TestSmallWindowsUseTheCompactStrip(t *testing.T) {
 			v := sample("shell")
 			v.Frame.Hint = hintFor('{')
 			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-			for _, want := range []string{"62 wpm", "98.1 %", "logs", v.Frame.Hint.Text} {
+			for _, want := range []string{"310 zn/min", "98.1 %", "logs", v.Frame.Hint.Text} {
 				if !strings.Contains(s, want) {
 					t.Errorf("%s %v lacks %q:\n%s", st.ID, sz, want, s)
 				}
@@ -258,7 +258,7 @@ func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 			}
 			for from, want := range map[int]string{
 				1: "kubectl",       // the text and the cursor always
-				2: "62 wpm",        // then the numbers
+				2: "310 zn/min",    // then the numbers
 				4: "levý Option",   // then the hint
 				5: "Option je Alt", // and last the warning
 			} {
@@ -293,7 +293,7 @@ func TestCompactPausedKeepsTheNumbersAtNarrowestWidth(t *testing.T) {
 		v := sample("shell")
 		v.Frame.Paused = true
 		s := ansi.Strip(roundview.Render(st, v, 40, 8))
-		for _, want := range []string{text.RoundPaused, "62 wpm", "98.1 %"} {
+		for _, want := range []string{text.RoundPaused, "310 zn/min", "98.1 %"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%s lacks %q:\n%s", st.ID, want, s)
 			}
@@ -724,7 +724,7 @@ func TestVelinPanels(t *testing.T) {
 	st := style.ByID(style.Velin)
 	for _, sz := range fullSizes {
 		s := ansi.Strip(roundview.Render(st, sample("hint"), sz[0], sz[1]))
-		for _, want := range []string{text.RoundThroughput, text.RoundPanelStats, text.RoundNextChar, text.RoundWeakest, "{ } ~ \\"} {
+		for _, want := range []string{text.RoundPanelSpeed, text.RoundPanelStats, text.RoundNextChar, text.RoundWeakest, "{ } ~ \\"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%v: lacks %q:\n%s", sz, want, s)
 			}

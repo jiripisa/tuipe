@@ -127,11 +127,11 @@ func velinFirst(s style.Style, f play.Frame, w, h int) []string {
 
 // velinThroughput is the current speed over its recent history.
 func velinThroughput(s style.Style, v View, w, h int) []string {
-	body := []string{plain(s, s.Fg).render(wpmText(v.Frame.WPM))}
+	body := []string{plain(s, s.Fg).render(speedText(v.Frame.WPM))}
 	for _, row := range sparkline(v.Throughput, w-4, h-3) {
 		body = append(body, plain(s, s.OK).render(row))
 	}
-	return box(s, w, h, caption(s, text.RoundThroughput), "", "", body)
+	return box(s, w, h, caption(s, text.RoundPanelSpeed), "", "", body)
 }
 
 // sparkline draws the newest values that fit on the given number of rows, with

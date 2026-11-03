@@ -53,18 +53,25 @@ func modeName(spec play.Spec) string {
 	return store.ModeTest
 }
 
-// runID is the short hash that names a run: 7 hex digits of the time and text.
+// runIDLen is the length of the id that names a run in the storage. It is
+// shown nowhere.
+const runIDLen = 7
+
+// runID is the short hash that names a run in the storage: 7 hex digits of the
+// time and text.
 func runID(at time.Time, textHash string) string {
 	sum := sha256.Sum256([]byte(at.Format(time.RFC3339Nano) + textHash))
 	return hex.EncodeToString(sum[:])[:runIDLen]
 }
 
-// uptime is the streak, with days taken in local time.
-func (a *App) uptime() streak.Status {
-	runs, _ := a.Store.Runs() // a damaged history must not look like a failed save
-	days := make([]string, len(runs))
-	for i, r := range runs {
-		days[i] = r.At.Local().Format(dateLayout)
+// daysInARow is the days practised in a row, with days taken in local time. A
+// Test or a Trénink makes a day; the placement test and Výuka do not.
+func daysInARow(runs []store.Run, now time.Time) streak.Status {
+	var days []string
+	for _, r := range runs {
+		if r.Mode == store.ModeTest || r.Mode == store.ModeTraining {
+			days = append(days, r.At.Local().Format(dateLayout))
+		}
 	}
-	return streak.Compute(days, a.Now().Local().Format(dateLayout))
+	return streak.Compute(days, now.Local().Format(dateLayout))
 }

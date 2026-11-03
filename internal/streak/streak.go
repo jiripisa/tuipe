@@ -1,59 +1,58 @@
-// Package streak computes the "uptime" streak: consecutive days with a
-// finished round, where one missed day per ISO week is forgiven by an error
-// budget. It never reads the clock; the caller passes today.
+// Package streak counts the days practised in a row: consecutive days with a
+// finished round. A day without practice ends the run. It never reads the
+// clock; the caller passes today.
 package streak
 
-import "time"
+import (
+	"sort"
+	"time"
+)
 
 const dateLayout = "2006-01-02"
 
-// Status is the streak as shown to the user.
+// Status is the days in a row as shown to the user.
 type Status struct {
-	Days             int  // active days in the streak
-	ForgivenThisWeek bool // the error budget of today's ISO week is spent
-	ActiveToday      bool
+	Days        int // days in the current run
+	Best        int // the longest run in the whole history
+	ActiveToday bool
 }
 
-type week struct{ year, number int }
-
-func weekOf(d time.Time) week {
-	y, n := d.ISOWeek()
-	return week{y, n}
-}
-
-// Compute walks back from today over the ISO dates (local time) of days with
-// a round. A single missed day between two active days is forgiven once per
-// ISO week and is not counted. Today without a round yet neither counts nor
-// breaks the streak.
+// Compute counts the run of days that ends today, or yesterday when today has
+// no round yet, over the ISO dates (local time) of days with a round, and the
+// longest run anywhere in them.
 func Compute(days []string, today string) Status {
 	now, err := time.Parse(dateLayout, today)
 	if err != nil {
 		return Status{}
 	}
 	active := map[time.Time]bool{}
+	var dates []time.Time
 	for _, s := range days {
-		if d, err := time.Parse(dateLayout, s); err == nil {
+		if d, err := time.Parse(dateLayout, s); err == nil && !active[d] {
 			active[d] = true
+			dates = append(dates, d)
 		}
 	}
 	st := Status{ActiveToday: active[now]}
-	if st.ActiveToday {
-		st.Days = 1
-	}
-	used := map[week]bool{}
+
 	cur := now
-	for {
-		prev := cur.AddDate(0, 0, -1)
-		switch {
-		case active[prev]:
-			cur = prev
-		case active[prev.AddDate(0, 0, -1)] && !used[weekOf(prev)]:
-			used[weekOf(prev)] = true
-			cur = prev.AddDate(0, 0, -1)
-		default:
-			st.ForgivenThisWeek = used[weekOf(now)]
-			return st
-		}
-		st.Days++
+	if !st.ActiveToday {
+		cur = now.AddDate(0, 0, -1) // today without a round yet does not break the run
 	}
+	for active[cur] {
+		st.Days++
+		cur = cur.AddDate(0, 0, -1)
+	}
+
+	sort.Slice(dates, func(i, j int) bool { return dates[i].Before(dates[j]) })
+	run := 0
+	for i, d := range dates {
+		if i > 0 && d.Equal(dates[i-1].AddDate(0, 0, 1)) {
+			run++
+		} else {
+			run = 1
+		}
+		st.Best = max(st.Best, run)
+	}
+	return st
 }

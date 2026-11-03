@@ -97,7 +97,7 @@ func fosforText(s style.Style, f play.Frame, rows []row, above, height int, marg
 func fosforBelow(s style.Style, f play.Frame, col int, altHelp string) []string {
 	lines := []string{""}
 	numbers := []string{
-		plain(s, s.Accent).render(wpmText(f.WPM)),
+		plain(s, s.Accent).render(speedText(f.WPM)),
 		plain(s, s.Accent).render(accuracyText(f)),
 		plain(s, s.Fg).render(text.RoundStreak + " " + strconv.Itoa(streak(f))),
 	}

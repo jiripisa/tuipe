@@ -17,6 +17,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
@@ -277,7 +278,7 @@ func stars(n int) string {
 	return strings.Repeat("★", n) + strings.Repeat("☆", maxStars-n)
 }
 
-func wpmText(v float64) string { return fmt.Sprintf("%.0f %s", v, text.RoundWPM) }
+func speedText(wpm float64) string { return text.LessonSpeed(score.CPM(wpm)) }
 
 // accuracyText leaves the percentage out until a key has been pressed, because
 // 0 % would read as a verdict.

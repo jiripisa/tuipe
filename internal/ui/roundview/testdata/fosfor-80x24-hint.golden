@@ -14,7 +14,7 @@
                http.Error(w, err.Error(), 400)↵
                return↵
 
-       62 wpm   98.1 %   série 379
+       310 zn/min   98.1 %   série 379
 
        { → levý Option + í (pravý prsteník)
              <   +   ě   š   č   ř   ž   ý   á   í   é   =   ´

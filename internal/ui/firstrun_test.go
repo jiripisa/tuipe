@@ -631,9 +631,9 @@ func TestPlacementRunsAreNoOverallTrend(t *testing.T) {
 	if len(overall) != 2 {
 		t.Fatalf("overall rows = %v in\n%s", overall, view(a))
 	}
-	// The placement runs share the day with a 40 wpm Test: the median must be the Test's.
-	if !strings.Contains(overall[0], "40") || strings.Contains(overall[0], "60") {
-		t.Errorf("overall WPM trend = %q, want only the 40 wpm Test", overall[0])
+	// The placement runs share the day with a Test of 200 zn/min: the median must be the Test's.
+	if !strings.Contains(overall[0], "200 zn/min") || strings.Contains(overall[0], "300") {
+		t.Errorf("overall speed trend = %q, want only the Test of 200 zn/min", overall[0])
 	}
 }
 

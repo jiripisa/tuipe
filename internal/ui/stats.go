@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -13,27 +14,42 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
+	"github.com/jiripisa/tuipe/internal/streak"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
 // The tabs of the statistics screen, in the order of text.StatsTabs.
 const (
-	tabGitLog = iota
+	tabHistory = iota
 	tabHeatmap
 	tabTrends
 	tabRecords
 )
 
+// historyFilter picks which runs the history lists. The values index
+// text.StatsFilters.
+type historyFilter int
+
 const (
-	trendDays     = 30 // active days in a trend
-	weakestShown  = 8
-	sparkLevels   = "▁▂▃▄▅▆▇█"
-	statsChrome   = 4 // frame, tab bar and footer rows around the content
-	trendLabelCol = 11
+	filterAll historyFilter = iota
+	filterTraining
+	filterTest
+	filterCount
+)
+
+const (
+	trendDays      = 30 // active days in a trend
+	weakestShown   = 8
+	sparkLevels    = "▁▂▃▄▅▆▇█"
+	statsChrome    = 4 // frame, tab bar and footer rows around the content
+	trendLabelCol  = 11
+	recordLabelCol = 26 // the widest record label and a gap
 )
 
 // trendGroups are the character groups of the trends, in display order. The
@@ -43,27 +59,22 @@ var trendGroups = []string{
 	text.StatsGroupDigits, text.StatsGroupShift, text.StatsGroupOption, text.StatsGroupCode,
 }
 
-// statsScreen shows the history: git log, heatmap, trends and personal bests.
+// statsScreen shows the history, the keyboard map, the trends and the records.
 // The runs are read once when the screen opens.
 type statsScreen struct {
 	from    string // the lesson selected on the list, to return to
 	tab     int
+	filter  historyFilter
 	runs    []store.Run // newest first
-	sel     int         // index into runs
-	up      string
+	shown   []store.Run // the runs the filter lets through, newest first
+	tests   []store.Run // the Tests, newest first: trends and records read these only
+	sel     int         // index into shown
+	days    streak.Status
 	groupOf map[string]string // lesson id -> trend group
 	titles  map[string]string // lesson id -> title
-	log     []logRow          // the git log: day headers and runs
-	logLine map[int]int       // run index -> index of its row in log
 }
 
-// logRow is one line of the git log: a day header (run < 0) or a run.
-type logRow struct {
-	day string
-	run int
-}
-
-// NewStatsScreen opens the statistics on the git log.
+// NewStatsScreen opens the statistics on the history.
 func NewStatsScreen(a *App) Screen { return newStatsScreen(a, "") }
 
 // newStatsScreen is NewStatsScreen that returns to lesson from on the list.
@@ -71,30 +82,34 @@ func newStatsScreen(a *App, from string) Screen {
 	runs, _ := a.Store.Runs() // a damaged history shows as an empty one
 	runs = slices.Clone(runs)
 	sort.SliceStable(runs, func(i, j int) bool { return runs[i].At.After(runs[j].At) })
-	up := a.uptime()
-	s := &statsScreen{from: from, runs: runs, up: uptimeText(up.Days), groupOf: a.lessonGroups(),
-		titles: map[string]string{}, logLine: map[int]int{}}
+	s := &statsScreen{from: from, runs: runs, days: daysInARow(runs, a.Now()), groupOf: a.lessonGroups(),
+		titles: map[string]string{}, tests: runsFor(runs, filterTest)}
 	for _, l := range a.Course.Lessons() {
 		s.titles[l.ID] = l.Title
 	}
-	day := ""
-	for i, r := range runs {
-		if d := r.At.Local().Format(dateLayout); d != day {
-			day = d
-			s.log = append(s.log, logRow{day: d, run: -1})
-		}
-		s.logLine[i] = len(s.log)
-		s.log = append(s.log, logRow{run: i})
-	}
+	s.shown = runsFor(runs, s.filter)
 	return s
 }
 
-// uptimeText reads like a server uptime: "up 1 day", "up 23 days".
-func uptimeText(days int) string {
-	if days == 1 {
-		return text.StatsUptimeDay
+// runsFor keeps the runs the filter lets through: everything, the Tréninky or
+// the Tests. Only the first lists the placement test.
+func runsFor(runs []store.Run, filter historyFilter) []store.Run {
+	var mode string
+	switch filter {
+	case filterTraining:
+		mode = store.ModeTraining
+	case filterTest:
+		mode = store.ModeTest
+	default:
+		return slices.Clone(runs)
 	}
-	return fmt.Sprintf(text.StatsUptimeDays, days)
+	var out []store.Run
+	for _, r := range runs {
+		if r.Mode == mode {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // bodyRows is the number of lines the screen leaves to its content in a window h high.
@@ -122,13 +137,19 @@ func (s *statsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		s.move(-page)
 	case "pgdown":
 		s.move(page)
+	case "f":
+		if s.tab == tabHistory {
+			s.filter = (s.filter + 1) % filterCount
+			s.shown = runsFor(s.runs, s.filter)
+			s.sel = 0
+		}
 	}
 	return s, nil
 }
 
 func (s *statsScreen) move(d int) {
-	if s.tab == tabGitLog {
-		s.sel = max(0, min(s.sel+d, len(s.runs)-1))
+	if s.tab == tabHistory {
+		s.sel = max(0, min(s.sel+d, len(s.shown)-1))
 	}
 }
 
@@ -145,15 +166,15 @@ func (s *statsScreen) View(a *App, w, h int) string {
 			bar = append(bar, dim(" "+name+" "))
 		}
 	}
-	head := strings.Join(bar, " ") + "   " + dim(text.StatsUptime+" "+s.up)
+	head := strings.Join(bar, " ") + "   " + dim(text.StatsDaysInARow(s.days.Days))
 
 	rows := bodyRows(h)
 	var body []string
 	switch {
 	case len(s.runs) == 0:
 		body = []string{dim(text.StatsEmpty)}
-	case s.tab == tabGitLog:
-		body = s.gitLog(a, rows)
+	case s.tab == tabHistory:
+		body = s.history(a, w-2, rows)
 	case s.tab == tabHeatmap:
 		body = s.heatmap(a, w-2, rows)
 	case s.tab == tabTrends:
@@ -185,44 +206,61 @@ func modeLabel(mode string) string {
 	return mode
 }
 
-// gitLog lists the runs newest first, one line each under a dim header per
-// day, scrolled so that the selected run stays in view.
-func (s *statsScreen) gitLog(a *App, rows int) []string {
+// history lists the filtered runs newest first, one plain line each, scrolled
+// so that the selected run stays in view. The first row names the filter.
+func (s *statsScreen) history(a *App, w, rows int) []string {
 	st := a.Style
 	paint := func(col color.Color, bold bool, t string) string {
 		return st.Base().Foreground(col).Bold(bold).Render(t)
 	}
-	top, end := 0, len(s.log)
-	if rows > 0 && end > rows {
-		top = min(max(s.logLine[s.sel]-rows/2, 0), end-rows)
-		end = top + rows
+	out := []string{paint(st.Dim, false, text.StatsFilterLabel+": "+text.StatsFilters[s.filter])}
+	if len(s.shown) == 0 {
+		return append(out, paint(st.Dim, false, text.StatsNoRuns))
 	}
-	var lines []string
-	for _, row := range s.log[top:end] { // only the visible window is rendered
-		if row.run < 0 {
-			lines = append(lines, paint(st.Dim, false, row.day))
-			continue
-		}
-		r := s.runs[row.run]
-		line := s.runLine(r)
-		if row.run == s.sel {
-			line = paint(st.Accent, true, "> "+line)
+	top, end := 0, len(s.shown)
+	if room := rows - 1; room > 0 && end > room {
+		top = min(max(s.sel-room/2, 0), end-room)
+		end = top + room
+	}
+	for i := top; i < end; i++ { // only the visible window is rendered
+		line := s.runLine(s.shown[i])
+		if i == s.sel {
+			line = paint(st.Accent, true, ansi.Truncate("> "+line, w, "…"))
 		} else {
-			line = paint(st.Fg, false, "  "+line)
+			line = paint(st.Fg, false, ansi.Truncate("  "+line, w, "…"))
 		}
-		lines = append(lines, line)
+		out = append(out, line)
 	}
-	return lines
+	return out
 }
 
-// runLine is a run like a git log entry: hash, WPM, accuracy, stars and what
-// was typed.
+// Widths of the columns of a history line: the date, the part and the speed.
+const (
+	dateCol  = 12
+	partCol  = 12
+	speedCol = 11
+)
+
+// runLine is a run as a plain line: date, part, speed, accuracy, stars, and
+// last what was typed: the length of a Trénink and the lesson.
 func (s *statsScreen) runLine(r store.Run) string {
-	line := fmt.Sprintf("%s  %2.0f wpm  %-7s %s", r.ID, r.WPM, fmt.Sprintf("%.1f %%", r.Accuracy*100), starBar(r.Stars))
-	if title := s.titles[r.LessonID]; title != "" {
-		return line + "  " + modeLabel(r.Mode) + ": " + title
+	line := fmt.Sprintf("%-*s  %-*s  %*s  %7s  %s", dateCol, r.At.Local().Format("2. 1. 2006"), partCol, modeLabel(r.Mode),
+		speedCol, text.LessonSpeed(score.CPM(r.WPM)), text.PartPercent(r.Accuracy), starBar(r.Stars))
+	var what []string
+	if r.Mode == store.ModeTraining {
+		for i, name := range text.LessonLengths {
+			if course.Length(i).String() == r.Length {
+				what = append(what, name)
+			}
+		}
 	}
-	return line + "  " + modeLabel(r.Mode)
+	if title := s.titles[r.LessonID]; title != "" {
+		what = append(what, title)
+	}
+	if len(what) == 0 {
+		return line
+	}
+	return line + "  " + text.PartTitle(what...)
 }
 
 // keyOf is the key a character ends on: the last chord of its route.
@@ -367,11 +405,12 @@ func charGroup(r rune, route layout.Route) string {
 }
 
 // series is a trend: one point per active day.
-type series struct{ wpm, acc []float64 }
+type series struct{ speed, acc []float64 }
 
-// trendSeries gathers the daily medians per group over the last 30 active days.
+// trendSeries gathers the daily medians per group over the last 30 days with a
+// Test. Speed is in characters per minute and accuracy a share of 1.
 func (s *statsScreen) trendSeries() map[string]series {
-	type day struct{ wpm, acc []float64 }
+	type day struct{ speed, acc []float64 }
 	days := map[string]map[string]*day{} // group -> date -> samples
 	add := func(group, date string, r store.Run) {
 		if days[group] == nil {
@@ -382,14 +421,12 @@ func (s *statsScreen) trendSeries() map[string]series {
 			d = &day{}
 			days[group][date] = d
 		}
-		d.wpm = append(d.wpm, r.WPM)
-		d.acc = append(d.acc, r.Accuracy*100)
+		d.speed = append(d.speed, score.CPM(r.WPM))
+		d.acc = append(d.acc, r.Accuracy)
 	}
-	for _, r := range s.runs {
+	for _, r := range s.tests { // trends read the Tests only
 		date := r.At.Local().Format(dateLayout)
-		if r.Mode != store.ModePlacement { // a placement test is no everyday typing
-			add(text.StatsGroupOverall, date, r)
-		}
+		add(text.StatsGroupOverall, date, r)
 		if g := s.groupOf[r.LessonID]; g != "" {
 			add(g, date, r)
 		}
@@ -403,14 +440,14 @@ func (s *statsScreen) trendSeries() map[string]series {
 		sort.Strings(dates)
 		var sr series
 		for _, d := range dates {
-			if m, ok := median(byDate[d].wpm); ok {
-				sr.wpm = append(sr.wpm, m)
+			if m, ok := median(byDate[d].speed); ok {
+				sr.speed = append(sr.speed, m)
 			}
 			if m, ok := median(byDate[d].acc); ok {
 				sr.acc = append(sr.acc, m)
 			}
 		}
-		sr.wpm = tail(sr.wpm, trendDays)
+		sr.speed = tail(sr.speed, trendDays)
 		sr.acc = tail(sr.acc, trendDays)
 		out[g] = sr
 	}
@@ -455,7 +492,7 @@ func sparkline(v []float64) string {
 	return b.String()
 }
 
-// trends shows WPM and accuracy over time as sparklines, overall and per group.
+// trends shows speed and accuracy over time as sparklines, overall and per group.
 // Every value carries its unit, so the section titles can go when the window is
 // short.
 func (s *statsScreen) trends(a *App, rows int) []string {
@@ -467,10 +504,10 @@ func (s *statsScreen) trends(a *App, rows int) []string {
 	for _, section := range []struct {
 		title string
 		pick  func(series) []float64
-		last  string
+		last  func(float64) string
 	}{
-		{text.StatsWPM, func(x series) []float64 { return x.wpm }, "%.0f " + text.RoundWPM},
-		{text.StatsAccuracy, func(x series) []float64 { return x.acc }, "%.1f %%"},
+		{text.StatsSpeed, func(x series) []float64 { return x.speed }, text.LessonSpeed},
+		{text.StatsAccuracy, func(x series) []float64 { return x.acc }, text.PartPercent},
 	} {
 		if titled {
 			out = append(out, dim(section.title))
@@ -483,45 +520,36 @@ func (s *statsScreen) trends(a *App, rows int) []string {
 				continue
 			}
 			out = append(out, st.Base().Foreground(st.Fg).Render(
-				line+sparkline(v)+"  "+fmt.Sprintf(section.last, v[len(v)-1])))
+				line+sparkline(v)+"  "+section.last(v[len(v)-1])))
 		}
 	}
 	return out
 }
 
-// recordRow is a personal best category.
-type recordRow struct {
-	label string
-	has   func(store.Run) bool
-}
-
-var recordRows = []recordRow{
-	{text.StatsModeTest, func(r store.Run) bool { return r.Mode == store.ModeTest }},
-}
-
-// records lists the best run of each category by Score. Paused runs do not count.
+// records lists the three plain records: the best speed and the best accuracy
+// of the Tests, and the most days in a row. Paused runs do not count.
 func (s *statsScreen) records(a *App) []string {
 	st := a.Style
-	var out []string
-	for _, row := range recordRows {
-		var best *store.Run
-		for i := range s.runs {
-			r := &s.runs[i]
-			if r.Paused || !row.has(*r) {
-				continue
-			}
-			if best == nil || r.Score > best.Score {
-				best = r
-			}
+	var speed, accuracy float64
+	for _, r := range s.tests {
+		if !r.Paused {
+			speed = max(speed, score.CPM(r.WPM))
+			accuracy = max(accuracy, r.Accuracy)
 		}
-		if best == nil {
-			continue
-		}
-		out = append(out, st.Base().Foreground(st.Fg).Render(fmt.Sprintf("%-*s%2.0f wpm  %.1f %%  %s %.1f",
-			trendLabelCol, row.label, best.WPM, best.Accuracy*100, text.StatsRecordScore, best.Score)))
 	}
-	if len(out) == 0 {
-		return []string{st.Base().Foreground(st.Dim).Render(text.StatsEmpty)}
+	show := func(ok bool, v string) string {
+		if !ok {
+			return text.StatsNoRecord
+		}
+		return v
+	}
+	var out []string
+	for _, row := range [][2]string{
+		{text.StatsRecordSpeed, show(speed > 0, text.LessonSpeed(speed))},
+		{text.StatsRecordAccuracy, show(accuracy > 0, text.PartPercent(accuracy))},
+		{text.StatsRecordDays, show(s.days.Best > 0, strconv.Itoa(s.days.Best))},
+	} {
+		out = append(out, st.Base().Foreground(st.Fg).Render(fmt.Sprintf("%-*s  %s", recordLabelCol, row[0], row[1])))
 	}
 	return out
 }

@@ -32,7 +32,7 @@ func SkippedContent(layout string, lessons int) string {
 }
 
 // Usage is printed by `tuipe help`.
-const Usage = `tuipe - trenažér psaní všemi deseti pro programátory (česká klávesnice QWERTY)
+const Usage = `tuipe - trenažér psaní všemi deseti (česká klávesnice QWERTY)
 
 Použití:
   tuipe                   spustí trenažér
@@ -110,10 +110,9 @@ const (
 	ResultsRank    = "Nová hodnost: %s"
 )
 
-// Labels of the round screen. wpm is the app's own term.
+// Labels of the round screen.
 const (
 	RoundStreak     = "série"
-	RoundWPM        = "wpm"
 	RoundAccuracy   = "přes."
 	RoundTyping     = "PSANÍ"
 	RoundPaused     = "PAUZA"
@@ -133,7 +132,7 @@ const (
 // Panel titles of the Velín layout.
 const (
 	RoundPanelProgress = "POSTUP"
-	RoundThroughput    = "PROPUSTNOST"
+	RoundPanelSpeed    = "RYCHLOST"
 	RoundPanelStats    = "STATISTIKA"
 	RoundPanelOverview = "PŘEHLED"
 	RoundPanelKeyboard = "KLÁVESNICE"
@@ -160,18 +159,32 @@ const (
 
 // More statistics strings.
 const (
-	StatsTitle       = "Statistiky"
-	StatsUptime      = "uptime"
-	StatsUptimeDay   = "up 1 day"
-	StatsUptimeDays  = "up %d days"
-	StatsRecordScore = "skóre"
-	StatsWPM         = "WPM"
-	StatsAccuracy    = "Přesnost"
-	HintStats        = "←→ záložky · ↑↓ PgUp PgDn · Esc zpět · Ctrl+T styl"
+	StatsTitle    = "Statistiky"
+	StatsSpeed    = "Rychlost"
+	StatsAccuracy = "Přesnost"
+	HintStats     = "←→ záložky · ↑↓ · F filtr · Esc zpět · Ctrl+T styl"
+
+	// StatsFilterLabel heads the line that names which runs the history shows.
+	StatsFilterLabel = "Zobrazeno"
+	StatsNoRuns      = "Tomuhle výběru nic neodpovídá."
+	// Rows of the records; they read Tests only, apart from the days in a row.
+	StatsRecordSpeed    = "Nejvyšší rychlost v testu"
+	StatsRecordAccuracy = "Nejlepší přesnost v testu"
+	StatsRecordDays     = "Nejvíc dní v řadě"
+	StatsNoRecord       = "-"
 )
 
-// StatsTabs are the tabs of the statistics screen; git log is the app's own term.
-var StatsTabs = [...]string{"git log", "heatmap", "trendy", "rekordy"}
+// StatsFilters name the choices of the history filter, in the order the F key
+// cycles through them.
+var StatsFilters = [...]string{"Vše", "Trénink", "Test"}
+
+// StatsDaysInARow is the days practised in a row, such as "3 dny v řadě".
+func StatsDaysInARow(n int) string {
+	return fmt.Sprintf("%d %s v řadě", n, Plural(n, "den", "dny", "dní"))
+}
+
+// StatsTabs are the tabs of the statistics screen.
+var StatsTabs = [...]string{"Historie", "Klávesy", "Trendy", "Rekordy"}
 
 // Names of the hands and fingers, indexed by layout.Hand and layout.Finger.
 var (
@@ -246,7 +259,7 @@ const (
 	PlacementRoundTitle = "Vstupní test %d/%d: %s"
 	PlacementStageIntro = "Fáze %d/%d: %s"
 	PlacementRules      = "Bez nápovědy. Pište, jak umíte. Když to nepůjde, test skončí a nic se neděje."
-	PlacementPrevOK     = "Předchozí fáze splněna: %.0f WPM, přesnost %.0f %%."
+	PlacementPrevOK     = "Předchozí fáze splněna: %.0f zn/min, přesnost %.0f %%."
 	PlacementStageHint  = "Enter začít · Esc ukončit test · Ctrl+C konec"
 	PlacementOptionNote = "Když Option nepíše znaky, fáze skončí po pěti pokusech. Test ukončíte klávesou Esc."
 

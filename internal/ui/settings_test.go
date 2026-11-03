@@ -417,7 +417,7 @@ var fitCases = []fitCase{
 		ls := lessonWhere(t, a, func(l course.Lesson) bool { return l.Lang != "" })
 		ui.SetScreen(a, ui.NewLessonScreen(a, ls.ID))
 	})},
-	{"stats-gitlog", statsTab(0)},
+	{"stats-history", statsTab(0)},
 	{"stats-heatmap", statsTab(1)},
 	{"stats-trends", statsTab(2)},
 	{"stats-records", statsTab(3)},

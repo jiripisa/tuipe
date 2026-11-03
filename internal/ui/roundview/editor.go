@@ -280,7 +280,7 @@ func editorStatus(s style.Style, f play.Frame, rows []row, w int) string {
 	if f.Paused {
 		mode = look{fg: s.Bg, bg: s.Warn, bold: true}.render(" " + text.RoundPaused + " ")
 	}
-	left := mode + item(s.Fg, editorBarHi, wpmText(f.WPM)) + item(s.Fg, editorBarHi, accuracyText(f))
+	left := mode + item(s.Fg, editorBarHi, speedText(f.WPM)) + item(s.Fg, editorBarHi, accuracyText(f))
 	bar := look{fg: s.Dim, bg: editorBar}
 	right := ""
 	for _, optional := range []string{

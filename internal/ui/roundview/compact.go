@@ -55,7 +55,7 @@ func compact(s style.Style, v View, w, h int) []string {
 // speed, the first number, is the last to leave.
 func compactNumbers(s style.Style, f play.Frame, w int) string {
 	numbers := []string{
-		plain(s, s.Accent).render(wpmText(f.WPM)),
+		plain(s, s.Accent).render(speedText(f.WPM)),
 		plain(s, s.Fg).render(accuracyText(f)),
 	}
 	if f.Paused {
