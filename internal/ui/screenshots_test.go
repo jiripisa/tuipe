@@ -217,8 +217,9 @@ func (s *session) shootRound() {
 	s.a.Update(enter) // the pause menu: leave
 }
 
-// shootLessonScreens draws the lesson the user did last with a Trénink behind
-// it, a Výuka and the results of a second Test of that lesson.
+// shootLessonScreens draws a Výuka, the results of a second Test of the lesson
+// the user did last, and then that lesson with the Trénink and the Test behind
+// it, so that its figures agree with the list.
 func (s *session) shootLessonScreens() {
 	ui.SetScreen(s.a, ui.NewLessonsScreen(s.a))
 	ls := s.a.Course.Lessons()
@@ -238,7 +239,6 @@ func (s *session) shootLessonScreens() {
 	if ui.ScreenName(s.a) != "lesson" {
 		s.t.Fatalf("the Trénink ended on %s", ui.ScreenName(s.a))
 	}
-	s.shoot("lesson", style.Editor)
 
 	ui.SetScreen(s.a, ui.NewTeachScreen(s.a, ls[taughtLesson].ID, ui.NewLessonsScreen))
 	s.shoot("teach", style.Editor)
@@ -255,7 +255,11 @@ func (s *session) shootLessonScreens() {
 	}
 	s.shoot("results", style.Editor)
 	s.clk.advance(endingWait)
-	s.a.Update(esc)
+	s.a.Update(esc) // back to the lesson
+	if ui.ScreenName(s.a) != "lesson" {
+		s.t.Fatalf("the results led to %s", ui.ScreenName(s.a))
+	}
+	s.shoot("lesson", style.Editor)
 }
 
 // shootHint waits on a { until the hint and the keyboard map appear.

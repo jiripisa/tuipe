@@ -26,7 +26,7 @@ Then run `tuipe`.
 > hodnost získáte za testy a statistiky jsou prosté a srozumitelné. Celá aplikace
 > je česky. Návod najdete v [manuálu](https://jiripisa.github.io/tuipe/manual.html).
 
-![The lesson list: every lesson open, with its stars and best speed](site/assets/lessons.png)
+![The lesson list: every lesson open, with its stars and the speed of the Test that earned them](site/assets/lessons.png)
 
 ## What it is
 
