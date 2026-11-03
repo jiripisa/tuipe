@@ -1,4 +1,4 @@
- 310 zn/min  98.1 %
+ 310 zn/min  98,1 %
  oprava: přihlášení už nepadá na prázdném hesle
  a správně vrací chybu 401. Čeština v chybových
  hláškách se zobrazuje bez rozbitých znaků,

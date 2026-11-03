@@ -1,4 +1,4 @@
- 310 zn/min  98.1 %
+ 310 zn/min  98,1 %
  failure.↵
  func (s *Server) Get(w http.ResponseWriter, r
  *Req) {↵

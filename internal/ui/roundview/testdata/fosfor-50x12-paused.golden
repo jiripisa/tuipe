@@ -1,4 +1,4 @@
-  PAUZA  310 zn/min  98.1 %
+  PAUZA  310 zn/min  98,1 %
  def parse_port(text):↵
      value = int(text.strip())↵
      if value < 1 or value > 65535:↵

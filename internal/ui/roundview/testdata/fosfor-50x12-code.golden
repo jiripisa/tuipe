@@ -1,4 +1,4 @@
- 310 zn/min  98.1 %
+ 310 zn/min  98,1 %
  func parsePort(s string) (int, error) {↵
      n, err :=
  strconv.Atoi(strings.TrimSpace(s))↵

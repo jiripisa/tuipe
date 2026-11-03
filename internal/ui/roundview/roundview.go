@@ -286,7 +286,7 @@ func accuracyText(f play.Frame) string {
 	if f.Accuracy == 0 && len(f.WrongPos) == 0 {
 		return "-- %"
 	}
-	return fmt.Sprintf("%.1f %%", f.Accuracy*100)
+	return text.PartPercent(f.Accuracy)
 }
 
 // streak counts the cells typed since the last wrong press.

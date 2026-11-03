@@ -213,7 +213,7 @@ func TestSmallWindowsUseTheCompactStrip(t *testing.T) {
 			v := sample("shell")
 			v.Frame.Hint = hintFor('{')
 			s := ansi.Strip(roundview.Render(st, v, sz[0], sz[1]))
-			for _, want := range []string{"310 zn/min", "98.1 %", "logs", v.Frame.Hint.Text} {
+			for _, want := range []string{"310 zn/min", "98,1 %", "logs", v.Frame.Hint.Text} {
 				if !strings.Contains(s, want) {
 					t.Errorf("%s %v lacks %q:\n%s", st.ID, sz, want, s)
 				}
@@ -293,7 +293,7 @@ func TestCompactPausedKeepsTheNumbersAtNarrowestWidth(t *testing.T) {
 		v := sample("shell")
 		v.Frame.Paused = true
 		s := ansi.Strip(roundview.Render(st, v, 40, 8))
-		for _, want := range []string{text.RoundPaused, "310 zn/min", "98.1 %"} {
+		for _, want := range []string{text.RoundPaused, "310 zn/min", "98,1 %"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%s lacks %q:\n%s", st.ID, want, s)
 			}

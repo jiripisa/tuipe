@@ -26,7 +26,7 @@
        // Handle answers one request and logs a failure.↵
        func (s *Server) Get(w http.ResponseWriter, r *Req) {↵
 
-       310 zn/min   98.1 %   série 25
+       310 zn/min   98,1 %   série 25
 
 
 
