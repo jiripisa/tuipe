@@ -17,8 +17,18 @@ import (
 
 // lessonRecord is what the run history says about one lesson. Both maps are
 // keyed by "test" or "training/<length>"; Last is the latest run of a part,
-// Best the one with the highest score that did not pause.
+// Best the one that did not pause with the most stars and, among those, the
+// highest score. A Trénink has no stars, so its best is the highest score.
 type lessonRecord struct{ Last, Best map[string]*store.Run }
+
+// better reports whether r beats the best run b so far: more stars, or as
+// many and a higher score.
+func better(r, b *store.Run) bool {
+	if r.Stars != b.Stars {
+		return r.Stars > b.Stars
+	}
+	return r.Score > b.Score
+}
 
 // partKey is the key of a part in lessonRecord: "test", or "training/<length>".
 func partKey(mode, length string) string {
@@ -44,7 +54,7 @@ func lessonRecords(runs []store.Run) map[string]lessonRecord {
 		}
 		key := partKey(r.Mode, r.Length)
 		rec.Last[key] = r
-		if b := rec.Best[key]; !r.Paused && (b == nil || r.Score > b.Score) {
+		if b := rec.Best[key]; !r.Paused && (b == nil || better(r, b)) {
 			rec.Best[key] = r
 		}
 	}
@@ -179,11 +189,13 @@ func (l *lessonsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return l, nil
 }
 
-// status is what the right-hand side of a lesson row says: the best speed of
-// a Test that earned a star, else whether the lesson is recommended or begun.
+// status is what the right-hand side of a lesson row says: for a lesson with
+// a star, the speed of the best Test when that Test holds the lesson's stars,
+// so that stars and speed belong together; else whether the lesson is
+// recommended or begun.
 func (l *lessonsScreen) status(p *store.Profile, ls course.Lesson) string {
-	if p.Stars[ls.ID] > 0 {
-		if best := l.recs[ls.ID].Best["test"]; best != nil {
+	if stars := p.Stars[ls.ID]; stars > 0 {
+		if best := l.recs[ls.ID].Best["test"]; best != nil && best.Stars == stars {
 			return speedText(best)
 		}
 		return ""

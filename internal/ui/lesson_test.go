@@ -175,3 +175,18 @@ func TestLessonRecordsSkipPausedBest(t *testing.T) {
 		t.Errorf("old-style and placement runs are not ignored: %+v", got)
 	}
 }
+
+// The best Test is the one with the most stars, and among those the highest
+// score, so that the best stars and the best result are one run.
+func TestLessonRecordsBestTestHasTheMostStars(t *testing.T) {
+	runs := []store.Run{
+		{ID: "1", Mode: store.ModeTest, LessonID: "L", Score: 50, Stars: 2},
+		{ID: "2", Mode: store.ModeTest, LessonID: "L", Score: 30, Stars: 3},
+		{ID: "3", Mode: store.ModeTest, LessonID: "L", Score: 90, Stars: 3, Paused: true},
+		{ID: "4", Mode: store.ModeTest, LessonID: "L", Score: 35, Stars: 3},
+		{ID: "5", Mode: store.ModeTest, LessonID: "L", Score: 70, Stars: 1},
+	}
+	if b := ui.LessonRecords(runs)["L"].Best["test"]; b == nil || b.ID != "4" {
+		t.Errorf("best test = %+v, want run 4", b)
+	}
+}

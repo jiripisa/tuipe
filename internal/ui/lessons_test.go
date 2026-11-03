@@ -56,22 +56,47 @@ func TestListOpensEveryLesson(t *testing.T) {
 	}
 }
 
+// The speed beside the stars is that of the Test that earned them: a faster
+// run with fewer stars, though its score is higher, does not stand there.
 func TestListShowsStarsAndBestSpeed(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := a.Course.Lessons()[1].ID
 	st.Profile().Stars[id] = 2
-	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 40})
-	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 60, Score: 55})
-	addRun(t, st, store.Run{ID: "r3", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 50, Score: 45})
+	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 3), Mode: store.ModeTest, LessonID: id, WPM: 40, Score: 35, Stars: 2})
+	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 60, Score: 55, Stars: 1})
+	addRun(t, st, store.Run{ID: "r3", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 50, Score: 45, Stars: 2})
+	addRun(t, st, store.Run{ID: "r4", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 70, Score: 65, Stars: 2, Paused: true})
 	openLessons(a)
 	l, _ := a.Course.Lesson(id)
 	line := lineWith(t, a, l.Title)
-	for _, want := range []string{"★★☆", "300 zn/min"} {
+	for _, want := range []string{"★★☆", "250 zn/min"} {
 		if !strings.Contains(line, want) {
 			t.Errorf("row %q lacks %q", line, want)
 		}
 	}
 	showsAll(t, a, "★ 2")
+
+	// The lesson screen names the same run as the best.
+	downTo(t, a, id)
+	a.Update(enter)
+	wantScreen(t, a, "lesson")
+	showsAll(t, a, text.LessonBest("250 zn/min"))
+}
+
+// A paused round never counts as the best, so when only a paused Test holds
+// the stars, the list shows no speed rather than that of a run with fewer.
+func TestListShowsNoSpeedWhenOnlyAPausedTestHoldsTheStars(t *testing.T) {
+	a, st, clk := playApp(t)
+	id := a.Course.Lessons()[1].ID
+	st.Profile().Stars[id] = 3
+	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 60, Score: 55, Stars: 3, Paused: true})
+	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 50, Score: 45, Stars: 2})
+	openLessons(a)
+	l, _ := a.Course.Lesson(id)
+	line := lineWith(t, a, l.Title)
+	if !strings.Contains(line, "★★★") || strings.Contains(line, "zn/min") {
+		t.Errorf("row %q, want three stars and no speed", line)
+	}
 }
 
 func TestListMarksStarted(t *testing.T) {
