@@ -22,7 +22,7 @@ import (
 const (
 	missedShown = 3  // characters the results name as missed most
 	figureLabel = 13 // width of the labels of the figures on the results
-	figureCell  = 10 // width of a column of the results table
+	figureCell  = 11 // width of a column of the results table
 )
 
 // trainingSpec is a Trénink of a lesson on new text. It has no targets: stars
@@ -289,10 +289,13 @@ func (s *partResults) View(a *App, w, h int) string {
 	if len(cols) > 0 {
 		table = append(table, arrows(func(r *store.Run) float64 { return shownCPM(&s.run) - shownCPM(r) }, false))
 	}
+	// A gap after each group of the table, so that the rows do not crowd.
+	table = append(table, partLine{goes: goesGap})
 	table = append(table, partLine{row(text.PartAccuracy, accuracy(&s.run), earlier(accuracy), nil, ""), goesNever})
 	if len(cols) > 0 {
 		table = append(table, arrows(func(r *store.Run) float64 { return shownAccuracy(&s.run) - shownAccuracy(r) }, true))
 	}
+	table = append(table, partLine{goes: goesGap})
 	table = append(table, partLine{row(text.PartTime, text.PartClock(int(math.Round(float64(s.run.DurationMs)/1000))), nil, nil, ""), goesTime})
 	if s.stars {
 		line := starBar(s.run.Stars)

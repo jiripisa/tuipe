@@ -557,22 +557,35 @@ func TestResultsShedRowsInOrder(t *testing.T) {
 	arrows := []string{text.PartDelta(cpm-150, false), text.PartDelta(cpm-200, false)} // minule 30, nejlepší 40 wpm
 	everything := append([]string{text.PartRecord, text.PartNow, text.PartMissed, text.PartTime}, arrows...)
 
-	// The body is eleven rows: the verdict, a gap, the table of seven rows, a gap
-	// and the missed characters. The frame takes three more.
+	// The body is thirteen rows: the verdict, a gap, the table of seven rows
+	// with a gap after the speed and after the accuracy, a gap and the missed
+	// characters. The frame takes three more.
 	frame := func(r rune) bool { return unicode.IsSpace(r) || strings.ContainsRune("│┃║|", r) }
+	// blank counts the empty rows between the first and the last row of the body.
 	blank := func() int {
 		lines := strings.Split(screen(a), "\n")
+		body := lines[1 : len(lines)-2]
+		empty := func(l string) bool { return strings.IndexFunc(l, func(r rune) bool { return !frame(r) }) < 0 }
+		first, last := -1, -1
+		for i, l := range body {
+			if !empty(l) {
+				if first < 0 {
+					first = i
+				}
+				last = i
+			}
+		}
 		n := 0
-		for _, l := range lines[1 : len(lines)-2] {
-			if strings.IndexFunc(l, func(r rune) bool { return !frame(r) }) < 0 {
+		for i := first + 1; i < last; i++ {
+			if empty(body[i]) {
 				n++
 			}
 		}
 		return n
 	}
-	a.Update(tea.WindowSizeMsg{Width: 60, Height: 14})
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 16})
 	showsAll(t, a, everything...)
-	if got := blank(); got != 2 {
+	if got := blank(); got != 4 {
 		t.Errorf("%d blank rows with room for the gaps:\n%s", got, screen(a))
 	}
 
