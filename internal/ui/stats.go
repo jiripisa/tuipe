@@ -46,6 +46,7 @@ var trendGroups = []string{
 // statsScreen shows the history: git log, heatmap, trends and personal bests.
 // The runs are read once when the screen opens.
 type statsScreen struct {
+	from    string // the lesson selected on the list, to return to
 	tab     int
 	runs    []store.Run // newest first
 	sel     int         // index into runs
@@ -63,12 +64,15 @@ type logRow struct {
 }
 
 // NewStatsScreen opens the statistics on the git log.
-func NewStatsScreen(a *App) Screen {
+func NewStatsScreen(a *App) Screen { return newStatsScreen(a, "") }
+
+// newStatsScreen is NewStatsScreen that returns to lesson from on the list.
+func newStatsScreen(a *App, from string) Screen {
 	runs, _ := a.Store.Runs() // a damaged history shows as an empty one
 	runs = slices.Clone(runs)
 	sort.SliceStable(runs, func(i, j int) bool { return runs[i].At.After(runs[j].At) })
 	up := a.uptime()
-	s := &statsScreen{runs: runs, up: uptimeText(up.Days), groupOf: a.lessonGroups(),
+	s := &statsScreen{from: from, runs: runs, up: uptimeText(up.Days), groupOf: a.lessonGroups(),
 		titles: map[string]string{}, logLine: map[int]int{}}
 	for _, l := range a.Course.Lessons() {
 		s.titles[l.ID] = l.Title
@@ -105,7 +109,7 @@ func (s *statsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	page := max(1, bodyRows(a.H))
 	switch k.String() {
 	case "esc":
-		return NewLessonsScreen(a), nil
+		return newLessonsScreen(a, s.from), nil
 	case "tab", "right", "l":
 		s.tab = (s.tab + 1) % n
 	case "shift+tab", "left", "h":

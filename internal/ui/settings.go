@@ -28,6 +28,7 @@ const settingLabelWidth = 24 // cells of the label column, so the values line up
 // settingsScreen changes the look, the keyboard layout and the update check,
 // and starts the placement test again.
 type settingsScreen struct {
+	from    string // the lesson selected on the list, to return to
 	sel     int
 	layouts []*layout.Layout
 	broken  []string // names of user layout files that could not be read
@@ -36,8 +37,12 @@ type settingsScreen struct {
 
 // NewSettingsScreen builds the settings screen. The layouts are read again on
 // every visit, so a file added meanwhile is listed.
-func NewSettingsScreen(a *App) Screen {
-	s := &settingsScreen{}
+func NewSettingsScreen(a *App) Screen { return newSettingsScreen(a, "") }
+
+// newSettingsScreen is NewSettingsScreen that returns to lesson from on the
+// list, or to the default row when a layout change took that lesson away.
+func newSettingsScreen(a *App, from string) Screen {
+	s := &settingsScreen{from: from}
 	all, errs, err := loadLayoutsReport(a.Store)
 	if err != nil { // the built-in layouts cannot fail once the app has started
 		all = []*layout.Layout{a.Layout}
@@ -65,7 +70,7 @@ func (s *settingsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		return NewLessonsScreen(a), nil
+		return newLessonsScreen(a, s.from), nil
 	case "up", "k":
 		s.sel = (s.sel + settingRows - 1) % settingRows
 	case "down", "j":

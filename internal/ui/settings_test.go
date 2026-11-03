@@ -221,10 +221,77 @@ func TestRetakePlacementFromSettings(t *testing.T) {
 	showsAll(t, a, text.PlacementTitle)
 	a.Update(esc) // give up the test: its result follows
 	showsAll(t, a, text.OfferTitle)
+	if got := st.Profile().Recommended; got != lessons[4].ID {
+		t.Errorf("giving up on the first intro: Recommended = %q, want %s", got, lessons[4].ID)
+	}
+	showsAll(t, a, text.OfferPassed(0, 6), lessons[4].Title)
 	a.Update(enter)
 	wantScreen(t, a, "lessons")
 	if st.Profile().Stars[lessons[0].ID] != 2 {
 		t.Error("retaking the placement changed the stars")
+	}
+	if got := ui.LessonsSelected(a); got != lessons[4].ID {
+		t.Errorf("the list opens on %q, want %s", got, lessons[4].ID)
+	}
+}
+
+func TestRetakeGivenUpMidStageKeepsTheRecommendation(t *testing.T) {
+	a, st, clk := playApp(t)
+	lessons := a.Course.Lessons()
+	st.Profile().Recommended = lessons[4].ID
+	openSettings(t, a)
+	onRow(a, rowRetake)
+	a.Update(enter)
+	a.Update(enter) // the first stage
+	wantScreen(t, a, "round")
+	typeKeys(a, clk, 3)
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter) // the pause menu: leave
+	showsAll(t, a, text.OfferTitle, lessons[4].Title)
+	if got := st.Profile().Recommended; got != lessons[4].ID {
+		t.Errorf("Recommended = %q, want %s", got, lessons[4].ID)
+	}
+}
+
+// Nothing was measured, so nothing here is a fresh start either: no stars, but
+// no claim of starting from zero and no hand position.
+func TestRetakeGivenUpWithoutStarsIsNoFreshStart(t *testing.T) {
+	a, st, _ := playApp(t)
+	lessons := a.Course.Lessons()
+	st.Profile().Recommended = lessons[4].ID
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	a.Update(esc)
+	showsAll(t, a, text.OfferPassed(0, 6), lessons[4].Title)
+	showsNone(t, a, "v pořádku")
+	a.Update(enter)
+	wantScreen(t, a, "lessons")
+}
+
+// A stage that ended on its own is a result, also one that was cut short for
+// too many mistakes, so the retake counts and moves the recommendation.
+func TestRetakeFailedOnItsFirstStageMovesTheRecommendation(t *testing.T) {
+	for name, fail := range map[string]func(*testing.T, *ui.App, *clock){
+		"cut short": func(t *testing.T, a *ui.App, clk *clock) { failStage(t, a, clk) },
+		"too slow": func(t *testing.T, a *ui.App, clk *clock) {
+			a.Update(enter)
+			for _, r := range ui.RoundKeys(a) {
+				clk.advance(3 * time.Second)
+				a.Update(key(r))
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			a, st, clk := playApp(t)
+			lessons := a.Course.Lessons()
+			st.Profile().Recommended = lessons[4].ID
+			ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+			fail(t, a, clk)
+			if got := st.Profile().Recommended; got != lessons[0].ID {
+				t.Errorf("Recommended = %q, want the first lesson %s", got, lessons[0].ID)
+			}
+		})
 	}
 }
 

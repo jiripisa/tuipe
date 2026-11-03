@@ -180,6 +180,23 @@ func TestNKeyOpensSettings(t *testing.T) {
 	wantScreen(t, a, "settings")
 }
 
+func TestReturningToTheListKeepsTheRow(t *testing.T) {
+	for name, press := range map[string]rune{"statistics": 's', "settings": 'n'} {
+		t.Run(name, func(t *testing.T) {
+			a, _, _ := playApp(t)
+			id := a.Course.Lessons()[5].ID
+			openLessons(a)
+			downTo(t, a, id)
+			a.Update(key(press))
+			a.Update(esc)
+			wantScreen(t, a, "lessons")
+			if got := ui.LessonsSelected(a); got != id {
+				t.Errorf("selected %q, want the row the user left, %s", got, id)
+			}
+		})
+	}
+}
+
 func TestEscOnTheListDoesNothing(t *testing.T) {
 	a, _, _ := playApp(t)
 	openLessons(a)

@@ -637,6 +637,21 @@ func TestPlacementRunsAreNoOverallTrend(t *testing.T) {
 	}
 }
 
+func TestFirstRunGivenUpRecommendsTheFirstLesson(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	toPlacement(t, a)
+	a.Update(enter)
+	typeKeys(a, clk, 3)
+	a.Update(esc)
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter) // the pause menu: leave
+	if got, want := st.Profile().Recommended, a.Course.Lessons()[0].ID; got != want {
+		t.Errorf("Recommended = %q, want the first lesson %s", got, want)
+	}
+	showsAll(t, a, "v pořádku")
+}
+
 func TestPlacementResultPointsToTheLessons(t *testing.T) {
 	a, _, _ := playApp(t)
 	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
@@ -651,15 +666,84 @@ func TestRetakeWithStarsSkipsTheHandPosition(t *testing.T) {
 	st.Profile().Stars[a.Course.Lessons()[0].ID] = 1
 	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 	a.Update(esc)
+	showsAll(t, a, text.OfferPassed(0, 6))
+	showsNone(t, a, "v pořádku")
 	a.Update(enter)
 	wantScreen(t, a, "lessons")
 }
 
+// firstRunStops are the screens of a first run, in the longest state each has.
+var firstRunStops = []struct {
+	name  string
+	reach func(*testing.T, *ui.App, *clock)
+}{
+	{"style", func(*testing.T, *ui.App, *clock) {}},
+	{"check", func(t *testing.T, a *ui.App, _ *clock) { a.Update(enter) }},
+	{"check, later key", func(t *testing.T, a *ui.App, _ *clock) {
+		a.Update(enter)
+		a.Update(key('ě'))
+		a.Update(key('x'))
+	}},
+	{"check, wrong character", func(t *testing.T, a *ui.App, _ *clock) {
+		a.Update(enter)
+		a.Update(key('x'))
+	}},
+	{"picker", func(t *testing.T, a *ui.App, _ *clock) {
+		a.Update(enter)
+		a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}},
+	{"option help", func(t *testing.T, a *ui.App, _ *clock) {
+		a.Update(enter)
+		a.Update(key('ě'))
+		a.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModAlt})
+	}},
+	{"no layout", func(t *testing.T, a *ui.App, _ *clock) {
+		t.Cleanup(ui.SetGOOS("linux"))
+		a.Update(enter)
+	}},
+	{"fork", func(t *testing.T, a *ui.App, _ *clock) { passChecks(t, a) }},
+	{"hand position", func(t *testing.T, a *ui.App, _ *clock) {
+		passChecks(t, a)
+		a.Update(enter)
+	}},
+	{"stage intro", func(t *testing.T, a *ui.App, _ *clock) { toPlacement(t, a) }},
+	{"stage round", func(t *testing.T, a *ui.App, _ *clock) {
+		toPlacement(t, a)
+		a.Update(enter)
+	}},
+	{"option stage intro", func(t *testing.T, a *ui.App, clk *clock) {
+		toPlacement(t, a)
+		for range 4 {
+			playStage(t, a, clk)
+		}
+	}},
+	{"result from zero", func(t *testing.T, a *ui.App, clk *clock) {
+		toPlacement(t, a)
+		failStage(t, a, clk)
+	}},
+	{"result passed", func(t *testing.T, a *ui.App, clk *clock) {
+		toPlacement(t, a)
+		for range 6 {
+			playStage(t, a, clk)
+		}
+	}},
+}
+
+// "přeskočit" stays allowed on its own: the keyboard check can still be skipped.
 func TestFirstRunTextsMakeNoOldPromises(t *testing.T) {
-	a, _, _ := firstRunApp(t)
-	passChecks(t, a)
-	showsNone(t, a, "Kariéra", "kapitol", "Přeskočí", "přeskočí", "odemkn", "Odemkn", "hodnost", "pohovor")
-	showsAll(t, a, text.ForkPlacementNote)
+	old := []string{
+		"Kariéra", "kariér", "kapitol", "Kapitol", "Přeskočí, co", "odemkn", "Odemkn", "Odemč", "odemč",
+		"hodnost", "Hodnost", "pohovor", "Pohovor", "nabíd", "Nabíd", "test-out",
+		"Intern", "Junior", "Medior", "Senior", "Staff", "Principal",
+	}
+	for _, stop := range firstRunStops {
+		t.Run(stop.name, func(t *testing.T) {
+			a, _, clk := firstRunApp(t)
+			stop.reach(t, a, clk)
+			a.Update(tea.WindowSizeMsg{Width: 120, Height: 45}) // nothing scrolled away
+			showsNone(t, a, old...)
+		})
+	}
 }
 
 // reopenFirstRunDone restarts on the saved data with the user layout chosen.

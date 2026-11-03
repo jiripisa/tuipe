@@ -172,9 +172,9 @@ func (l *lessonsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 			return NewLessonScreen(a, id), nil
 		}
 	case "s", "S":
-		return NewStatsScreen(a), nil
+		return newStatsScreen(a, l.selectedID()), nil
 	case "n", "N":
-		return NewSettingsScreen(a), nil
+		return newSettingsScreen(a, l.selectedID()), nil
 	}
 	return l, nil
 }

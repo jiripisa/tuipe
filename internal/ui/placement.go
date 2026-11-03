@@ -25,6 +25,8 @@ type placementScreen struct {
 	passed []placement.Stage // stages passed so far
 	last   *score.Metrics    // result of the stage before, for the intro
 	offer  bool              // the test is over and its result is shown
+	ended  bool              // a stage came to an end, so the test measured something
+	kept   bool              // the test was given up and an earlier recommendation stands
 	hands  bool              // the hand-position text follows a result that starts from zero
 	text   handText
 }
@@ -84,9 +86,10 @@ func (p *placementScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return p, nil
 }
 
-// fromZero reports someone who passed no stage and has no star from earlier.
+// fromZero reports someone who passed no stage and has neither a star nor a
+// recommendation from earlier.
 func (p *placementScreen) fromZero(a *App) bool {
-	return len(p.passed) == 0 && len(a.Store.Profile().Stars) == 0
+	return len(p.passed) == 0 && len(a.Store.Profile().Stars) == 0 && !p.kept
 }
 
 func (p *placementScreen) leave(a *App) Screen {
@@ -132,6 +135,7 @@ func (p *placementScreen) round(a *App) Screen {
 // stageEnded takes the result of a stage. Typed characters become evidence in
 // the statistics either way; a failed stage ends the test.
 func (p *placementScreen) stageEnded(a *App, st placement.Stage, spec play.Spec, res play.Result, finished bool, now time.Time) Screen {
+	p.ended = true
 	if finished {
 		_, _ = a.Finish(spec, res) // Finish has shown any save error
 	} else {
@@ -150,9 +154,14 @@ func (p *placementScreen) stageEnded(a *App, st placement.Stage, spec play.Spec,
 }
 
 // finish stores the recommendation, which is all the test leaves behind, and
-// shows it.
+// shows it. A test given up before any stage ended measured nothing, so an
+// earlier recommendation stands.
 func (p *placementScreen) finish(a *App) Screen {
-	a.Store.Profile().Recommended = placement.Evaluate(a.Course, p.passed)
+	profile := a.Store.Profile()
+	p.kept = !p.ended && profile.Recommended != ""
+	if !p.kept {
+		profile.Recommended = placement.Evaluate(a.Course, p.passed)
+	}
 	a.SaveErr(a.Store.SaveProfile())
 	p.offer = true
 	return p
@@ -193,7 +202,7 @@ func (p *placementScreen) View(a *App, w, h int) string {
 	}
 
 	body := []string{""}
-	if len(p.passed) == 0 {
+	if p.fromZero(a) {
 		body = append(body, prose(text.OfferFromZero, fg)...)
 	} else {
 		body = append(body, prose(text.OfferPassed(len(p.passed), len(p.stages)), fg)...)
