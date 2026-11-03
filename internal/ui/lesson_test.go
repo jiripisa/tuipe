@@ -71,6 +71,31 @@ func TestLessonMarksTaught(t *testing.T) {
 	showsAll(t, a, text.LessonTaught)
 }
 
+// Trénink is the next step after a finished Výuka, and also after one that is
+// taken again; leaving Výuka part-way keeps it selected.
+func TestLessonSelectsTrainingAfterAFinishedTeach(t *testing.T) {
+	a, _, clk := playApp(t)
+	ui.SetScreen(a, ui.NewLessonScreen(a, firstTeachLesson))
+	for round := range 2 {
+		a.Update(enter) // Výuka
+		a.Update(enter)
+		for ui.ScreenName(a) == "teach" {
+			typeLine(a, clk)
+		}
+		wantScreen(t, a, "lesson")
+		if got := ui.LessonScreenRow(a); got != 1 {
+			t.Fatalf("round %d: row = %d after the Výuka, want 1 (Trénink)", round, got)
+		}
+		a.Update(up)
+	}
+	a.Update(enter)
+	a.Update(esc)
+	wantScreen(t, a, "lesson")
+	if got := ui.LessonScreenRow(a); got != 0 {
+		t.Errorf("row = %d after leaving the Výuka, want 0", got)
+	}
+}
+
 func TestLessonEscFromTeachLeavesNoMark(t *testing.T) {
 	a, st, _ := playApp(t)
 	ui.SetScreen(a, ui.NewLessonScreen(a, firstTeachLesson))

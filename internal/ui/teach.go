@@ -26,17 +26,27 @@ type teachScreen struct {
 	id     string
 	lesson course.Lesson
 	tut    course.Tutorial
-	next   func(*App) Screen
-	step   int           // explainStep, or the index of the line being typed
-	sess   *play.Session // the line being typed, on a session of its own
+	next   func(*App) Screen // where leaving goes
+	done   func(*App) Screen // where finishing goes
+	step   int               // explainStep, or the index of the line being typed
+	sess   *play.Session     // the line being typed, on a session of its own
 	now    time.Time
 }
 
 // NewTeachScreen builds the Výuka of a lesson. Leaving it, or finishing it,
 // goes to next.
 func NewTeachScreen(a *App, lessonID string, next func(*App) Screen) Screen {
+	return newTeachScreen(a, lessonID, next, next)
+}
+
+// newTeachScreen is NewTeachScreen with a screen of its own for a finished
+// Výuka: leaving goes to next, finishing to done.
+func newTeachScreen(a *App, lessonID string, next, done func(*App) Screen) Screen {
 	if next == nil {
 		next = NewLessonsScreen
+	}
+	if done == nil {
+		done = next
 	}
 	ls, ok := a.Course.Lesson(lessonID)
 	tut, err := course.Tutorial{}, error(nil)
@@ -47,7 +57,7 @@ func NewTeachScreen(a *App, lessonID string, next func(*App) Screen) Screen {
 		a.Banner = append(a.Banner, fmt.Sprintf(text.TeachUnavailable, lessonID))
 		return next(a)
 	}
-	return &teachScreen{id: lessonID, lesson: ls, tut: tut, next: next, step: explainStep, now: a.Now()}
+	return &teachScreen{id: lessonID, lesson: ls, tut: tut, next: next, done: done, step: explainStep, now: a.Now()}
 }
 
 // startLine begins the session of line i. The session gets no statistics, so
@@ -96,7 +106,7 @@ func (t *teachScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 }
 
 // advance moves to the next line. After the last one the lesson is marked as
-// taught and the screen gives way to next.
+// taught and the screen gives way to done.
 func (t *teachScreen) advance(a *App) Screen {
 	if i := t.step + 1; i < len(t.tut.Lines) {
 		t.startLine(a, i)
@@ -104,7 +114,7 @@ func (t *teachScreen) advance(a *App) Screen {
 	}
 	a.Store.Profile().Taught[t.id] = true
 	a.SaveErr(a.Store.SaveProfile())
-	return t.next(a)
+	return t.done(a)
 }
 
 // highlights are the keys to mark: those of the lesson, and the keys of the

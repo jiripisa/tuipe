@@ -87,7 +87,12 @@ func (s *lessonScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return newLessonsScreen(a, s.id), nil
 	case "enter":
 		if s.row == rowTeach {
-			return NewTeachScreen(a, s.id, func(*App) Screen { return s }), nil
+			back := func(*App) Screen { return s }
+			taught := func(*App) Screen { // Trénink is the next step
+				s.row = rowTraining
+				return s
+			}
+			return newTeachScreen(a, s.id, back, taught), nil
 		}
 		return s.startPart(a)
 	}
