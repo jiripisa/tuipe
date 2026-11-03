@@ -402,6 +402,9 @@ func TestGoldenV2ProfileLoads(t *testing.T) {
 	if p.Recommended != "ch02-01" || !p.Taught["ch01-01"] {
 		t.Errorf("course = %q %+v", p.Recommended, p.Taught)
 	}
+	if len(p.Pending) != 1 || p.Pending[0] != "Soubor profile.json je ze starší verze tuipe." {
+		t.Errorf("pending = %q", p.Pending)
+	}
 }
 
 // keysOf lists the object keys of a JSON document, with their paths. Map keys

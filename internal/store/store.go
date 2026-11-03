@@ -74,6 +74,7 @@ type Profile struct {
 	SkipNoted       map[string]bool         `json:"SkipNoted"`   // by layout id: told about the content it cannot type
 	Recommended     string                  `json:"Recommended"` // lesson id the placement test recommends
 	Taught          map[string]bool         `json:"Taught"`      // by lesson id: Výuka finished
+	Pending         []string                `json:"Pending"`     // notices the lesson list has not shown yet
 }
 
 func newProfile() *Profile {

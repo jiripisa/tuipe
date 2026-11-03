@@ -112,6 +112,7 @@ func NewLessonsScreen(a *App) Screen { return newLessonsScreen(a, "") }
 // default when at is empty or unknown.
 func newLessonsScreen(a *App, at string) *lessonsScreen {
 	a.noteSkipped()
+	a.notePendingShown()
 	l := &lessonsScreen{recs: a.recordsOf()}
 	for _, ch := range a.Course.Chapters() {
 		l.rows = append(l.rows, lessonsRow{chapter: ch.Title})

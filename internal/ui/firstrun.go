@@ -476,7 +476,20 @@ func (f *firstRunScreen) styleView(a *App, w, h int) string {
 		}
 	}
 	box = append(box, "", st.Base().Foreground(st.Dim).Render(text.FirstRunStyleHint))
-	return overlayAtBottom(st, base, box, w)
+	view := overlayAtBottom(st, base, box, w)
+
+	// What the user must be told, such as their old data set aside, goes over
+	// the top of the sample, under the title row and never over the choice.
+	banner := a.bannerLines(w, h)
+	if len(banner) == 0 {
+		return view
+	}
+	lines := strings.Split(view, "\n")
+	room := min(len(lines)-len(box)-boxMargin, len(lines)) - 1
+	for i, b := range banner[:min(len(banner), max(room, 0))] {
+		lines[1+i] = st.Paint("  "+b, w)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // overlayAtBottom paints box over the last rows of a rendered view, centred.

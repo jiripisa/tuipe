@@ -443,6 +443,81 @@ func reopen(t *testing.T, st *store.Store) (*ui.App, *store.Store) {
 	return a, st2
 }
 
+// upgraderApp is the app of someone who used tuipe v0.1.0: the store opens on
+// a schema 1 profile and run history, as ui.Run does, and nothing is forced.
+func upgraderApp(t *testing.T) (*ui.App, *store.Store) {
+	t.Helper()
+	for _, k := range []string{"TERM_PROGRAM", "KITTY_WINDOW_ID", "ALACRITTY_WINDOW_ID", "TERM"} {
+		t.Setenv(k, "")
+	}
+	t.Cleanup(ui.SetGOOS("darwin"))
+	dir := t.TempDir()
+	cfg, data := filepath.Join(dir, "cfg"), filepath.Join(dir, "data")
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"profile.json": `{"Schema":1,"FirstRunDone":true,"Stars":{"ch01-01":3}}`,
+		"runs.jsonl":   `{"Schema":1,"ID":"a3f9c1e","Mode":"lesson","LessonID":"ch01-01","WPM":40}` + "\n",
+	} {
+		if err := os.WriteFile(filepath.Join(data, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st, err := store.Open(cfg, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := ui.New(st, lib, ui.WithClock(newClock().now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	return a, st
+}
+
+// The notices of an upgrade, at the start of a line in any window.
+var upgradeNotices = []string{"Soubor profile.json je ze starší verze", "Soubor runs.jsonl je ze starší verze"}
+
+// Someone coming from v0.1.0 starts with a first run, because their profile
+// was set aside. They are told so on its first screen, and the notice waits
+// for the lesson list: quitting before it keeps the notice for the next launch.
+func TestUpgraderIsToldDuringTheFirstRunUntilTheListShowsIt(t *testing.T) {
+	a, st := upgraderApp(t)
+	wantScreen(t, a, "first-run")
+	showsAll(t, a, upgradeNotices...)
+	showsAll(t, a, "Vítejte", "Editor") // the style choice is still all there
+	fits(t, a)
+	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8}) // must not panic
+	_ = a.View()
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+
+	// Ctrl+C during the first run: Run saves the profile on the way out.
+	a.Update(enter)
+	a.Shutdown()
+	a, st = reopen(t, st)
+	wantScreen(t, a, "first-run")
+	showsAll(t, a, upgradeNotices...)
+
+	passChecks(t, a)
+	a.Update(enter) // from zero
+	a.Update(enter) // the hand position
+	wantScreen(t, a, "lessons")
+	showsAll(t, a, upgradeNotices...)
+	a.Update(down)
+	showsNone(t, a, upgradeNotices...)
+
+	a.Shutdown()
+	a, _ = reopen(t, st)
+	wantScreen(t, a, "lessons")
+	showsNone(t, a, upgradeNotices...)
+}
+
 func TestPickedUserLayoutSurvivesARestart(t *testing.T) {
 	a, st, _ := firstRunApp(t)
 	writeUserLayout(t, st, czechCopy(t))

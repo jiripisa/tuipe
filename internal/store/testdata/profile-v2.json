@@ -37,5 +37,8 @@
   },
   "SkipNoted": {
     "user-layout": true
-  }
+  },
+  "Pending": [
+    "Soubor profile.json je ze starší verze tuipe."
+  ]
 }

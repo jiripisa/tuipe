@@ -57,7 +57,8 @@ type App struct {
 
 	// Banner holds what the user must be told: a file set aside, a layout that
 	// is gone, content that was skipped. The lesson list shows it in an area of
-	// its own until a key is pressed there, and no save touches it.
+	// its own until a key is pressed there, and no save touches it. The first
+	// screen of the first run shows it too.
 	Banner []string
 }
 
@@ -122,8 +123,15 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 	if notice != "" {
 		a.Banner = append(a.Banner, notice)
 	}
-	a.Banner = append(a.Banner, st.Notices()...) // the store only has notices from opening
-	if st.Profile().FirstRunDone {
+	// The store only has notices from opening. They wait in the profile until
+	// the lesson list has shown them, so a quit during the first run keeps them.
+	p := st.Profile()
+	if n := st.Notices(); len(n) > 0 {
+		p.Pending = append(p.Pending, n...)
+		a.SaveErr(st.SaveProfile())
+	}
+	a.Banner = append(a.Banner, p.Pending...)
+	if p.FirstRunDone {
 		a.screen = NewLessonsScreen(a)
 	} else {
 		a.screen = NewFirstRunScreen(a)
@@ -138,6 +146,15 @@ func (a *App) noteSkipped() {
 	if note != "" && !p.SkipNoted[a.Layout.ID] {
 		a.Banner = append(a.Banner, note)
 		p.SkipNoted[a.Layout.ID] = true
+		a.SaveErr(a.Store.SaveProfile())
+	}
+}
+
+// notePendingShown forgets the notices that waited for the lesson list: the
+// list shows them now, from the banner.
+func (a *App) notePendingShown() {
+	if p := a.Store.Profile(); len(p.Pending) > 0 {
+		p.Pending = nil
 		a.SaveErr(a.Store.SaveProfile())
 	}
 }
