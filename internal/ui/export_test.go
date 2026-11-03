@@ -9,6 +9,7 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
 )
 
@@ -234,3 +235,6 @@ func LessonScreenRow(a *App) int {
 	}
 	return -1
 }
+
+// GradesOf is the temporary bridge from Profile.Stars to course grades.
+func GradesOf(stars map[string]int) map[string]score.Grade { return gradesOf(stars) }

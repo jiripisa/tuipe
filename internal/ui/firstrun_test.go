@@ -941,7 +941,7 @@ func TestPlacementRecommendsOnly(t *testing.T) {
 	if len(p.Stars) != 0 {
 		t.Errorf("placement wrote stars: %v", p.Stars)
 	}
-	if got := a.Course.Rank(p.Stars); got != course.Intern {
+	if got := a.Course.Rank(ui.GradesOf(p.Stars)); got != course.Intern {
 		t.Errorf("rank = %s, want Intern", got)
 	}
 	if got := len(p.Taught); got != 0 {
@@ -1027,7 +1027,7 @@ func TestRetakeKeepsStars(t *testing.T) {
 	p.Stars[ls[0].ID], p.Stars[ls[1].ID] = 3, 2
 	p.Taught[ls[0].ID] = true
 	p.Recommended = ls[10].ID
-	rank := a.Course.Rank(p.Stars)
+	rank := a.Course.Rank(ui.GradesOf(p.Stars))
 	openSettings(t, a)
 	onRow(a, rowRetake)
 	a.Update(enter)
@@ -1044,7 +1044,7 @@ func TestRetakeKeepsStars(t *testing.T) {
 	if !p.Taught[ls[0].ID] {
 		t.Error("the retake dropped a Výuka mark")
 	}
-	if got := a.Course.Rank(p.Stars); got != rank {
+	if got := a.Course.Rank(ui.GradesOf(p.Stars)); got != rank {
 		t.Errorf("rank = %s, want %s", got, rank)
 	}
 	a.Update(enter)

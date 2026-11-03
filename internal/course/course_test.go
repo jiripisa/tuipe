@@ -185,26 +185,57 @@ func TestAllowedGrowsWithTheLesson(t *testing.T) {
 	}
 }
 
-// starsFor stars lessons in order until got stars are handed out, three each.
-func starsFor(c *course.Course, got int) map[string]int {
-	stars := map[string]int{}
+// gradesFor hands out got stars in order, six to a lesson: accuracy first, then speed.
+func gradesFor(c *course.Course, got int) map[string]score.Grade {
+	grades := map[string]score.Grade{}
 	for _, ls := range c.Lessons() {
-		n := min(got, 3)
+		n := min(got, 6)
 		if n == 0 {
 			break
 		}
-		stars[ls.ID] = n
+		grades[ls.ID] = score.Grade{Accuracy: min(n, 3), Speed: max(n-3, 0)}
 		got -= n
 	}
-	return stars
+	return grades
 }
 
-func TestRankFollowsStarShare(t *testing.T) {
+func TestStarsCountSixPerLesson(t *testing.T) {
 	c := newCourse(t)
 	_, total := c.Stars(nil)
-	if total != 3*len(c.Lessons()) {
+	if total != 6*len(c.Lessons()) {
 		t.Fatalf("total = %d for %d lessons", total, len(c.Lessons()))
 	}
+	ls := c.Lessons()
+	got, _ := c.Stars(map[string]score.Grade{ls[0].ID: {Accuracy: 3, Speed: 1}, ls[1].ID: {Speed: 2}})
+	if got != 6 {
+		t.Errorf("got = %d, want 6", got)
+	}
+}
+
+func TestStarsIgnoreUnknownLessonsAndClamp(t *testing.T) {
+	c := newCourse(t)
+	got, _ := c.Stars(map[string]score.Grade{
+		"ch01-01": {Accuracy: 7, Speed: 9}, "nope": {Accuracy: 3, Speed: 3}, "ch01-02": {Accuracy: -1, Speed: 1},
+	})
+	if got != 6+1 {
+		t.Errorf("got = %d, want 7", got)
+	}
+}
+
+func TestTargetsAreTheLessonsSpeed(t *testing.T) {
+	c := newCourse(t)
+	ls := c.Lessons()[0]
+	if got := c.Targets(ls.ID); got.Speed != ls.Speed {
+		t.Errorf("targets %v, lesson %v", got.Speed, ls.Speed)
+	}
+	if got := c.Targets("nope"); got != (score.Targets{}) {
+		t.Errorf("an unknown lesson has targets %v", got)
+	}
+}
+
+func TestRankFollowsShareOfSix(t *testing.T) {
+	c := newCourse(t)
+	_, total := c.Stars(nil)
 	for _, tc := range []struct {
 		pct  int
 		want course.Rank
@@ -219,11 +250,11 @@ func TestRankFollowsStarShare(t *testing.T) {
 		if tc.pct == 9 || tc.pct == 29 || tc.pct == 54 || tc.pct == 79 || tc.pct == 94 {
 			got = tc.pct * total / 100
 		}
-		stars := starsFor(c, got)
-		if g, _ := c.Stars(stars); g != got {
+		grades := gradesFor(c, got)
+		if g, _ := c.Stars(grades); g != got {
 			t.Fatalf("%d%%: got %d stars, want %d", tc.pct, g, got)
 		}
-		if r := c.Rank(stars); r != tc.want {
+		if r := c.Rank(grades); r != tc.want {
 			t.Errorf("%d%% (%d/%d): rank %v, want %v", tc.pct, got, total, r, tc.want)
 		}
 	}
@@ -235,20 +266,12 @@ func TestRankFollowsStarShare(t *testing.T) {
 	}
 }
 
-func TestStarsIgnoreUnknownLessonsAndClamp(t *testing.T) {
-	c := newCourse(t)
-	got, _ := c.Stars(map[string]int{"ch01-01": 7, "nope": 3, "ch01-02": -1})
-	if got != 3 {
-		t.Errorf("got = %d, want 3", got)
-	}
-}
-
-func TestNextSkipsStarredLessons(t *testing.T) {
+func TestNextWantsALessonWithNoStar(t *testing.T) {
 	c := newCourse(t)
 	ls := c.Lessons()
-	stars := map[string]int{ls[0].ID: 1, ls[1].ID: 3}
-	next, ok := c.Next(stars, "")
-	if !ok || next.ID != ls[2].ID {
+	grades := map[string]score.Grade{ls[0].ID: {Accuracy: 1}, ls[1].ID: {Speed: 3}, ls[2].ID: {}}
+	next, ok := c.Next(grades, "")
+	if !ok || next.ID != ls[2].ID { // {0,1} and {1,0} count as started, {0,0} does not
 		t.Errorf("Next = %v, %v; want %s", next.ID, ok, ls[2].ID)
 	}
 }
@@ -256,17 +279,17 @@ func TestNextSkipsStarredLessons(t *testing.T) {
 func TestNextStartsAtRecommendation(t *testing.T) {
 	c := newCourse(t)
 	ls := c.Lessons()
-	stars := map[string]int{ls[5].ID: 2}
-	next, ok := c.Next(stars, ls[5].ID)
+	grades := map[string]score.Grade{ls[5].ID: {Speed: 2}}
+	next, ok := c.Next(grades, ls[5].ID)
 	if !ok || next.ID != ls[6].ID {
 		t.Errorf("Next = %v, %v; want %s", next.ID, ok, ls[6].ID)
 	}
 	// Past the recommendation nothing is left: wrap to the first lesson without a star.
-	stars = map[string]int{}
+	grades = map[string]score.Grade{}
 	for _, l := range ls[5:] {
-		stars[l.ID] = 1
+		grades[l.ID] = score.Grade{Accuracy: 1}
 	}
-	next, ok = c.Next(stars, ls[5].ID)
+	next, ok = c.Next(grades, ls[5].ID)
 	if !ok || next.ID != ls[0].ID {
 		t.Errorf("Next = %v, %v; want %s", next.ID, ok, ls[0].ID)
 	}
@@ -274,11 +297,11 @@ func TestNextStartsAtRecommendation(t *testing.T) {
 
 func TestNextWithAllStarred(t *testing.T) {
 	c := newCourse(t)
-	stars := map[string]int{}
+	grades := map[string]score.Grade{}
 	for _, l := range c.Lessons() {
-		stars[l.ID] = 1
+		grades[l.ID] = score.Grade{Speed: 1}
 	}
-	if next, ok := c.Next(stars, c.Lessons()[3].ID); ok {
+	if next, ok := c.Next(grades, c.Lessons()[3].ID); ok {
 		t.Errorf("Next = %v, want none", next.ID)
 	}
 }
@@ -286,7 +309,7 @@ func TestNextWithAllStarred(t *testing.T) {
 func TestNextIgnoresUnknownRecommendation(t *testing.T) {
 	c := newCourse(t)
 	ls := c.Lessons()
-	next, ok := c.Next(map[string]int{ls[0].ID: 1}, "gone-after-layout-change")
+	next, ok := c.Next(map[string]score.Grade{ls[0].ID: {Accuracy: 1}}, "gone-after-layout-change")
 	if !ok || next.ID != ls[1].ID {
 		t.Errorf("Next = %v, %v; want %s", next.ID, ok, ls[1].ID)
 	}

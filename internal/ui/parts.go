@@ -90,14 +90,13 @@ type partResults struct {
 func newPartResults(a *App, part lessonPart, spec play.Spec, res play.Result) Screen {
 	recs := a.recordsOf()[spec.LessonID]
 	key := partKey(modeName(spec), spec.Length)
-	stars := a.Store.Profile().Stars
-	before := a.Course.Rank(stars)
+	before := a.Course.Rank(gradesOf(a.Store.Profile().Stars))
 	run, _ := a.Finish(spec, res) // Finish has shown any save error
 	s := &partResults{
 		part: part, title: spec.Title, run: run, last: recs.Last[key], best: recs.Best[key],
 		stars: spec.Kind == play.KindTest, missed: res.Missed(missedShown),
 	}
-	if after := a.Course.Rank(stars); after > before {
+	if after := a.Course.Rank(gradesOf(a.Store.Profile().Stars)); after > before {
 		s.rank = fmt.Sprintf(text.ResultsRank, after)
 	}
 	return s

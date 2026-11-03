@@ -6,6 +6,7 @@ package course
 import (
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/layout"
+	"github.com/jiripisa/tuipe/internal/score"
 )
 
 // Lesson is one lesson of the course. Focus holds the characters it teaches;
@@ -42,7 +43,11 @@ var rankNames = []string{"Intern", "Junior", "Medior", "Senior", "Staff", "Princ
 // rankFrom is the share of all stars, in percent, from which a rank is held.
 var rankFrom = []int{0, 10, 30, 55, 80, 95}
 
-const maxStars = 3
+// starsPerLesson is three for accuracy and three for speed.
+const starsPerLesson = 6
+
+// maxRowStars is the most stars one row of a lesson holds.
+const maxRowStars = 3
 
 // String returns the English job title.
 func (r Rank) String() string {
@@ -181,18 +186,28 @@ func (c *Course) ChapterAllowed(chapterID string) func(rune) bool {
 	return c.allowed(func(ls Lesson) bool { return c.chapterPos[ls.ChapterID] <= at })
 }
 
-// Stars counts the stars earned on lessons of this course, up to three each,
-// and the stars there are in all.
-func (c *Course) Stars(stars map[string]int) (got, total int) {
-	for _, ls := range c.lessons {
-		got += min(max(stars[ls.ID], 0), maxStars)
+// Targets returns the speed targets of the lesson; an unknown lesson has none.
+func (c *Course) Targets(lessonID string) score.Targets {
+	ls, ok := c.Lesson(lessonID)
+	if !ok {
+		return score.Targets{}
 	}
-	return got, maxStars * len(c.lessons)
+	return score.Targets{Speed: ls.Speed}
+}
+
+// Stars counts the stars earned on lessons of this course, up to six each (the
+// grade of each lesson's best test), and the stars there are in all.
+func (c *Course) Stars(grades map[string]score.Grade) (got, total int) {
+	for _, ls := range c.lessons {
+		g := grades[ls.ID]
+		got += min(max(g.Accuracy, 0), maxRowStars) + min(max(g.Speed, 0), maxRowStars)
+	}
+	return got, starsPerLesson * len(c.lessons)
 }
 
 // Rank is the highest rank whose share of all stars is reached.
-func (c *Course) Rank(stars map[string]int) Rank {
-	got, total := c.Stars(stars)
+func (c *Course) Rank(grades map[string]score.Grade) Rank {
+	got, total := c.Stars(grades)
 	rank := Intern
 	for i, pct := range rankFrom {
 		if total > 0 && got*100 >= pct*total {
@@ -202,18 +217,18 @@ func (c *Course) Rank(stars map[string]int) Rank {
 	return rank
 }
 
-// Next is the first lesson at or after recommended that has no star, else the
-// first lesson without a star anywhere. It reports false when every lesson has
-// a star. An unknown recommended counts as none.
-func (c *Course) Next(stars map[string]int, recommended string) (Lesson, bool) {
+// Next is the first lesson at or after recommended that has no star in either
+// row, else the first such lesson anywhere. It reports false when every lesson
+// has a star. An unknown recommended counts as none.
+func (c *Course) Next(grades map[string]score.Grade, recommended string) (Lesson, bool) {
 	from := c.byID[recommended] // 0 when unknown
 	for _, ls := range c.lessons[from:] {
-		if stars[ls.ID] <= 0 {
+		if grades[ls.ID].Total() <= 0 {
 			return ls, true
 		}
 	}
 	for _, ls := range c.lessons[:from] {
-		if stars[ls.ID] <= 0 {
+		if grades[ls.ID].Total() <= 0 {
 			return ls, true
 		}
 	}

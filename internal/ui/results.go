@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/streak"
 )
@@ -23,7 +24,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 
 	stars := 0
 	if spec.Kind == play.KindTest {
-		stars = r.Stars
+		stars = oldStars(r.Grade)
 	}
 	if stars > p.Stars[spec.LessonID] {
 		p.Stars[spec.LessonID] = stars
@@ -74,4 +75,21 @@ func daysInARow(runs []store.Run, now time.Time) streak.Status {
 		}
 	}
 	return streak.Compute(days, now.Local().Format(dateLayout))
+}
+
+// oldStars is a TEMPORARY bridge to the single star row of Profile.Stars: the
+// speed stars alone, as accuracy no longer gates them. The screens move to Grade in the next change and
+// this goes.
+func oldStars(g score.Grade) int { return g.Speed }
+
+// gradesOf is a TEMPORARY bridge from Profile.Stars to the grades the course
+// rules take: the old number goes into both rows, so the share of all stars
+// (and with it the rank) stays what it was. The screens move to Grade in the
+// next change and this goes.
+func gradesOf(stars map[string]int) map[string]score.Grade {
+	grades := make(map[string]score.Grade, len(stars))
+	for id, n := range stars {
+		grades[id] = score.Grade{Accuracy: n, Speed: n}
+	}
+	return grades
 }

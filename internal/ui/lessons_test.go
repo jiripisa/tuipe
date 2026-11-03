@@ -185,7 +185,7 @@ func TestListShowsBanner(t *testing.T) {
 func TestListHasNoRankByChapterAndNoNumbers(t *testing.T) {
 	a, _, _ := playApp(t)
 	openLessons(a)
-	showsAll(t, a, a.Course.Chapters()[0].Title, a.Course.Rank(a.Store.Profile().Stars).String())
+	showsAll(t, a, a.Course.Chapters()[0].Title, a.Course.Rank(ui.GradesOf(a.Store.Profile().Stars)).String())
 	if strings.Contains(screen(a), "1  "+a.Course.Chapters()[0].Title) {
 		t.Errorf("a chapter heading is numbered:\n%s", screen(a))
 	}
@@ -266,8 +266,8 @@ func TestListShowsChaptersStarsAndRank(t *testing.T) {
 	}
 	st.Profile().Stars[ls[len(ls)/4].ID] = 1
 	openLessons(a)
-	showsAll(t, a, a.Course.Rank(st.Profile().Stars).String())
-	if got := a.Course.Rank(st.Profile().Stars).String(); got != "Junior" {
+	showsAll(t, a, a.Course.Rank(ui.GradesOf(st.Profile().Stars)).String())
+	if got := a.Course.Rank(ui.GradesOf(st.Profile().Stars)).String(); got != "Junior" {
 		t.Fatalf("rank = %s, want Junior for a quarter of the stars", got)
 	}
 	for _, ch := range a.Course.Chapters() {

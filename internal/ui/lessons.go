@@ -122,7 +122,7 @@ func newLessonsScreen(a *App, at string) *lessonsScreen {
 	}
 	if _, ok := a.Course.Lesson(at); !ok {
 		p := a.Store.Profile()
-		next, _ := a.Course.Next(p.Stars, p.Recommended) // none leaves the first lesson
+		next, _ := a.Course.Next(gradesOf(p.Stars), p.Recommended) // none leaves the first lesson
 		at = next.ID
 	}
 	i := 0
@@ -217,9 +217,10 @@ func (l *lessonsScreen) View(a *App, w, h int) string {
 	paint := func(col color.Color, bold bool, s string) string {
 		return st.Base().Foreground(col).Bold(bold).Render(s)
 	}
-	got, _ := a.Course.Stars(p.Stars)
+	got, _ := a.Course.Stars(gradesOf(p.Stars))
+	got /= 2 // TEMPORARY: gradesOf counts the old number in both rows
 	head := []string{
-		paint(st.Accent, false, a.Course.Rank(p.Stars).String()) +
+		paint(st.Accent, false, a.Course.Rank(gradesOf(p.Stars)).String()) +
 			paint(st.Dim, false, " · ") + paint(st.Fg, false, fmt.Sprintf(text.LessonsStars, got)),
 		"",
 	}

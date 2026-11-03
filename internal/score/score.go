@@ -1,4 +1,4 @@
-// Package score turns a keystroke log into metrics and star ratings.
+// Package score turns a keystroke log into metrics and grades.
 package score
 
 import (
@@ -18,8 +18,9 @@ type Metrics struct {
 // Targets holds the per-lesson speed thresholds in WPM for one, two and three stars.
 type Targets struct{ Speed [3]float64 }
 
-// Star accuracy thresholds.
-var minAccuracy = [3]float64{0.92, 0.96, 0.98}
+// minAccuracy is the accuracy for one and two accuracy stars. Three stars need
+// no wrong key at all.
+var minAccuracy = [2]float64{0.97, 0.99}
 
 // Value is the score: WPM x accuracy^4, with accuracy in 0..1.
 func Value(wpm, accuracy float64) float64 {
@@ -62,15 +63,40 @@ func Compute(_ engine.Text, log []engine.Keystroke, d time.Duration) Metrics {
 	return m
 }
 
-// Stars returns 0..3. Each star needs both its speed target and accuracy
-// threshold; the third star also needs that no hint was used.
-func Stars(m Metrics, t Targets, hintUsed bool) int {
-	stars := 0
-	for i := 0; i < 3; i++ {
-		if m.WPM < t.Speed[i] || m.Accuracy < minAccuracy[i] || (i == 2 && hintUsed) {
+// Grade is what a Test earned: up to three stars for accuracy and up to three
+// for speed, each judged on its own.
+type Grade struct{ Accuracy, Speed int }
+
+// GradeOf grades a Test. Accuracy earns three stars only when no key was wrong,
+// two from 99 % and one from 97 %. Speed earns a star for each target reached,
+// whatever the accuracy.
+func GradeOf(wpm, accuracy float64, t Targets) Grade {
+	var g Grade
+	switch {
+	case accuracy >= 1:
+		g.Accuracy = 3
+	case accuracy >= minAccuracy[1]:
+		g.Accuracy = 2
+	case accuracy >= minAccuracy[0]:
+		g.Accuracy = 1
+	}
+	for _, target := range t.Speed {
+		if wpm < target {
 			break
 		}
-		stars++
+		g.Speed++
 	}
-	return stars
+	return g
+}
+
+// Total is the number of stars in both rows.
+func (g Grade) Total() int { return g.Accuracy + g.Speed }
+
+// Better reports whether g beats o: more accuracy stars, and on equal accuracy
+// more speed stars. Equal grades are not better; the caller breaks that tie.
+func (g Grade) Better(o Grade) bool {
+	if g.Accuracy != o.Accuracy {
+		return g.Accuracy > o.Accuracy
+	}
+	return g.Speed > o.Speed
 }

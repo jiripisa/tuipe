@@ -34,7 +34,7 @@ type Frame struct {
 // Result is the outcome of a finished (or inspected) round.
 type Result struct {
 	Metrics  score.Metrics
-	Stars    int
+	Grade    score.Grade
 	HintUsed bool
 	Paused   bool
 	Log      []engine.Keystroke
@@ -105,7 +105,7 @@ func (s *Session) Result(at time.Time) Result {
 		Log:      s.round.Log(),
 		Text:     s.round.Text(),
 	}
-	r.Stars = score.Stars(m, s.spec.Targets, s.hintUsed)
+	r.Grade = score.GradeOf(m.WPM, m.Accuracy, s.spec.Targets)
 	return r
 }
 

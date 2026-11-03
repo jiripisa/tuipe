@@ -81,7 +81,7 @@ func starsBelow(t *testing.T, a *ui.App, st *store.Store, id string, want course
 	for _, ls := range a.Course.Lessons() {
 		probe := maps.Clone(p.Stars)
 		probe[id] = 3
-		if a.Course.Rank(probe) == want {
+		if a.Course.Rank(ui.GradesOf(probe)) == want {
 			return
 		}
 		if ls.ID != id {

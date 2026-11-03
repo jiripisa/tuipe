@@ -29,14 +29,51 @@ func TestScoreValuesFromSpec(t *testing.T) {
 	near(t, score.Value(60, 0.90), 39.37)
 }
 
-func TestStars(t *testing.T) {
+func TestAccuracyStars(t *testing.T) {
 	tg := score.Targets{Speed: [3]float64{20, 30, 40}}
-	m := func(w, a float64) score.Metrics { return score.Metrics{WPM: w, Accuracy: a} }
-	eq(t, score.Stars(m(45, 0.91), tg, false), 0) // fast but sloppy
-	eq(t, score.Stars(m(21, 0.99), tg, false), 1) // accurate but slow
-	eq(t, score.Stars(m(35, 0.96), tg, false), 2)
-	eq(t, score.Stars(m(45, 0.98), tg, false), 3)
-	eq(t, score.Stars(m(45, 0.98), tg, true), 2) // a hint blocks three stars
+	for _, tc := range []struct {
+		acc  float64
+		want int
+	}{{1, 3}, {0.999, 2}, {0.99, 2}, {0.989, 1}, {0.97, 1}, {0.969, 0}} {
+		if got := score.GradeOf(10, tc.acc, tg).Accuracy; got != tc.want {
+			t.Errorf("accuracy %v: %d stars, want %d", tc.acc, got, tc.want)
+		}
+	}
+}
+
+func TestSpeedStarsIgnoreAccuracy(t *testing.T) {
+	tg := score.Targets{Speed: [3]float64{20, 30, 40}}
+	for _, tc := range []struct {
+		wpm  float64
+		want int
+	}{{19.9, 0}, {20, 1}, {30, 2}, {39, 2}, {40, 3}, {90, 3}} {
+		for _, acc := range []float64{0.5, 1} {
+			if got := score.GradeOf(tc.wpm, acc, tg).Speed; got != tc.want {
+				t.Errorf("%v wpm at accuracy %v: %d stars, want %d", tc.wpm, acc, got, tc.want)
+			}
+		}
+	}
+}
+
+func TestBetterPrefersAccuracy(t *testing.T) {
+	g := func(a, s int) score.Grade { return score.Grade{Accuracy: a, Speed: s} }
+	if !g(2, 1).Better(g(1, 3)) {
+		t.Error("two accuracy stars should beat one, whatever the speed")
+	}
+	if !g(2, 2).Better(g(2, 1)) {
+		t.Error("on equal accuracy more speed stars win")
+	}
+	if g(2, 2).Better(g(2, 2)) {
+		t.Error("an equal grade is not better")
+	}
+	if g(1, 3).Better(g(2, 0)) {
+		t.Error("fewer accuracy stars must not win")
+	}
+}
+
+func TestGradeTotal(t *testing.T) {
+	eq(t, score.Grade{Accuracy: 2, Speed: 3}.Total(), 5)
+	eq(t, score.Grade{}.Total(), 0)
 }
 
 func TestAccuracyCountsFirstTryOnly(t *testing.T) {

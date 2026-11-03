@@ -591,7 +591,7 @@ func TestCtrlRCarriesFocusKnowledge(t *testing.T) {
 
 func syntheticResult(stars int) play.Result {
 	return play.Result{
-		Stars: stars, Text: engine.Prepare("ab"),
+		Grade: score.Grade{Accuracy: stars, Speed: stars}, Text: engine.Prepare("ab"),
 		Metrics: score.Metrics{WPM: 30, Accuracy: 1, Score: 30, Duration: time.Second},
 	}
 }
