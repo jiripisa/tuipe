@@ -15,13 +15,14 @@ import (
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
-// lessonRecord is what the run history says about one lesson. Both maps are
+// lessonRecord is what the run history says about one lesson. The maps are
 // keyed by "test" or "training/<length>"; Last is the latest run of a part,
-// Best the best one that did not pause. Grade is what the best Test earned,
+// Best the best one that did not pause and Fastest the fastest one that did not
+// pause, which a speed record must beat. Grade is what the best Test earned,
 // zero when there is none: both rows of stars always come from that one Test.
 type lessonRecord struct {
-	Last, Best map[string]*store.Run
-	Grade      score.Grade
+	Last, Best, Fastest map[string]*store.Run
+	Grade               score.Grade
 }
 
 // gradeOf is what a Test earned, graded from its speed and accuracy.
@@ -60,10 +61,13 @@ func lessonRecords(runs []store.Run, targets func(lessonID string) score.Targets
 		}
 		rec, ok := out[r.LessonID]
 		if !ok {
-			rec = lessonRecord{Last: map[string]*store.Run{}, Best: map[string]*store.Run{}}
+			rec = lessonRecord{Last: map[string]*store.Run{}, Best: map[string]*store.Run{}, Fastest: map[string]*store.Run{}}
 		}
 		key := partKey(r.Mode, r.Length)
 		rec.Last[key] = r
+		if f := rec.Fastest[key]; !r.Paused && (f == nil || r.WPM > f.WPM) {
+			rec.Fastest[key] = r
+		}
 		if b := rec.Best[key]; !r.Paused && (b == nil || better(r, b, targets(r.LessonID))) {
 			rec.Best[key] = r
 			if key == store.ModeTest {

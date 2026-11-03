@@ -83,6 +83,7 @@ type partResults struct {
 	title      string
 	run        store.Run
 	last, best *store.Run   // nil when there is none to compare with
+	fastest    *store.Run   // the speed a record must beat; nil when there is none
 	grade      *score.Grade // what a Test earned; nil for a Trénink and a paused Test, which never counts
 	missed     []rune
 	rank       string // the promotion line, when the rank rose
@@ -99,7 +100,7 @@ func newPartResults(a *App, part lessonPart, spec play.Spec, res play.Result) Sc
 	key := partKey(modeName(spec), spec.Length)
 	run, _ := a.Finish(spec, res) // Finish has shown any save error
 	s := &partResults{
-		part: part, title: spec.Title, run: run, last: recs.Last[key], best: recs.Best[key],
+		part: part, title: spec.Title, run: run, last: recs.Last[key], best: recs.Best[key], fastest: recs.Fastest[key],
 		missed: res.Missed(missedShown),
 	}
 	if spec.Kind == play.KindTest && !run.Paused {
@@ -190,12 +191,13 @@ func (s *partResults) columns() []column {
 	return cols
 }
 
-// verdict is the line above the table: a new record of speed, or how the speed
-// compares with the last attempt. A paused round never sets a record.
+// verdict is the line above the table: a new record of speed, faster than every
+// earlier attempt that did not pause, or how the speed compares with the last
+// attempt. A paused round never sets a record.
 func (s *partResults) verdict(st style.Style) (string, color.Color) {
 	now := shownCPM(&s.run)
 	switch {
-	case s.best != nil && !s.run.Paused && now > shownCPM(s.best):
+	case s.fastest != nil && !s.run.Paused && now > shownCPM(s.fastest):
 		return text.PartRecord, st.Accent
 	case s.last == nil:
 		return "", nil

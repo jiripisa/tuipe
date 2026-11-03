@@ -419,6 +419,26 @@ func TestResultsAnnounceANewRecord(t *testing.T) {
 	showsNone(t, a, text.PartFaster, text.PartSlower, text.PartSame)
 }
 
+// The best Test is often a slow flawless one, so a speed record is measured
+// against the fastest earlier Test, not against the best.
+func TestSpeedRecordBeatsTheFastestNotTheBest(t *testing.T) {
+	a, st, clk := playApp(t)
+	id := firstTeachLesson
+	addRun(t, st, store.Run{ID: "fast", At: daysAgo(clk, 3), Mode: store.ModeTest, LessonID: id, WPM: 40, Accuracy: 0.98, Score: 37})
+	addRun(t, st, store.Run{ID: "fastest", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 80, Accuracy: 0.9, Score: 52, Paused: true})
+	addRun(t, st, store.Run{ID: "best", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 20, Accuracy: 1, Score: 20})
+
+	openPart(t, a, id, partTest)
+	a.Update(key('§'))
+	finishRound(t, a, clk, 2*typingStep) // 150 zn/min with a slip
+	showsAll(t, a, text.PartBest, "100", text.PartFaster)
+	showsNone(t, a, text.PartRecord) // 200 zn/min was faster; the paused 400 does not count
+
+	a.Update(enter)
+	playPart(t, a, clk, id, partTest) // 300 zn/min
+	showsAll(t, a, text.PartRecord)
+}
+
 func TestResultsCompareTheSameLength(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := firstTeachLesson
