@@ -136,8 +136,8 @@ func Paths() (configDir, dataDir string, err error) {
 
 // Open creates the directories, takes the lock and loads config and profile.
 // It returns ErrLocked when another instance is running and ErrNewerData when
-// the profile was written by a newer tuipe. Corrupted files are set aside and
-// reported through Notices.
+// the profile or the run history was written by a newer tuipe. Corrupted files
+// and files of an older schema are set aside and reported through Notices.
 func Open(configDir, dataDir string) (*Store, error) {
 	for _, d := range []string{configDir, dataDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -169,14 +169,26 @@ func takeLock(dataDir string) (*flock.Flock, error) {
 	return lock, nil
 }
 
+// load reads the files. The schema of the run history is read first, so that a
+// history from a newer tuipe stops the opening before any file is touched.
 func (s *Store) load() error {
+	runsSchema, found, err := s.runsSchema()
+	if err != nil {
+		return err
+	}
+	if found && runsSchema > SchemaVersion {
+		return fmt.Errorf("%s: %w", runsFile, ErrNewerData)
+	}
 	if err := s.loadConfig(); err != nil {
 		return err
 	}
 	if err := s.loadProfile(); err != nil {
 		return err
 	}
-	return s.checkRuns()
+	if found && runsSchema < SchemaVersion {
+		return s.setAsideOld(s.runsPath(), runsFile)
+	}
+	return nil
 }
 
 // Close releases the lock.
@@ -317,35 +329,29 @@ func (s *Store) readJSON(path, name string, v any) (found bool, err error) {
 	return true, nil
 }
 
-// checkRuns sets the run history aside when it is of an older schema. The
-// first valid line decides, so a mix with an old line first counts as old, and
-// a file with no valid line stays. It reads only up to that line.
-func (s *Store) checkRuns() error {
+// runsSchema is the schema of the run history. The first valid line decides,
+// so a mix with an old line first counts as old; a missing file or one with no
+// valid line reports found=false. It reads only up to that line.
+func (s *Store) runsSchema() (schema int, found bool, err error) {
 	f, err := os.Open(s.runsPath())
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil
+		return 0, false, nil
 	}
 	if err != nil {
-		return err
+		return 0, false, err
 	}
-	old := false
+	defer f.Close()
 	br := bufio.NewReader(f)
 	for {
 		line, rerr := br.ReadBytes('\n')
 		var r Run
 		if len(line) > 0 && json.Unmarshal(line, &r) == nil && r.ID != "" {
-			old = r.Schema < SchemaVersion
-			break
+			return r.Schema, true, nil
 		}
 		if rerr != nil {
-			break
+			return 0, false, nil
 		}
 	}
-	_ = f.Close()
-	if !old {
-		return nil
-	}
-	return s.setAsideOld(s.runsPath(), runsFile)
 }
 
 // setAside renames a corrupted file to <path>.corrupt-N, with the first free N,

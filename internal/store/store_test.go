@@ -557,6 +557,41 @@ func TestRunsFileSchemaIsJudgedByTheFirstValidLine(t *testing.T) {
 	}
 }
 
+// A run history from a newer tuipe is refused like a newer profile: lines of
+// this version must never be appended to it, and nothing else is touched either.
+func TestNewerRunsAreRefusedAndNotTouched(t *testing.T) {
+	for name, profile := range map[string]string{
+		"no profile":     "",
+		"an old profile": `{"Schema":1}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg, data := dirs(t)
+			runs := "{torn\n" + `{"Schema":3,"ID":"a"}` + "\n" + `{"Schema":2,"ID":"b"}` + "\n"
+			writeFile(t, filepath.Join(data, "runs.jsonl"), runs)
+			if profile != "" {
+				writeFile(t, filepath.Join(data, "profile.json"), profile)
+			}
+			for range 2 { // the lock is released again
+				if s, err := Open(cfg, data); !errors.Is(err, ErrNewerData) {
+					t.Fatalf("err = %v, s = %v", err, s)
+				}
+			}
+			if got := readFile(t, filepath.Join(data, "runs.jsonl")); got != runs {
+				t.Fatalf("runs.jsonl changed: %q", got)
+			}
+			if m, _ := filepath.Glob(filepath.Join(data, "*.v1*")); len(m) != 0 {
+				t.Fatalf("set aside: %v", m)
+			}
+			if profile != "" && readFile(t, filepath.Join(data, "profile.json")) != profile {
+				t.Fatal("the profile changed")
+			}
+			if profile == "" && exists(filepath.Join(data, "profile.json")) {
+				t.Fatal("a profile was written")
+			}
+		})
+	}
+}
+
 func TestEachFileIsJudgedOnItsOwn(t *testing.T) {
 	cfg, data := dirs(t)
 	// A schema 1 profile with no runs file.
