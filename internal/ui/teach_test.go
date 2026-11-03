@@ -370,10 +370,13 @@ func TestTeachMarksTheNextCharacter(t *testing.T) {
 		if row == "" {
 			t.Fatalf("%s: no line in the view", st.ID)
 		}
-		// The cursor cell is drawn on the accent colour, no other cell of the line is.
-		accent := "48;" + colourParam(st.Accent)
-		if n := strings.Count(row, accent); n != 1 {
-			t.Errorf("%s: %d cells on the accent background, want the cursor only", st.ID, n)
+		// The cursor cell is drawn on the soft cursor colour, no other cell of
+		// the line is, and nothing sits on the full accent any more.
+		if n := strings.Count(row, "48;"+colourParam(st.Cursor())); n != 1 {
+			t.Errorf("%s: %d cells on the cursor background, want the cursor only", st.ID, n)
+		}
+		if strings.Contains(row, "48;"+colourParam(st.Accent)) {
+			t.Errorf("%s: a cell is on the full accent background", st.ID)
 		}
 	}
 }

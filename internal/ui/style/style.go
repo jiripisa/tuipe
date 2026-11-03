@@ -74,6 +74,24 @@ func Next(id ID) ID {
 	return all[0].ID
 }
 
+// CursorShare is how much of the accent the cursor cell's background holds. A
+// full accent block drew the eye away from the text around it.
+const CursorShare = 0.3
+
+// Tint mixes c into the background: share 0 gives the background, 1 gives c.
+func (s Style) Tint(c color.Color, share float64) color.Color {
+	r1, g1, b1, _ := c.RGBA()
+	r0, g0, b0, _ := s.Bg.RGBA()
+	mix := func(a, b uint32) uint8 {
+		return uint8((float64(b)*(1-share)+float64(a)*share)/257 + 0.5)
+	}
+	return color.RGBA{R: mix(r1, r0), G: mix(g1, g0), B: mix(b1, b0), A: 255}
+}
+
+// Cursor is the background of the character to type next: a soft tint of the
+// accent, so the cell is easy to find without glaring.
+func (s Style) Cursor() color.Color { return s.Tint(s.Accent, CursorShare) }
+
 // Base is the style of ordinary text: Fg on Bg.
 func (s Style) Base() lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(s.Fg).Background(s.Bg)

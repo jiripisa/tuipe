@@ -253,7 +253,7 @@ func TestCompactKeepsTextAndCursorAtSmallestHeights(t *testing.T) {
 			out := roundview.Render(st, v, 50, h)
 			assertFits(t, out, 50, h)
 			s := ansi.Strip(out)
-			if cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Accent) && c.text == "l" }) == "" {
+			if cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Cursor()) && c.text == "l" }) == "" {
 				t.Errorf("%s height %d: no cursor:\n%s", st.ID, h, s)
 			}
 			for from, want := range map[int]string{
@@ -436,7 +436,7 @@ func TestCursorAlwaysVisibleInLongText(t *testing.T) {
 			if !strings.Contains(s, "radek cislo 39") {
 				t.Errorf("%s %v: no context above the cursor:\n%s", st.ID, sz, s)
 			}
-			at := cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Accent) })
+			at := cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Cursor()) })
 			if !strings.HasSuffix(at, "0") {
 				t.Errorf("%s %v: cursor cell not marked, marked: %q", st.ID, sz, at)
 			}
@@ -453,7 +453,7 @@ func TestCursorStaysVisibleThroughEveryPosition(t *testing.T) {
 					continue
 				}
 				out := roundview.Render(st, roundview.View{Frame: f, Layout: czech()}, sz[0], sz[1])
-				if cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Accent) }) == "" {
+				if cellsWith(out, func(c styledCell) bool { return c.bg == rgb(st.Cursor()) }) == "" {
 					t.Fatalf("%s %v: cursor at %d is not on screen", st.ID, sz, f.Pos)
 				}
 			}
@@ -495,7 +495,7 @@ func TestNewlineIsAVisibleMark(t *testing.T) {
 		if !strings.Contains(ansi.Strip(out), "prvni↵") {
 			t.Errorf("%s: no newline mark:\n%s", st.ID, ansi.Strip(out))
 		}
-		if got := cellOfText(t, out, "↵"); got.bg != rgb(st.Accent) {
+		if got := cellOfText(t, out, "↵"); got.bg != rgb(st.Cursor()) {
 			t.Errorf("%s: cursor on the newline is not visible: %+v", st.ID, got)
 		}
 	}
@@ -507,7 +507,7 @@ func TestSpaceUnderCursorIsVisible(t *testing.T) {
 			f := frame("αβ γδ", "γδ")
 			f.Pos = 2
 			out := roundview.Render(st, roundview.View{Frame: f}, sz[0], sz[1])
-			if got := cellAfter(t, out, "β"); got.bg != rgb(st.Accent) {
+			if got := cellAfter(t, out, "β"); got.bg != rgb(st.Cursor()) {
 				t.Errorf("%s %v: cursor on a space has no block: %+v", st.ID, sz, got)
 			}
 		}
@@ -532,7 +532,7 @@ func TestWrongPressUnderCursorTurnsCursorBad(t *testing.T) {
 		f := frame("αβγδ", "γ")
 		f.WrongPos[2] = true
 		out := roundview.Render(st, roundview.View{Frame: f}, 80, 24)
-		if got := cellOfText(t, out, "γ"); got.bg != rgb(st.Bad) {
+		if got := cellOfText(t, out, "γ"); got.bg != rgb(st.Tint(st.Bad, style.CursorShare)) {
 			t.Errorf("%s: cursor on a wrong press: %+v", st.ID, got)
 		}
 	}
@@ -542,10 +542,10 @@ func TestAutoIndentIsDimAndCursorSkipsIt(t *testing.T) {
 	for _, st := range style.All() {
 		f := frame("if x:\n    ω = 1", "ω = 1")
 		out := roundview.Render(st, roundview.View{Frame: f, Lang: "python"}, 80, 24)
-		if got := cellOfText(t, out, "ω"); got.bg != rgb(st.Accent) {
+		if got := cellOfText(t, out, "ω"); got.bg != rgb(st.Cursor()) {
 			t.Errorf("%s: cursor is not on the first real cell: %+v", st.ID, got)
 		}
-		if got := cellAfter(t, out, "↵"); got.bg == rgb(st.Accent) {
+		if got := cellAfter(t, out, "↵"); got.bg == rgb(st.Cursor()) {
 			t.Errorf("%s: cursor drawn on an indentation cell", st.ID)
 		}
 		// Indentation behind the cursor keeps the dim colour too.

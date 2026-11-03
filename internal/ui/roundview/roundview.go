@@ -138,7 +138,7 @@ func wrap(cells []engine.Cell, width int) []row {
 
 // Span draws the cells from..to-1 of a frame as the compact round does: typed
 // cells in the OK colour, untyped ones in the text colour, wrong presses in the
-// bad colour and the cursor as an inverted cell. Other screens that show a line
+// bad colour and the cursor as a softly tinted cell. Other screens that show a line
 // of a round use it, so a change to how the round draws a cell reaches them.
 func Span(s style.Style, f play.Frame, from, to int) string {
 	paint := ink{s: s, f: f, base: typedThen(f, s.OK, s.Fg)}
@@ -202,12 +202,13 @@ func (k ink) look(i int, bg color.Color) look {
 		}
 	}
 	if i == k.f.Pos && !k.f.Done {
-		l = look{fg: k.s.Bg, bg: k.s.Accent, bold: true}
+		// A soft tint of the colour, with the character in the colour itself.
+		l = look{fg: k.s.Accent, bg: k.s.Cursor(), bold: true}
 		switch {
 		case k.f.Paused:
-			l.bg = k.s.Dim
+			l.fg, l.bg = k.s.Fg, k.s.Tint(k.s.Dim, style.CursorShare)
 		case wrong:
-			l.bg = k.s.Bad
+			l.fg, l.bg = k.s.Bad, k.s.Tint(k.s.Bad, style.CursorShare)
 		}
 	}
 	return l
