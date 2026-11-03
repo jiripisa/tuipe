@@ -19,16 +19,17 @@ import (
 // as a round, and at the end the lesson it recommends. The rounds are ordinary
 // round screens whose end this screen controls.
 type placementScreen struct {
-	next   func(*App) Screen
-	stages []placement.Stage
-	at     int               // the stage that is next or running
-	passed []placement.Stage // stages passed so far
-	last   *score.Metrics    // result of the stage before, for the intro
-	offer  bool              // the test is over and its result is shown
-	ended  bool              // a stage came to an end, so the test measured something
-	kept   bool              // the test was given up and an earlier recommendation stands
-	hands  bool              // the hand-position text follows a result that starts from zero
-	text   handText
+	next    func(*App) Screen
+	stages  []placement.Stage
+	at      int               // the stage that is next or running
+	passed  []placement.Stage // stages passed so far
+	last    *score.Metrics    // result of the stage before, for the intro
+	offer   bool              // the test is over and its result is shown
+	ended   bool              // a stage came to an end, so the test measured something
+	kept    bool              // the test was given up and an earlier recommendation stands
+	hands   bool              // the hand-position text follows a result that starts from zero
+	starred bool              // some lesson has a Test with a star, read when the test ends
+	text    handText
 }
 
 // maxIgnoredAlt is how many Alt presses the Option stage puts up with. A user
@@ -74,7 +75,7 @@ func (p *placementScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return p.leave(a), nil
 	case p.hands:
 		p.text.key(k)
-	case p.offer && k.String() == "enter" && p.fromZero(a):
+	case p.offer && k.String() == "enter" && p.fromZero():
 		p.hands = true // as after the fork
 	case p.offer && k.String() == "enter":
 		return p.leave(a), nil
@@ -88,8 +89,8 @@ func (p *placementScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 
 // fromZero reports someone who passed no stage and has neither a star nor a
 // recommendation from earlier.
-func (p *placementScreen) fromZero(a *App) bool {
-	return len(p.passed) == 0 && len(a.Store.Profile().Stars) == 0 && !p.kept
+func (p *placementScreen) fromZero() bool {
+	return len(p.passed) == 0 && !p.starred && !p.kept
 }
 
 func (p *placementScreen) leave(a *App) Screen {
@@ -159,6 +160,8 @@ func (p *placementScreen) stageEnded(a *App, st placement.Stage, spec play.Spec,
 func (p *placementScreen) finish(a *App) Screen {
 	profile := a.Store.Profile()
 	p.kept = !p.ended && profile.Recommended != ""
+	got, _ := a.Course.Stars(a.grades())
+	p.starred = got > 0
 	if !p.kept {
 		profile.Recommended = placement.Evaluate(a.Course, p.passed)
 	}
@@ -202,7 +205,7 @@ func (p *placementScreen) View(a *App, w, h int) string {
 	}
 
 	body := []string{""}
-	if p.fromZero(a) {
+	if p.fromZero() {
 		body = append(body, prose(text.OfferFromZero, fg)...)
 	} else {
 		body = append(body, prose(text.OfferPassed(len(p.passed), len(p.stages)), fg)...)

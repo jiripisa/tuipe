@@ -85,7 +85,7 @@ func TestHistoryIsPlain(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
 	id, title := lessonOf(t, a, 1)
 	addRun(t, st, store.Run{ID: "a3f9c1e", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id,
-		WPM: 62, Accuracy: 0.981, Stars: 2})
+		WPM: 62, Accuracy: 0.981})
 	addRun(t, st, store.Run{ID: "b7d20aa", At: daysAgo(clk, 1), Mode: store.ModePlacement, WPM: 40, Accuracy: 0.9})
 	addRun(t, st, store.Run{ID: "c0ffee1", At: daysAgo(clk, 1).Add(-time.Hour), Mode: store.ModeTraining, LessonID: id, Length: "short", WPM: 30, Accuracy: 0.8})
 	openStats(t, a)
@@ -95,10 +95,13 @@ func TestHistoryIsPlain(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("history has %d lines, want 3:\n%s", len(lines), s)
 	}
-	for _, want := range []string{"31. 10. 2026", text.StatsModeTest, "310 zn/min", "98,1 %", "★★☆", title} {
+	for _, want := range []string{"31. 10. 2026", text.StatsModeTest, "310 zn/min", "98,1 %", title} {
 		if !strings.HasPrefix(lines[0], "> ") || !strings.Contains(lines[0], want) {
 			t.Errorf("first line lacks %q: %q", want, lines[0])
 		}
+	}
+	if !hasRows(lines[0], "★☆☆", "★★★") {
+		t.Errorf("first line %q, want the two rows of the Test: ★☆☆ ★★★", lines[0])
 	}
 	// A run of no lesson shows its part; the others follow, newest first.
 	if !strings.Contains(lines[1], text.StatsModePlacement) || !strings.Contains(lines[1], "200 zn/min") {
@@ -145,7 +148,7 @@ func TestHistoryNamesTheLengthOfATrainingInPlainCzech(t *testing.T) {
 func TestHistoryFilter(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
 	id, _ := lessonOf(t, a, 1)
-	addRun(t, st, store.Run{ID: "t", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 62, Accuracy: 0.98, Stars: 2})
+	addRun(t, st, store.Run{ID: "t", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 62, Accuracy: 0.98})
 	addRun(t, st, store.Run{ID: "k", At: daysAgo(clk, 1), Mode: store.ModeTraining, Length: "short", LessonID: id, WPM: 30, Accuracy: 0.9})
 	addRun(t, st, store.Run{ID: "p", At: daysAgo(clk, 2), Mode: store.ModePlacement, WPM: 40, Accuracy: 0.9})
 	openStats(t, a)
@@ -665,7 +668,7 @@ func TestTabsSwitchWithTabAndArrowsAndEscGoesToTheList(t *testing.T) {
 func TestHistoryColumnsAlign(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
 	id, title := lessonOf(t, a, 1)
-	addRun(t, st, store.Run{ID: "a", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 70, Accuracy: 1, Stars: 3})
+	addRun(t, st, store.Run{ID: "a", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 70, Accuracy: 1})
 	addRun(t, st, store.Run{ID: "b", At: daysAgo(clk, 0).Add(-time.Minute), Mode: store.ModeTraining, LessonID: id, WPM: 5, Accuracy: 0.5})
 	addRun(t, st, store.Run{ID: "c", At: daysAgo(clk, 3).Add(-2 * time.Minute), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.9})
 	openStats(t, a)
@@ -683,20 +686,22 @@ func TestHistoryColumnsAlign(t *testing.T) {
 }
 
 // A Trénink and the placement test judge nothing, so their rows show no stars
-// at all rather than three empty ones, which would read as a failed Test.
+// at all rather than empty ones, which would read as a failed Test. Nor does a
+// paused Test, which never counts.
 func TestHistoryShowsStarsOnATestOnly(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
 	id, _ := lessonOf(t, a, 1)
 	addRun(t, st, store.Run{ID: "t", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.9})
+	addRun(t, st, store.Run{ID: "z", At: daysAgo(clk, 0).Add(-time.Minute), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 1, Paused: true})
 	addRun(t, st, store.Run{ID: "k", At: daysAgo(clk, 1), Mode: store.ModeTraining, Length: "short", LessonID: id, WPM: 30, Accuracy: 0.9})
 	addRun(t, st, store.Run{ID: "p", At: daysAgo(clk, 2), Mode: store.ModePlacement, WPM: 40, Accuracy: 0.9})
 	openStats(t, a)
 	lines := historyLines(screen(a))
-	if len(lines) != 3 {
+	if len(lines) != 4 {
 		t.Fatalf("lines = %q", lines)
 	}
-	if !strings.Contains(lines[0], "☆☆☆") {
-		t.Errorf("a Test without a star shows its empty stars: %q", lines[0])
+	if !hasRows(lines[0], "☆☆☆", "★★★") {
+		t.Errorf("a Test without an accuracy star shows its empty row: %q", lines[0])
 	}
 	for _, l := range lines[1:] {
 		if strings.ContainsAny(l, "★☆") {

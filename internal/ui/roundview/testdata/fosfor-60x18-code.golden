@@ -1,4 +1,4 @@
- tuipe  ::  kapitola 6 / symboly  ::  lekce 4           ★★☆
+ tuipe  ::  kapitola 6 / symboly  ::  lekce 4       ★★★ ★★☆
  // parsePort reads a TCP port from text.↵
  func parsePort(s string) (int, error) {↵
      n, err := strconv.Atoi(strings.TrimSpace(s))↵

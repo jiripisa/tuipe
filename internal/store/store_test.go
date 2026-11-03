@@ -37,7 +37,6 @@ func TestProfileRoundTrip(t *testing.T) {
 	st := stats.New()
 	st.Chars["a"] = &stats.Entry{LatencyMs: 210, ErrorRate: 0.05, Samples: 12, Mastery: stats.Learning, LastSeen: time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)}
 	p.Stats["mac-cs"] = st
-	p.Stars["l1"] = 3
 	p.FirstRunDone = true
 	p.Recommended = "l2"
 	p.Taught["l1"] = true
@@ -63,7 +62,7 @@ func TestRunsAppendAndSkipBrokenLine(t *testing.T) {
 	cfg, data := dirs(t)
 	s := open(t, cfg, data)
 	defer s.Close()
-	r1 := Run{ID: "1", At: time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC), Mode: "lesson", WPM: 40, Accuracy: 97, Stars: 2}
+	r1 := Run{ID: "1", At: time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC), Mode: "lesson", WPM: 40, Accuracy: 97}
 	r2 := Run{ID: "2", At: time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC), Mode: "drill"}
 	if err := s.AppendRun(r1); err != nil {
 		t.Fatal(err)
@@ -109,7 +108,7 @@ func TestCorruptProfileIsSetAside(t *testing.T) {
 	}
 	s := open(t, cfg, data)
 	defer s.Close()
-	if s.Profile() == nil || s.Profile().Stars == nil || s.Profile().Schema != SchemaVersion {
+	if s.Profile() == nil || s.Profile().Taught == nil || s.Profile().Schema != SchemaVersion {
 		t.Fatalf("expected a fresh profile, got %+v", s.Profile())
 	}
 	m, _ := filepath.Glob(filepath.Join(data, "profile.json.corrupt-*"))
@@ -200,7 +199,7 @@ func TestSaveFailureReturnsErrorAndKeepsOldFile(t *testing.T) {
 	cfg, data := dirs(t)
 	s := open(t, cfg, data)
 	defer s.Close()
-	s.Profile().Stars["l1"] = 1
+	s.Profile().Recommended = "l1"
 	if err := s.SaveProfile(); err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +210,7 @@ func TestSaveFailureReturnsErrorAndKeepsOldFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Chmod(data, 0o755)
-	s.Profile().Stars["l1"] = 3
+	s.Profile().Recommended = "l3"
 	if err := s.SaveProfile(); err == nil {
 		t.Fatal("expected an error")
 	}
@@ -392,9 +391,6 @@ func TestGoldenV2ProfileLoads(t *testing.T) {
 	if b := p.Stats["macos-czech-qwerty"].Bigrams["st"]; b == nil || b.Samples != 12 {
 		t.Errorf("bigram entry = %+v", b)
 	}
-	if p.Stars["ch01-01"] != 2 {
-		t.Errorf("stars = %+v", p.Stars)
-	}
 	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] ||
 		p.LastUpdateCheck != "2026-10-30" || p.LatestSeen != "v1.0.0" || !p.SkipNoted["user-layout"] {
 		t.Errorf("flags = %+v", p)
@@ -504,7 +500,7 @@ func TestOldProfileIsSetAside(t *testing.T) {
 	writeFile(t, filepath.Join(data, "profile.json"), old)
 	s := open(t, cfg, data)
 	defer s.Close()
-	if p := s.Profile(); p.FirstRunDone || len(p.Stars) != 0 || p.Schema != SchemaVersion {
+	if p := s.Profile(); p.FirstRunDone || p.Schema != SchemaVersion {
 		t.Fatalf("expected a fresh profile, got %+v", p)
 	}
 	if got := readFile(t, filepath.Join(data, "profile.json.v1")); got != old {
@@ -669,5 +665,32 @@ func TestNewProfileKeepsTaughtAndRecommended(t *testing.T) {
 	defer s.Close()
 	if s.Profile().Taught == nil {
 		t.Fatal("Taught is nil")
+	}
+}
+
+// Profiles and runs of v0.2 stored stars. Stars are graded from the runs now,
+// so the old keys load without error, are not kept, and the runs stay whole.
+func TestOldStarsKeysAreIgnoredOnLoad(t *testing.T) {
+	cfg, data := dirs(t)
+	writeFile(t, filepath.Join(data, "profile.json"), `{"Schema":2,"FirstRunDone":true,"Stars":{"ch01-01":3},"Recommended":"ch01-02"}`)
+	writeFile(t, filepath.Join(data, "runs.jsonl"),
+		`{"Schema":2,"ID":"a3f9c1e","At":"2026-10-30T12:00:00Z","Mode":"test","LessonID":"ch01-01","WPM":7,"Accuracy":0.98,"Score":6.5,"Stars":3}`+"\n")
+	s := open(t, cfg, data)
+	defer s.Close()
+	if n := s.Notices(); len(n) != 0 {
+		t.Fatalf("the old files were set aside: %q", n)
+	}
+	if p := s.Profile(); !p.FirstRunDone || p.Recommended != "ch01-02" {
+		t.Errorf("profile = %+v", p)
+	}
+	runs, err := s.Runs()
+	if err != nil || len(runs) != 1 || runs[0].ID != "a3f9c1e" || runs[0].WPM != 7 || runs[0].Accuracy != 0.98 {
+		t.Fatalf("runs = %+v, %v", runs, err)
+	}
+	if err := s.SaveProfile(); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(data, "profile.json")); strings.Contains(got, `"Stars"`) {
+		t.Errorf("saving kept the old stars: %s", got)
 	}
 }

@@ -2,7 +2,7 @@
 │ 15 %             91 / 601 ││ 310 zn/min                ││ série 25           │
 │ ████░░░░░░░░░░░░░░░░░░░░░ ││               ▁▂▃▄▆▇▅▇█▇█ ││ přes. 98,1 %       │
 ╰───────────────────────────╯╰───────────────────────────╯╰────────────────────╯
-╭─ kapitola 6 / symboly  ::  lekce 4 ──────────────────────────────────── ★★☆ ─╮
+╭─ kapitola 6 / symboly  ::  lekce 4 ──────────────────────────────── ★★★ ★★☆ ─╮
 │ // parsePort reads a TCP port from text.↵                                    │
 │ func parsePort(s string) (int, error) {↵                                     │
 │     n, err := strconv.Atoi(strings.TrimSpace(s))↵                            │

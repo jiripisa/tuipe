@@ -1,4 +1,4 @@
- text.txt   kapitola 3 / diakritika  ::  lekce 4                                                ★★☆
+ text.txt   kapitola 3 / diakritika  ::  lekce 4                                            ★★★ ★★☆
  1 oprava: přihlášení už nepadá na prázdném hesle a správně vrací chybu 401. Čeština v chybových
    hláškách se zobrazuje bez rozbitých znaků, protože odpověď má konečně správné kódování. Přidali
    jsme také test pro dlouhé uživatelské jméno a odstranili starý přepínač, který už nikdo

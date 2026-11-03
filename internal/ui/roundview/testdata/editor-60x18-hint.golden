@@ -1,4 +1,4 @@
- main.go   kapitola 6 / symboly  ::  lekce 4            ★★☆
+ main.go   kapitola 6 / symboly  ::  lekce 4        ★★★ ★★☆
 12 ↵
 13 // Handle answers one request and logs a failure.↵
 14 func (s *Server) Get(w http.ResponseWriter, r *Req) {↵

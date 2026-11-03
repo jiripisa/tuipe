@@ -16,6 +16,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -73,22 +74,70 @@ func runsOf(t *testing.T, st *store.Store) []store.Run {
 	return runs
 }
 
-// starsBelow gives other lessons three stars each, until a Test of id with
-// three stars would raise the rank to want.
-func starsBelow(t *testing.T, a *ui.App, st *store.Store, id string, want course.Rank) {
+// starsBelow gives other lessons stars, one at a time, until a Test of id that
+// earns at least g would raise the rank to want, which the others alone do not
+// reach. Each lesson gets one Test with its stars.
+func starsBelow(t *testing.T, a *ui.App, st *store.Store, id string, want course.Rank, g score.Grade) {
 	t.Helper()
-	p := st.Profile()
+	grades := map[string]score.Grade{}
+	reached := func() bool {
+		probe := maps.Clone(grades)
+		probe[id] = g
+		return a.Course.Rank(probe) == want
+	}
 	for _, ls := range a.Course.Lessons() {
-		probe := maps.Clone(p.Stars)
-		probe[id] = 3
-		if a.Course.Rank(ui.GradesOf(probe)) == want {
-			return
+		if ls.ID == id {
+			continue
 		}
-		if ls.ID != id {
-			p.Stars[ls.ID] = 3
+		for !reached() && grades[ls.ID].Total() < 6 {
+			next := grades[ls.ID]
+			if next.Accuracy < 3 {
+				next.Accuracy++
+			} else {
+				next.Speed++
+			}
+			grades[ls.ID] = next
+		}
+		if grades[ls.ID].Total() > 0 {
+			addGraded(t, a, st, ls.ID, grades[ls.ID])
+		}
+		if reached() {
+			return
 		}
 	}
 	t.Fatalf("no number of stars reaches %s", want)
+}
+
+// accuracyFor is an accuracy that earns n accuracy stars and no more.
+var accuracyFor = [...]float64{0.9, 0.97, 0.99, 1}
+
+// gradedRuns numbers the runs addGraded stores, so that their ids differ.
+var gradedRuns int
+
+// gradedRun is a Test of lesson id, a month before the clock, whose speed and
+// accuracy earn g: the speed of its last star target, or half the first.
+func gradedRun(t *testing.T, a *ui.App, id string, g score.Grade) store.Run {
+	t.Helper()
+	targets := a.Course.Targets(id)
+	wpm := targets.Speed[0] / 2
+	if g.Speed > 0 {
+		wpm = targets.Speed[g.Speed-1]
+	}
+	gradedRuns++
+	r := store.Run{
+		ID: fmt.Sprintf("g%d", gradedRuns), At: newClock().t.AddDate(0, -1, 0), Mode: store.ModeTest,
+		LessonID: id, WPM: wpm, Accuracy: accuracyFor[g.Accuracy], Score: score.Value(wpm, accuracyFor[g.Accuracy]),
+	}
+	if got := score.GradeOf(r.WPM, r.Accuracy, targets); got != g {
+		t.Fatalf("the run for %+v earns %+v", g, got)
+	}
+	return r
+}
+
+// addGraded stores a Test of lesson id that earns g.
+func addGraded(t *testing.T, a *ui.App, st *store.Store, id string, g score.Grade) {
+	t.Helper()
+	addRun(t, st, gradedRun(t, a, id, g))
 }
 
 func TestTrainingGivesNoStarsAndStoresLength(t *testing.T) {
@@ -105,19 +154,24 @@ func TestTrainingGivesNoStarsAndStoresLength(t *testing.T) {
 	finishRound(t, a, clk, typingStep) // fast and clean: a Test would give three stars
 
 	r := onlyRun(t, st)
-	if r.Mode != store.ModeTraining || r.Length != "short" || r.Stars != 0 || r.LessonID != id {
+	if r.Mode != store.ModeTraining || r.Length != "short" || r.LessonID != id {
 		t.Errorf("run = %+v", r)
 	}
-	if got := st.Profile().Stars[id]; got != 0 {
-		t.Errorf("a Trénink gave %d stars", got)
-	}
-	showsNone(t, a, text.PartStars, "★", "☆")
+	showsNone(t, a, "★", "☆", "bez chyby")
 	if len(ui.StatsOf(a).Chars) == 0 {
 		t.Error("a Trénink did not feed the statistics")
 	}
 }
 
-func TestTestStoresStars(t *testing.T) {
+// tableRow is the row of the results that holds label, without the frame
+// around it.
+func tableRow(t *testing.T, a *ui.App, label string) string {
+	t.Helper()
+	return strings.TrimFunc(lineWith(t, a, label), func(r rune) bool { return unicode.IsSpace(r) || strings.ContainsRune("│┃║|", r) })
+}
+
+// A Test ends its rows of speed and accuracy with the stars it earned there.
+func TestTestShowsItsStarsInTheTable(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := firstTeachLesson
 	openPart(t, a, id, partTest)
@@ -127,32 +181,85 @@ func TestTestStoresStars(t *testing.T) {
 	finishRound(t, a, clk, typingStep)
 
 	r := onlyRun(t, st)
-	if r.Mode != store.ModeTest || r.Stars != 3 || r.Length != "" || r.LessonID != id {
+	if r.Mode != store.ModeTest || r.Length != "" || r.LessonID != id {
 		t.Errorf("run = %+v", r)
 	}
-	if got := st.Profile().Stars[id]; got != 3 {
-		t.Errorf("stars = %d, want 3", got)
+	if row := tableRow(t, a, text.PartSpeed); !strings.HasSuffix(row, "zn/min  ★★★") {
+		t.Errorf("speed row %q, want its three stars after the unit", row)
 	}
-	showsAll(t, a, text.PartStars, "★★★")
+	if row := tableRow(t, a, text.PartAccuracy); !strings.HasSuffix(row, "★★★ bez chyby") {
+		t.Errorf("accuracy row %q, want three stars and bez chyby", row)
+	}
+	showsNone(t, a, "Hvězdy", "bez hvězdy")
 	if len(ui.StatsOf(a).Chars) == 0 {
 		t.Error("a Test did not feed the statistics")
 	}
 }
 
+// Three accuracy stars are for no error at all, however slow, and say so.
+func TestFlawlessResultsSayBezChyby(t *testing.T) {
+	a, _, clk := playApp(t)
+	id := firstTeachLesson
+	openPart(t, a, id, partTest)
+	finishRound(t, a, clk, 2500*time.Millisecond) // below the one-star speed
+	if row := tableRow(t, a, text.PartAccuracy); !strings.HasSuffix(row, "★★★ bez chyby") {
+		t.Errorf("accuracy row %q, want three stars and bez chyby", row)
+	}
+	if row := tableRow(t, a, text.PartSpeed); !strings.HasSuffix(row, "☆☆☆") {
+		t.Errorf("speed row %q, want no speed star", row)
+	}
+
+	// One wrong key and it is no longer flawless.
+	a.Update(enter)
+	openPart(t, a, id, partTest)
+	a.Update(key('§'))
+	finishRound(t, a, clk, typingStep)
+	showsNone(t, a, "bez chyby")
+	if row := tableRow(t, a, text.PartAccuracy); strings.Contains(row, "★★★") {
+		t.Errorf("accuracy row %q: three stars with an error", row)
+	}
+}
+
+// A worse Test shows its own stars, and the lesson keeps those of its best.
 func TestBestStarsNeverDrop(t *testing.T) {
-	a, st, clk := playApp(t)
+	a, _, clk := playApp(t)
 	id := firstTeachLesson
 	playPart(t, a, clk, id, partTest)
 	openPart(t, a, id, partTest)
+	a.Update(key('§'))
 	finishRound(t, a, clk, 2500*time.Millisecond) // below the one-star speed
-	showsAll(t, a, "☆☆☆", text.ResultsNoStars)
-
-	runs := runsOf(t, st)
-	if got := runs[len(runs)-1].Stars; got != 0 {
-		t.Errorf("the slow run has %d stars", got)
+	if row := tableRow(t, a, text.PartSpeed); !strings.HasSuffix(row, "☆☆☆") {
+		t.Errorf("speed row %q, want no speed star", row)
 	}
-	if got := st.Profile().Stars[id]; got != 3 {
-		t.Errorf("the best stars dropped to %d", got)
+	a.Update(enter)
+	wantScreen(t, a, "lesson")
+	if l := lineWith(t, a, text.LessonPartTest+"  "); !hasRows(l, "★★★", "★★★") {
+		t.Errorf("Test row %q, want the stars of the first Test", l)
+	}
+}
+
+// Three columns, the unit and three accuracy stars with bez chyby fit the
+// narrowest window whole.
+func TestResultsStarsFitIn60Columns(t *testing.T) {
+	a, st, clk := playApp(t)
+	id := firstTeachLesson
+	addRun(t, st, store.Run{ID: "a", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 400, Accuracy: 1, Score: 400})
+	addRun(t, st, store.Run{ID: "b", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.995, Score: 29})
+	playPart(t, a, clk, id, partTest)
+	for _, w := range []int{60, 80} {
+		a.Update(tea.WindowSizeMsg{Width: w, Height: 18})
+		showsAll(t, a, text.PartNow, text.PartLast, text.PartBest, "2000", text.PartCPMUnit)
+		accuracy, speed := tableRow(t, a, text.PartAccuracy), tableRow(t, a, text.PartSpeed)
+		if !strings.HasSuffix(accuracy, "★★★ bez chyby") || !strings.HasSuffix(speed, "★★★") {
+			t.Errorf("%d columns: rows\n%s\n%s", w, speed, accuracy)
+		}
+		col := func(row string) int { return utf8.RuneCountInString(row[:max(strings.Index(row, "★"), 0)]) }
+		if col(speed) != col(accuracy) {
+			t.Errorf("%d columns: the stars do not stand in one column:\n%s\n%s", w, speed, accuracy)
+		}
+		if strings.Contains(screen(a), "…") {
+			t.Errorf("%d columns: the table is cut:\n%s", w, screen(a))
+		}
 	}
 }
 
@@ -201,10 +308,6 @@ func TestAbandonedRoundStoresNoRun(t *testing.T) {
 				how(a)
 				if runs := runsOf(t, st); len(runs) != 0 {
 					t.Errorf("%d runs stored", len(runs))
-				}
-				p := st.Profile()
-				if p.Stars[firstTeachLesson] != 0 {
-					t.Error("an abandoned round gave stars")
 				}
 				if len(ui.StatsOf(a).Chars) == 0 {
 					t.Error("the keys so far did not reach the statistics")
@@ -444,7 +547,7 @@ func TestRThatCannotBuildStaysOnTheResults(t *testing.T) {
 func TestRankLineOnPromotion(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := firstTeachLesson
-	starsBelow(t, a, st, id, course.Junior)
+	starsBelow(t, a, st, id, course.Junior, score.Grade{Accuracy: 3, Speed: 3})
 	playPart(t, a, clk, id, partTest)
 	showsAll(t, a, "Nová hodnost: Junior")
 	showsNone(t, a, "Intern", "HR")
@@ -456,13 +559,13 @@ func TestRankLineOnPromotion(t *testing.T) {
 
 func TestTrainingNeverShowsARank(t *testing.T) {
 	a, st, clk := playApp(t)
-	starsBelow(t, a, st, firstTeachLesson, course.Junior)
+	starsBelow(t, a, st, firstTeachLesson, course.Junior, score.Grade{Accuracy: 3, Speed: 3})
 	playPart(t, a, clk, firstTeachLesson, partTraining)
 	showsNone(t, a, "Nová hodnost")
 }
 
 func TestEarlierLessonOpenedLaterStillWorks(t *testing.T) {
-	a, st, clk := playApp(t)
+	a, _, clk := playApp(t)
 	lessons := a.Course.Lessons()
 	later, earlier := lessons[20], lessons[3]
 
@@ -470,7 +573,7 @@ func TestEarlierLessonOpenedLaterStillWorks(t *testing.T) {
 	openPart(t, a, later.ID, partTest)
 	spec := ui.RoundSpec(a)
 	finishRound(t, a, clk, typingStep)
-	if got := st.Profile().Stars[later.ID]; got == 0 {
+	if got := ui.Grades(a)[later.ID]; got.Total() == 0 {
 		t.Fatalf("no stars on %s", later.ID)
 	}
 	allowed := a.Course.AllowedUpTo(later.ID)
@@ -494,9 +597,8 @@ func TestEarlierLessonOpenedLaterStillWorks(t *testing.T) {
 		}
 	}
 	finishRound(t, a, clk, typingStep)
-	p := st.Profile()
-	if p.Stars[earlier.ID] == 0 || p.Stars[later.ID] == 0 {
-		t.Errorf("stars = %v", p.Stars)
+	if g := ui.Grades(a); g[earlier.ID].Total() == 0 || g[later.ID].Total() == 0 {
+		t.Errorf("grades = %v", g)
 	}
 }
 
@@ -521,13 +623,13 @@ func TestCodePartsKeepTheirLanguage(t *testing.T) {
 
 func TestOnlyTheTestRoundShowsStars(t *testing.T) {
 	a, st, _ := playApp(t)
-	st.Profile().Stars[firstTeachLesson] = 2
+	addGraded(t, a, st, firstTeachLesson, score.Grade{Accuracy: 2, Speed: 1})
 	openPart(t, a, firstTeachLesson, partTraining)
 	if strings.Contains(screen(a), "★") {
 		t.Errorf("a Trénink shows stars:\n%s", screen(a))
 	}
 	openPart(t, a, firstTeachLesson, partTest)
-	wantText(t, a, "★★☆")
+	wantText(t, a, "★★☆ ★☆☆") // the best Test, not this one
 }
 
 // finishedWithHistory is a Test with both comparisons and three missed characters.
@@ -557,8 +659,8 @@ func TestResultsShedRowsInOrder(t *testing.T) {
 	arrows := []string{text.PartDelta(cpm-150, false), text.PartDelta(cpm-200, false)} // minule 30, nejlepší 40 wpm
 	everything := append([]string{text.PartRecord, text.PartNow, text.PartMissed, text.PartTime}, arrows...)
 
-	// The body is thirteen rows: the verdict, a gap, the table of seven rows
-	// with a gap after the speed and after the accuracy, a gap and the missed
+	// The body is twelve rows: the verdict, a gap, the table of six rows with a
+	// gap after the speed and after the accuracy, a gap and the missed
 	// characters. The frame takes three more.
 	frame := func(r rune) bool { return unicode.IsSpace(r) || strings.ContainsRune("│┃║|", r) }
 	// blank counts the empty rows between the first and the last row of the body.
@@ -589,7 +691,7 @@ func TestResultsShedRowsInOrder(t *testing.T) {
 		t.Errorf("%d blank rows with room for the gaps:\n%s", got, screen(a))
 	}
 
-	a.Update(tea.WindowSizeMsg{Width: 60, Height: 12}) // the gaps go first
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 11}) // the gaps go first
 	showsAll(t, a, everything...)
 	if got := blank(); got != 0 {
 		t.Errorf("%d blank rows in a full window:\n%s", got, screen(a))
@@ -599,15 +701,13 @@ func TestResultsShedRowsInOrder(t *testing.T) {
 	showsAll(t, a, text.PartRecord, text.PartNow, text.PartMissed, text.PartTime)
 	showsNone(t, a, arrows...)
 
-	a.Update(tea.WindowSizeMsg{Width: 60, Height: 9})
-	showsAll(t, a, text.PartTime)
-	showsNone(t, a, text.PartMissed)
-
 	for _, s := range style.All() {
 		a.Style = s
-		a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
-		showsAll(t, a, text.PartSpeed, text.PartAccuracy, text.PartStars, "★", text.PartNow)
-		showsNone(t, a, text.PartTime)
+		for _, w := range []int{40, 60} {
+			a.Update(tea.WindowSizeMsg{Width: w, Height: 8})
+			showsAll(t, a, text.PartSpeed, text.PartAccuracy, text.PartNow, text.PartTime)
+			showsNone(t, a, text.PartMissed)
+		}
 	}
 }
 

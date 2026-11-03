@@ -43,7 +43,8 @@ const (
 	ModePlacement = "placement" // the placement test of the first run
 )
 
-// Run is one finished round in the history.
+// Run is one finished round in the history. Older runs also hold the key Stars,
+// which is ignored: a Test is graded from its speed and accuracy.
 type Run struct {
 	Schema     int       `json:"Schema"`
 	ID         string    `json:"ID"`
@@ -55,18 +56,18 @@ type Run struct {
 	WPM        float64   `json:"WPM"`
 	Accuracy   float64   `json:"Accuracy"`
 	Score      float64   `json:"Score"`
-	Stars      int       `json:"Stars"`
 	Length     string    `json:"Length"` // the training length, empty for other parts
 	DurationMs int64     `json:"DurationMs"`
 	Paused     bool      `json:"Paused"`
 	HintUsed   bool      `json:"HintUsed"`
 }
 
-// Profile is the mastery and progress of the user.
+// Profile is the mastery and progress of the user. Older profiles also hold the
+// key Stars, which is ignored on load and dropped on save: stars are graded from
+// the runs.
 type Profile struct {
 	Schema          int                     `json:"Schema"`
 	Stats           map[string]*stats.Stats `json:"Stats"` // by layout id
-	Stars           map[string]int          `json:"Stars"` // by lesson id
 	FirstRunDone    bool                    `json:"FirstRunDone"`
 	FocusTerminals  map[string]bool         `json:"FocusTerminals"` // by terminal key: reports focus changes
 	LastUpdateCheck string                  `json:"LastUpdateCheck"`
@@ -92,9 +93,6 @@ func (p *Profile) fillMaps() {
 		if v == nil {
 			delete(p.Stats, k)
 		}
-	}
-	if p.Stars == nil {
-		p.Stars = map[string]int{}
 	}
 	if p.FocusTerminals == nil {
 		p.FocusTerminals = map[string]bool{}

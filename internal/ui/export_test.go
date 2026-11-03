@@ -236,5 +236,5 @@ func LessonScreenRow(a *App) int {
 	return -1
 }
 
-// GradesOf is the temporary bridge from Profile.Stars to course grades.
-func GradesOf(stars map[string]int) map[string]score.Grade { return gradesOf(stars) }
+// Grades is the grade of each lesson's best Test, read from the run history.
+func Grades(a *App) map[string]score.Grade { return a.grades() }

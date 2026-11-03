@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -675,13 +677,13 @@ func TestPlacementRunsHaveNoStarsAndTheirOwnMode(t *testing.T) {
 		t.Fatalf("runs = %d", len(runs))
 	}
 	for _, r := range runs {
-		if r.Stars != 0 || r.Mode != store.ModePlacement {
-			t.Errorf("run %s: stars %d mode %q, want 0 and placement", r.ID, r.Stars, r.Mode)
+		if r.Mode != store.ModePlacement {
+			t.Errorf("run %s: mode %q, want placement", r.ID, r.Mode)
 		}
 	}
 	ui.SetScreen(a, ui.NewStatsScreen(a))
 	showsAll(t, a, "Vstupní test")
-	showsNone(t, a, "★")
+	showsNone(t, a, "★", "☆")
 	a.Update(tab)
 	a.Update(tab)
 	a.Update(tab) // records
@@ -735,16 +737,31 @@ func TestPlacementResultPointsToTheLessons(t *testing.T) {
 	showsNone(t, a, "Kariéra", "kapitol", "nabíd", "pozici", "Hodnost", "Odemčen", "Intern")
 }
 
-// Someone with stars who gives up the retake is not starting from zero.
+// Someone with a star in either row who gives up the retake is not starting
+// from zero.
 func TestRetakeWithStarsSkipsTheHandPosition(t *testing.T) {
 	a, st, _ := playApp(t)
-	st.Profile().Stars[a.Course.Lessons()[0].ID] = 1
+	addGraded(t, a, st, a.Course.Lessons()[0].ID, score.Grade{Speed: 1})
 	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 	a.Update(esc)
 	showsAll(t, a, text.OfferPassed(0, 6))
 	showsNone(t, a, "v pořádku")
 	a.Update(enter)
 	wantScreen(t, a, "lessons")
+}
+
+// Tests without a star, and paused ones, are no start: whoever gives up the
+// retake with only those starts from zero.
+func TestRetakeWithoutAStarStartsFromZero(t *testing.T) {
+	a, st, clk := playApp(t)
+	first := a.Course.Lessons()[0]
+	addGraded(t, a, st, first.ID, score.Grade{})
+	addRun(t, st, store.Run{ID: "p", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: first.ID, WPM: 30, Accuracy: 1, Paused: true})
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	a.Update(esc)
+	showsAll(t, a, "v pořádku")
+	a.Update(enter)
+	showsAll(t, a, "Domovská pozice")
 }
 
 // firstRunStops are the screens of a first run, in the longest state each has.
@@ -938,10 +955,7 @@ func TestPlacementRecommendsOnly(t *testing.T) {
 	}
 	showsAll(t, a, last.Title)
 	fits(t, a)
-	if len(p.Stars) != 0 {
-		t.Errorf("placement wrote stars: %v", p.Stars)
-	}
-	if got := a.Course.Rank(ui.GradesOf(p.Stars)); got != course.Intern {
+	if got := a.Course.Rank(ui.Grades(a)); got != course.Intern {
 		t.Errorf("rank = %s, want Intern", got)
 	}
 	if got := len(p.Taught); got != 0 {
@@ -961,8 +975,8 @@ func TestPlacementRecommendsOnly(t *testing.T) {
 		t.Fatalf("runs = %d, want 6", len(runs))
 	}
 	for _, r := range runs {
-		if r.Mode != store.ModePlacement || r.Stars != 0 || r.LessonID != "" {
-			t.Errorf("run = %+v, want a placement run without stars or a lesson", r)
+		if r.Mode != store.ModePlacement || r.LessonID != "" {
+			t.Errorf("run = %+v, want a placement run without a lesson", r)
 		}
 	}
 	if p.FirstRunDone {
@@ -1015,8 +1029,8 @@ func TestStartFromZeroRecommendsTheFirstLesson(t *testing.T) {
 	if got := ui.LessonsSelected(a); got != first.ID {
 		t.Errorf("the list opens on %q, want %s", got, first.ID)
 	}
-	if len(st.Profile().Stars) != 0 {
-		t.Errorf("starting from zero wrote stars: %v", st.Profile().Stars)
+	if got, _ := a.Course.Stars(ui.Grades(a)); got != 0 {
+		t.Errorf("starting from zero gave %d stars", got)
 	}
 }
 
@@ -1024,10 +1038,12 @@ func TestRetakeKeepsStars(t *testing.T) {
 	a, st, clk := playApp(t)
 	p := st.Profile()
 	ls := a.Course.Lessons()
-	p.Stars[ls[0].ID], p.Stars[ls[1].ID] = 3, 2
+	addGraded(t, a, st, ls[0].ID, score.Grade{Accuracy: 3, Speed: 3})
+	addGraded(t, a, st, ls[1].ID, score.Grade{Accuracy: 2, Speed: 1})
 	p.Taught[ls[0].ID] = true
 	p.Recommended = ls[10].ID
-	rank := a.Course.Rank(ui.GradesOf(p.Stars))
+	grades := ui.Grades(a)
+	rank := a.Course.Rank(grades)
 	openSettings(t, a)
 	onRow(a, rowRetake)
 	a.Update(enter)
@@ -1038,13 +1054,13 @@ func TestRetakeKeepsStars(t *testing.T) {
 	if p.Recommended != want.ID {
 		t.Errorf("Recommended = %q, want %s", p.Recommended, want.ID)
 	}
-	if p.Stars[ls[0].ID] != 3 || p.Stars[ls[1].ID] != 2 || len(p.Stars) != 2 {
-		t.Errorf("the retake changed the stars: %v", p.Stars)
+	if got := ui.Grades(a); !maps.Equal(got, grades) {
+		t.Errorf("the retake changed the stars: %v, want %v", got, grades)
 	}
 	if !p.Taught[ls[0].ID] {
 		t.Error("the retake dropped a Výuka mark")
 	}
-	if got := a.Course.Rank(ui.GradesOf(p.Stars)); got != rank {
+	if got := a.Course.Rank(ui.Grades(a)); got != rank {
 		t.Errorf("rank = %s, want %s", got, rank)
 	}
 	a.Update(enter)

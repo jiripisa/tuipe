@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jiripisa/tuipe/internal/course"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -139,28 +140,30 @@ func TestLessonShowsLastTrainingOfEachLength(t *testing.T) {
 func TestLessonShowsTestResults(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := firstTeachLesson
-	st.Profile().Stars[id] = 2
-	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 30, Score: 28, Stars: 2})
-	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 20, Score: 18, Stars: 1})
+	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 20, Accuracy: 1, Score: 20})
+	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.98, Score: 28})
 	ui.SetScreen(a, ui.NewLessonScreen(a, id))
-	showsAll(t, a, "★★☆", text.LessonBest("150 zn/min"), text.LessonLast("100 zn/min"))
+	if l := lineWith(t, a, text.LessonPartTest+"  "); !hasRows(l, "★★★", "★★★") {
+		t.Errorf("Test row %q, want the stars of r1", l)
+	}
+	showsAll(t, a, text.LessonBest("100 zn/min"), text.LessonLast("150 zn/min"))
 }
 
 func TestLessonRecordsSkipPausedBest(t *testing.T) {
 	runs := []store.Run{
-		{ID: "1", Mode: store.ModeTest, LessonID: "L", Score: 10},
-		{ID: "2", Mode: store.ModeTest, LessonID: "L", Score: 50, Paused: true},
-		{ID: "3", Mode: store.ModeTest, LessonID: "L", Score: 5},
+		{ID: "1", Mode: store.ModeTest, LessonID: "L", WPM: 10, Accuracy: 1, Score: 10},
+		{ID: "2", Mode: store.ModeTest, LessonID: "L", WPM: 50, Accuracy: 1, Score: 50, Paused: true},
+		{ID: "3", Mode: store.ModeTest, LessonID: "L", WPM: 5, Accuracy: 1, Score: 5},
 		{ID: "4", Mode: store.ModeTraining, Length: "short", LessonID: "L", Score: 7},
 		{ID: "5", Mode: store.ModeTraining, Length: "long", LessonID: "L", Score: 8},
 		{ID: "6", Mode: "lesson", LessonID: "L", Score: 99},
 		{ID: "7", Mode: store.ModeTest, LessonID: "M", Score: 1},
 		{ID: "8", Mode: store.ModePlacement, LessonID: "L", Score: 99},
 	}
-	got := ui.LessonRecords(runs)
+	got := ui.LessonRecords(runs, recordTargets)
 	l := got["L"]
-	if b := l.Best["test"]; b == nil || b.ID != "1" {
-		t.Errorf("best test = %+v, want run 1", b)
+	if b := l.Best["test"]; b == nil || b.ID != "1" || l.Grade != (score.Grade{Accuracy: 3}) {
+		t.Errorf("best test = %+v graded %+v, want run 1 with ★★★ ☆☆☆", b, l.Grade)
 	}
 	if b := l.Last["test"]; b == nil || b.ID != "3" {
 		t.Errorf("last test = %+v, want run 3", b)
@@ -176,17 +179,28 @@ func TestLessonRecordsSkipPausedBest(t *testing.T) {
 	}
 }
 
-// The best Test is the one with the most stars, and among those the highest
-// score, so that the best stars and the best result are one run.
-func TestLessonRecordsBestTestHasTheMostStars(t *testing.T) {
+// recordTargets are the speed targets of the lessons of the records tests.
+func recordTargets(string) score.Targets { return score.Targets{Speed: [3]float64{20, 30, 40}} }
+
+// The best Test has more accuracy stars, then more speed stars, then the
+// higher speed, so that both rows of stars and the best result are one run.
+// The best Trénink, which earns no stars, has the highest score.
+func TestLessonRecordsBestTestHasTheBestGrade(t *testing.T) {
 	runs := []store.Run{
-		{ID: "1", Mode: store.ModeTest, LessonID: "L", Score: 50, Stars: 2},
-		{ID: "2", Mode: store.ModeTest, LessonID: "L", Score: 30, Stars: 3},
-		{ID: "3", Mode: store.ModeTest, LessonID: "L", Score: 90, Stars: 3, Paused: true},
-		{ID: "4", Mode: store.ModeTest, LessonID: "L", Score: 35, Stars: 3},
-		{ID: "5", Mode: store.ModeTest, LessonID: "L", Score: 70, Stars: 1},
+		{ID: "1", Mode: store.ModeTest, LessonID: "L", WPM: 35, Accuracy: 0.99},                // ★★ ★★
+		{ID: "2", Mode: store.ModeTest, LessonID: "L", WPM: 22, Accuracy: 1},                   // ★★★ ★
+		{ID: "3", Mode: store.ModeTest, LessonID: "L", WPM: 50, Accuracy: 1, Paused: true},     // never counts
+		{ID: "4", Mode: store.ModeTest, LessonID: "L", WPM: 25, Accuracy: 1},                   // ★★★ ★, faster than 2
+		{ID: "5", Mode: store.ModeTest, LessonID: "L", WPM: 45, Accuracy: 0.98},                // ★ ★★★
+		{ID: "6", Mode: store.ModeTest, LessonID: "L", WPM: 24, Accuracy: 1},                   // ★★★ ★, slower than 4
+		{ID: "7", Mode: store.ModeTraining, Length: "short", LessonID: "L", WPM: 50, Score: 7}, // faster
+		{ID: "8", Mode: store.ModeTraining, Length: "short", LessonID: "L", WPM: 40, Score: 9}, // and a higher score
 	}
-	if b := ui.LessonRecords(runs)["L"].Best["test"]; b == nil || b.ID != "4" {
-		t.Errorf("best test = %+v, want run 4", b)
+	l := ui.LessonRecords(runs, recordTargets)["L"]
+	if b := l.Best["test"]; b == nil || b.ID != "4" || l.Grade != (score.Grade{Accuracy: 3, Speed: 1}) {
+		t.Errorf("best test = %+v graded %+v, want run 4 with ★★★ ★☆☆", b, l.Grade)
+	}
+	if b := l.Best["training/short"]; b == nil || b.ID != "8" {
+		t.Errorf("best Trénink = %+v, want run 8", b)
 	}
 }

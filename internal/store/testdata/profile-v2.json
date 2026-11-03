@@ -22,9 +22,6 @@
       }
     }
   },
-  "Stars": {
-    "ch01-01": 2
-  },
   "FirstRunDone": true,
   "FocusTerminals": {
     "ghostty|tmux=false": true

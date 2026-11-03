@@ -37,9 +37,9 @@ type View struct {
 	Frame       play.Frame
 	Title, Lang string
 	Layout      *layout.Layout
-	Stars       int       // best stars of the lesson; negative when the round has no lesson
-	Throughput  []float64 // recent WPM samples, oldest first; may be empty
-	AltHelp     string    // how to fix Option on this terminal, when known
+	Stars       *score.Grade // the best Test of the lesson, both rows; nil when the round shows none
+	Throughput  []float64    // recent WPM samples, oldest first; may be empty
+	AltHelp     string       // how to fix Option on this terminal, when known
 }
 
 // Render draws v to fit w × h exactly: the layout of the style, or the compact
@@ -271,12 +271,17 @@ func wrapProse(sentence string, width, maxRows int) []string {
 	return rows
 }
 
-func stars(n int) string {
-	if n < 0 { // a round without a lesson has none to show
+// stars draws both rows of a grade, accuracy first: ★★★ ★★☆. A round that shows
+// no stars draws nothing.
+func stars(g *score.Grade) string {
+	if g == nil {
 		return ""
 	}
-	n = min(n, maxStars)
-	return strings.Repeat("★", n) + strings.Repeat("☆", maxStars-n)
+	bar := func(n int) string {
+		n = max(0, min(n, maxStars))
+		return strings.Repeat("★", n) + strings.Repeat("☆", maxStars-n)
+	}
+	return bar(g.Accuracy) + " " + bar(g.Speed)
 }
 
 func speedText(wpm float64) string { return text.LessonSpeed(score.CPM(wpm)) }

@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
 )
@@ -58,7 +59,8 @@ type roundScreen struct {
 	now   time.Time
 
 	menu    pauseMenu
-	left    bool // Leave has run
+	left    bool         // Leave has run
+	stars   *score.Grade // the best Test of the lesson, for a Test; nil for a round that does not judge
 	samples []float64
 	sampled int
 }
@@ -207,14 +209,10 @@ func (r *roundScreen) sample(now time.Time) {
 }
 
 func (r *roundScreen) View(a *App, w, h int) string {
-	const noStars = -1 // only a Test keeps stars
 	f := r.sess.Frame(r.now)
 	v := roundview.View{
 		Frame: f, Title: r.spec.Title, Lang: r.spec.Lang, Layout: a.Layout,
-		Stars: noStars, Throughput: r.samples,
-	}
-	if r.spec.Kind == play.KindTest { // a Trénink does not judge
-		v.Stars = a.Store.Profile().Stars[r.spec.LessonID]
+		Stars: r.stars, Throughput: r.samples,
 	}
 	if f.AltWarning {
 		v.AltHelp = altHelp()

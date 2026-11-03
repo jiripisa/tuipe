@@ -1,4 +1,4 @@
- tuipe  ::  kapitola 7 / kód  ::  lekce 2               ★★☆
+ tuipe  ::  kapitola 7 / kód  ::  lekce 2           ★★★ ★★☆
      value = int(text.strip())↵
      if value < 1 or value > 65535:↵
          raise ValueError("port out of range")↵

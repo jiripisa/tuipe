@@ -1,4 +1,4 @@
- main.py   kapitola 7 / kód  ::  lekce 2                ★★☆
+ main.py   kapitola 7 / kód  ::  lekce 2            ★★★ ★★☆
  1 def parse_port(text):↵
  2     value = int(text.strip())↵
  3     if value < 1 or value > 65535:↵

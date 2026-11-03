@@ -305,13 +305,14 @@ func TestPauseAddsNoThroughputSamples(t *testing.T) {
 	}
 }
 
-func TestFinishingSavesStars(t *testing.T) {
+// A finished Test stores its run, and the lesson is graded from it.
+func TestFinishingGradesTheLessonFromTheRun(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := startLesson(t, a)
 	typeKeys(a, clk, -1)
-	runs, _ := st.Runs()
-	if st.Profile().Stars[id] != runs[0].Stars {
-		t.Errorf("stars %d, run %d", st.Profile().Stars[id], runs[0].Stars)
+	r := onlyRun(t, st)
+	if got, want := ui.Grades(a)[id], score.GradeOf(r.WPM, r.Accuracy, a.Course.Targets(id)); got != want || got.Total() == 0 {
+		t.Errorf("grade %+v, want %+v from the run", got, want)
 	}
 }
 
@@ -589,24 +590,21 @@ func TestCtrlRCarriesFocusKnowledge(t *testing.T) {
 	}
 }
 
-func syntheticResult(stars int) play.Result {
+func syntheticResult(wpm, accuracy float64) play.Result {
 	return play.Result{
-		Grade: score.Grade{Accuracy: stars, Speed: stars}, Text: engine.Prepare("ab"),
-		Metrics: score.Metrics{WPM: 30, Accuracy: 1, Score: 30, Duration: time.Second},
+		Text:    engine.Prepare("ab"),
+		Metrics: score.Metrics{WPM: wpm, Accuracy: accuracy, Score: score.Value(wpm, accuracy), Duration: time.Second},
 	}
 }
 
+// A worse Test after a better one leaves the lesson the stars of the better.
 func TestFinishKeepsTheBestStars(t *testing.T) {
-	a, st, _ := playApp(t)
-	id := a.Course.Lessons()[0].ID
-	st.Profile().Stars[id] = 3
-	run, _ := a.Finish(play.Spec{LessonID: id, Kind: play.KindTest}, syntheticResult(1))
-	if st.Profile().Stars[id] != 3 || run.Stars != 1 {
-		t.Errorf("stars: profile %d run %d", st.Profile().Stars[id], run.Stars)
-	}
-	a.Finish(play.Spec{LessonID: id, Kind: play.KindTest}, syntheticResult(2))
-	if st.Profile().Stars[id] != 3 {
-		t.Error("a worse round lowered the stars")
+	a, _, _ := playApp(t)
+	id := a.Course.Lessons()[0].ID // speed targets 6, 9 and 12 wpm
+	a.Finish(play.Spec{LessonID: id, Kind: play.KindTest}, syntheticResult(30, 1))
+	a.Finish(play.Spec{LessonID: id, Kind: play.KindTest}, syntheticResult(7, 0.98))
+	if got := ui.Grades(a)[id]; got != (score.Grade{Accuracy: 3, Speed: 3}) {
+		t.Errorf("a worse round lowered the stars to %+v", got)
 	}
 }
 

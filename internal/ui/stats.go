@@ -70,8 +70,9 @@ type statsScreen struct {
 	tests   []store.Run // the Tests, newest first: trends and records read these only
 	sel     int         // index into shown
 	days    streak.Status
-	groupOf map[string]string // lesson id -> trend group
-	titles  map[string]string // lesson id -> title
+	groupOf map[string]string        // lesson id -> trend group
+	titles  map[string]string        // lesson id -> title
+	targets map[string]score.Targets // lesson id -> speed targets, to grade a Test
 }
 
 // NewStatsScreen opens the statistics on the history.
@@ -83,9 +84,10 @@ func newStatsScreen(a *App, from string) Screen {
 	runs = slices.Clone(runs)
 	sort.SliceStable(runs, func(i, j int) bool { return runs[i].At.After(runs[j].At) })
 	s := &statsScreen{from: from, runs: runs, days: daysInARow(runs, a.Now()), groupOf: a.lessonGroups(),
-		titles: map[string]string{}, tests: runsFor(runs, filterTest)}
+		titles: map[string]string{}, targets: map[string]score.Targets{}, tests: runsFor(runs, filterTest)}
 	for _, l := range a.Course.Lessons() {
 		s.titles[l.ID] = l.Title
+		s.targets[l.ID] = a.Course.Targets(l.ID)
 	}
 	s.shown = runsFor(runs, s.filter)
 	return s
@@ -243,11 +245,12 @@ const (
 
 // runLine is a run as a plain line: date, part, speed, accuracy, stars, and
 // last what was typed: the length of a Trénink and the lesson. Only a Test has
-// stars; the other parts judge nothing and leave the column blank.
+// stars, both rows; the other parts judge nothing and leave the column blank,
+// as does a paused Test, which never counts.
 func (s *statsScreen) runLine(r store.Run) string {
-	stars := strings.Repeat(" ", maxStars)
-	if r.Mode == store.ModeTest {
-		stars = starBar(r.Stars)
+	stars := strings.Repeat(" ", gradeBarsWidth)
+	if r.Mode == store.ModeTest && !r.Paused {
+		stars = gradeBars(gradeOf(&r, s.targets[r.LessonID]))
 	}
 	line := fmt.Sprintf("%-*s  %-*s  %*s  %7s  %s", dateCol, r.At.Local().Format("2. 1. 2006"), partCol, modeLabel(r.Mode),
 		speedCol, text.LessonSpeed(score.CPM(r.WPM)), text.PartPercent(r.Accuracy), stars)

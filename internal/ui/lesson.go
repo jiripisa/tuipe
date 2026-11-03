@@ -177,7 +177,7 @@ func (s *lessonScreen) partLines(a *App, width int) [lessonRows][]string {
 	if r := s.recs.Last["test"]; r != nil {
 		test = append(test, text.LessonLast(speedText(r)))
 	}
-	out[rowTest] = []string{pad(text.LessonPartTest) + starBar(p.Stars[s.id]), result(test...)}
+	out[rowTest] = []string{pad(text.LessonPartTest) + gradeBars(s.recs.Grade), result(test...)}
 	return out
 }
 

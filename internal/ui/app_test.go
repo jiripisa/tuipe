@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/exp/teatest/v2"
 
 	"github.com/jiripisa/tuipe/internal/content"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -333,22 +334,50 @@ func TestLaunchOpensTheList(t *testing.T) {
 
 	// With a star earned, launching lands on the next lesson, one key from it.
 	st.Profile().FirstRunDone = true
-	st.Profile().Stars[first.ID] = 2
+	addGraded(t, a, st, first.ID, score.Grade{Speed: 2})
 	if err := st.SaveProfile(); err != nil {
 		t.Fatal(err)
 	}
-	b, again := reopen(t, st)
+	b, _ := reopen(t, st)
 	wantScreen(t, b, "lessons")
 	next := b.Course.Lessons()[1]
 	if got := ui.LessonsSelected(b); got != next.ID {
 		t.Errorf("selected %q, want the next lesson %s", got, next.ID)
 	}
-	if got := again.Profile().Stars[first.ID]; got != 2 {
-		t.Errorf("stars after the restart = %d", got)
+	if got := ui.Grades(b)[first.ID]; got != (score.Grade{Speed: 2}) {
+		t.Errorf("grade after the restart = %+v", got)
 	}
 	b.Update(enter)
 	wantScreen(t, b, "lesson")
 	if got := ui.LessonScreenID(b); got != next.ID {
 		t.Errorf("Enter opened %q, want %s", got, next.ID)
 	}
+}
+
+// A profile and runs of v0.2 still carry the stars they stored. They load as
+// they are, nothing is set aside, and the lesson is graded again from its run.
+func TestOldProfileWithStarsLoads(t *testing.T) {
+	a, _, data := startWith(t, func(_, data string) {
+		for name, body := range map[string]string{
+			"profile.json": `{"Schema":2,"FirstRunDone":true,"Stars":{"ch01-01":3}}`,
+			"runs.jsonl": `{"Schema":2,"ID":"a3f9c1e","At":"2026-10-30T12:00:00Z","Mode":"test","LessonID":"ch01-01",` +
+				`"WPM":7,"Accuracy":0.98,"Score":6.5,"Stars":3,"Length":"","DurationMs":60000,"Paused":false,"HintUsed":false}` + "\n",
+		} {
+			if err := os.WriteFile(filepath.Join(data, name), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+	wantScreen(t, a, "lessons")
+	for _, name := range []string{"profile.json.v2", "runs.jsonl.v2", "profile.json.corrupt-1"} {
+		if _, err := os.Stat(filepath.Join(data, name)); err == nil {
+			t.Errorf("%s was set aside", name)
+		}
+	}
+	first := a.Course.Lessons()[0]
+	if line := lineWith(t, a, first.Title); !hasRows(line, "★☆☆", "★☆☆") || !strings.Contains(line, "35 zn/min") {
+		t.Errorf("row %q, want ★☆☆ ★☆☆ from the run at 35 zn/min", line)
+	}
+	showsAll(t, a, "Intern · ★ 2")
+	showsNone(t, a, "ze starší verze")
 }

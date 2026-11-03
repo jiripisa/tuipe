@@ -16,8 +16,7 @@ const (
 
 // compact is the strip for small windows: core numbers on top, the text, then a
 // hint and a warning when there are any. A hint is one line without the map,
-// because a hint nobody can see would still block three stars. It keeps one
-// column free at each edge.
+// so that even a small window shows it. It keeps one column free at each edge.
 //
 // The height alone decides the rows, so a hint opening never moves the text. In
 // the smallest windows the text and its cursor come first, then the numbers,

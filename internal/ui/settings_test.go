@@ -15,6 +15,7 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/layout"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
@@ -211,7 +212,7 @@ func TestBrokenUserLayoutIsReportedNotFatal(t *testing.T) {
 func TestRetakePlacementFromSettings(t *testing.T) {
 	a, st, _ := playApp(t)
 	lessons := a.Course.Lessons()
-	st.Profile().Stars[lessons[0].ID] = 2
+	addGraded(t, a, st, lessons[0].ID, score.Grade{Accuracy: 2, Speed: 2})
 	st.Profile().Recommended = lessons[4].ID
 	openSettings(t, a)
 	onRow(a, rowRetake)
@@ -227,8 +228,8 @@ func TestRetakePlacementFromSettings(t *testing.T) {
 	showsAll(t, a, text.OfferPassed(0, 6), lessons[4].Title)
 	a.Update(enter)
 	wantScreen(t, a, "lessons")
-	if st.Profile().Stars[lessons[0].ID] != 2 {
-		t.Error("retaking the placement changed the stars")
+	if got := ui.Grades(a)[lessons[0].ID]; got != (score.Grade{Accuracy: 2, Speed: 2}) {
+		t.Errorf("retaking the placement changed the stars to %+v", got)
 	}
 	if got := ui.LessonsSelected(a); got != lessons[4].ID {
 		t.Errorf("the list opens on %q, want %s", got, lessons[4].ID)
@@ -356,7 +357,7 @@ func statsTab(n int) func(t *testing.T) *ui.App {
 		id, _ := lessonOf(t, a, 1)
 		for i := range 40 {
 			addRun(t, st, store.Run{ID: fmt.Sprintf("r%05d", i), At: daysAgo(clk, i/3), Mode: store.ModeTest, LessonID: id,
-				WPM: float64(30 + i), Accuracy: 0.95, Stars: i % 4})
+				WPM: float64(30 + i), Accuracy: 0.95 + float64(i%4)/100})
 		}
 		chars := map[rune]stats.Entry{}
 		for i, r := range "asdfjklqwerty" {
@@ -373,29 +374,48 @@ func statsTab(n int) func(t *testing.T) *ui.App {
 var fitCases = []fitCase{
 	{"results-test", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id := longestCourseLesson(a)
-		starsBelow(t, a, st, id, course.Principal)
 		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 200, Accuracy: 0.8, Score: 90})
 		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 1, Accuracy: 0.5, Score: 1})
 		openPart(t, a, id, partTest)
-		worstRound(t, a, clk)
-		wantText(t, a, "Principal")
+		worstRound(t, a, clk, true)
 		wantText(t, a, text.ResultsPaused)
 		wantText(t, a, text.PartBest)
 		wantText(t, a, text.PartMissed)
+	})},
+	// A paused Test never counts, so the rank rises only after one that did not pause.
+	{"results-test-rank", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		id := longestCourseLesson(a)
+		starsBelow(t, a, st, id, course.Principal, score.Grade{Speed: 3})
+		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 5, Accuracy: 0.8, Score: 2})
+		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 1, Accuracy: 0.5, Score: 1})
+		openPart(t, a, id, partTest)
+		worstRound(t, a, clk, false)
+		wantText(t, a, "Principal")
+		wantText(t, a, text.PartBest)
+		wantText(t, a, text.PartMissed)
+	})},
+	// The widest table: three columns, a speed of four digits and bez chyby.
+	{"results-test-flawless", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		id := longestCourseLesson(a)
+		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 200, Accuracy: 1, Score: 200})
+		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 1, Accuracy: 0.995, Score: 1})
+		playPart(t, a, clk, id, partTest)
+		wantText(t, a, text.PartBest)
+		wantText(t, a, text.ResultsFlawless)
 	})},
 	{"results-training", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id := longestCourseLesson(a)
 		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTraining, Length: "medium", LessonID: id, WPM: 200, Accuracy: 0.8, Score: 90})
 		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTraining, Length: "medium", LessonID: id, WPM: 1, Accuracy: 0.5, Score: 1})
 		openPart(t, a, id, partTraining)
-		worstRound(t, a, clk)
+		worstRound(t, a, clk, true)
 		wantText(t, a, text.ResultsPaused)
 		wantText(t, a, text.PartBest)
 		wantText(t, a, text.PartMissed)
 	})},
 	{"lessons", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		first := a.Course.Lessons()[0]
-		st.Profile().Stars[first.ID] = 2
+		addGraded(t, a, st, first.ID, score.Grade{Accuracy: 2, Speed: 1})
 		st.Profile().Taught[a.Course.Lessons()[1].ID] = true
 		st.Profile().Recommended = a.Course.Lessons()[3].ID
 		a.Banner = append(a.Banner, "Soubor byl odložen stranou.")
@@ -405,8 +425,8 @@ var fitCases = []fitCase{
 	})},
 	{"lesson", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id := a.Course.Lessons()[0].ID
-		st.Profile().Stars[id], st.Profile().Taught[id] = 2, true
-		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 20, Stars: 2})
+		st.Profile().Taught[id] = true
+		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 20, Accuracy: 0.99})
 		ui.SetScreen(a, ui.NewLessonScreen(a, id))
 	})},
 	{"lesson-review", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
@@ -537,9 +557,9 @@ func longestCourseLesson(a *ui.App) (id string) {
 	return id
 }
 
-// worstRound finishes a round with the longest results: paused once, and with
-// three characters missed.
-func worstRound(t *testing.T, a *ui.App, clk *clock) {
+// worstRound finishes a round with the longest results: three characters
+// missed and, with pause, paused once.
+func worstRound(t *testing.T, a *ui.App, clk *clock, pause bool) {
 	t.Helper()
 	seen := map[rune]bool{}
 	for i, r := range ui.RoundKeys(a) {
@@ -547,7 +567,7 @@ func worstRound(t *testing.T, a *ui.App, clk *clock) {
 			seen[r] = true
 			a.Update(key('§'))
 		}
-		if i == 5 {
+		if pause && i == 5 {
 			a.Update(esc)
 			clk.advance(time.Minute)
 			a.Update(esc)

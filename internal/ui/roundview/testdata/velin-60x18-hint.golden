@@ -2,7 +2,7 @@
 │ 63 %   379 / 601 ││ 310 zn/min       ││ série 379        │
 │ ██████████░░░░░░ ││      ▁▂▃▄▆▇▅▇█▇█ ││ přes. 98,1 %     │
 ╰──────────────────╯╰──────────────────╯╰──────────────────╯
-╭─ kapitola 6 / symboly  ::  lekce 4 ──────────────── ★★☆ ─╮
+╭─ kapitola 6 / symboly  ::  lekce 4 ──────────── ★★★ ★★☆ ─╮
 │ // Handle answers one request and logs a failure.↵       │
 │ func (s *Server) Get(w http.ResponseWriter, r *Req) {↵   │
 │     if err := s.auth(r); err != nil {↵                   │

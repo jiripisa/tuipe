@@ -1,4 +1,4 @@
- tuipe  ::  kapitola 6 / symboly  ::  lekce 4           ★★☆
+ tuipe  ::  kapitola 6 / symboly  ::  lekce 4       ★★★ ★★☆
  ↵
  // Handle answers one request and logs a failure.↵
  func (s *Server) Get(w http.ResponseWriter, r *Req) {↵

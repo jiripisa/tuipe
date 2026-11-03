@@ -68,6 +68,10 @@ func (p lessonPart) round(a *App) (Screen, error) {
 		done:  func(a *App, res play.Result, _ time.Time) Screen { return newPartResults(a, p, spec, res) },
 		leave: p.back,
 	}}
+	if spec.Kind == play.KindTest { // a Trénink does not judge
+		best := a.recordsOf()[spec.LessonID].Grade
+		r.stars = &best
+	}
 	r.begin(a)
 	return r, nil
 }
@@ -78,26 +82,32 @@ type partResults struct {
 	part       lessonPart
 	title      string
 	run        store.Run
-	last, best *store.Run // nil when there is none to compare with
-	stars      bool       // a Test shows its stars
+	last, best *store.Run   // nil when there is none to compare with
+	grade      *score.Grade // what a Test earned; nil for a Trénink and a paused Test, which never counts
 	missed     []rune
 	rank       string // the promotion line, when the rank rose
 	note       string
 }
 
 // newPartResults records the finished round with Finish and shows it. The
-// earlier attempts and the rank are read first, so this run is not among them.
+// earlier attempts are read first, so this run is not among them; the rank
+// after it is that of the same history with this run added.
 func newPartResults(a *App, part lessonPart, spec play.Spec, res play.Result) Screen {
-	recs := a.recordsOf()[spec.LessonID]
+	runs, _ := a.Store.Runs() // a history that cannot be read must not break the results
+	before := lessonRecords(runs, a.Course.Targets)
+	recs := before[spec.LessonID]
 	key := partKey(modeName(spec), spec.Length)
-	before := a.Course.Rank(gradesOf(a.Store.Profile().Stars))
 	run, _ := a.Finish(spec, res) // Finish has shown any save error
 	s := &partResults{
 		part: part, title: spec.Title, run: run, last: recs.Last[key], best: recs.Best[key],
-		stars: spec.Kind == play.KindTest, missed: res.Missed(missedShown),
+		missed: res.Missed(missedShown),
 	}
-	if after := a.Course.Rank(gradesOf(a.Store.Profile().Stars)); after > before {
-		s.rank = fmt.Sprintf(text.ResultsRank, after)
+	if spec.Kind == play.KindTest && !run.Paused {
+		s.grade = &res.Grade
+	}
+	after := lessonRecords(append(runs, run), a.Course.Targets)
+	if rank := a.Course.Rank(gradesOf(after)); rank > a.Course.Rank(gradesOf(before)) {
+		s.rank = fmt.Sprintf(text.ResultsRank, rank)
 	}
 	return s
 }
@@ -122,8 +132,8 @@ func (s *partResults) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return s, nil
 }
 
-// What goes when the window is short, first to last. The head of the table,
-// the speed, the accuracy and the stars never go.
+// What goes when the window is short, first to last. The head of the table and
+// the rows of speed and accuracy, which end with the stars of a Test, never go.
 const (
 	goesGap = iota
 	goesArrows
@@ -198,14 +208,15 @@ func (s *partResults) verdict(st style.Style) (string, color.Color) {
 
 func (s *partResults) View(a *App, w, h int) string {
 	st := a.Style
-	fit := func(t string) string { return ansi.Truncate(t, max(w-3, 1), "…") }
+	room := max(w-3, 1)
+	fit := func(t string) string { return ansi.Truncate(t, room, "…") }
 	paint := func(col color.Color, t string) string { return st.Base().Foreground(col).Render(t) }
 	pad := func(t string, n int) string { return t + strings.Repeat(" ", max(n-ansi.StringWidth(t), 1)) }
 	cols := s.columns()
 
-	// row lays out one line of the table: the label, this round, then the
+	// cells lays out one line of the table: the label, this round, then the
 	// earlier attempts, each in its own column.
-	row := func(label string, now string, earlier []string, colour []color.Color, unit string) string {
+	cells := func(label string, now string, earlier []string, colour []color.Color, unit string) string {
 		line := paint(st.Dim, pad(label, figureLabel))
 		cells := append([]string{now}, earlier...)
 		for i, c := range cells {
@@ -225,7 +236,10 @@ func (s *partResults) View(a *App, w, h int) string {
 		if unit != "" {
 			line += paint(st.Dim, unit)
 		}
-		return fit(line)
+		return line
+	}
+	row := func(label string, now string, earlier []string, colour []color.Color, unit string) string {
+		return fit(cells(label, now, earlier, colour, unit))
 	}
 	// arrows is the row under a figure: how this round beats each earlier one.
 	arrows := func(delta func(*store.Run) float64, percent bool) partLine {
@@ -270,39 +284,60 @@ func (s *partResults) View(a *App, w, h int) string {
 
 	cpm := func(r *store.Run) string { return fmt.Sprintf("%.0f", shownCPM(r)) }
 	accuracy := func(r *store.Run) string { return text.PartPercent(r.Accuracy) }
+	// figures lays out the head and the rows of speed and accuracy. The unit of
+	// speed follows the speeds, or with unitInHead stands in the head instead.
+	var head, speed, accurate string
+	figures := func(unitInHead bool) {
+		unit, headLabel := text.PartCPMUnit, ""
+		if unitInHead {
+			unit, headLabel = "", text.PartCPMUnit
+		}
+		if len(cols) > 0 {
+			heads := earlier(func(*store.Run) string { return "" })
+			for i, c := range cols {
+				heads[i] = c.head
+			}
+			head = cells(headLabel, text.PartNow, heads, nil, "")
+			speed = cells(text.PartSpeed, cpm(&s.run), earlier(cpm), nil, unit)
+		} else {
+			speed = cells(text.PartSpeed, speedText(&s.run), nil, nil, "")
+		}
+		accurate = cells(text.PartAccuracy, accuracy(&s.run), earlier(accuracy), nil, "")
+	}
+	figures(false)
+	// A Test ends the rows of speed and accuracy with the stars it earned there,
+	// in one column. When they would not fit, the unit gives them its room.
+	if g := s.grade; g != nil {
+		speedStars, accuracyStars := starBar(g.Speed), starBar(g.Accuracy)
+		if g.Accuracy == maxStars {
+			accuracyStars += " " + text.ResultsFlawless
+		}
+		at := func() int { return max(ansi.StringWidth(speed), ansi.StringWidth(accurate)) + 2 }
+		if len(cols) > 0 && at()+ansi.StringWidth(accuracyStars) > room {
+			figures(true)
+		}
+		col := at()
+		speed = pad(speed, col) + paint(st.Accent, speedStars)
+		accurate = pad(accurate, col) + paint(st.Accent, accuracyStars)
+	}
+
 	var table []partLine
 	if len(cols) > 0 {
-		heads := earlier(func(*store.Run) string { return "" })
-		for i, c := range cols {
-			heads[i] = c.head
-		}
-		head := row("", text.PartNow, heads, nil, "")
 		// The head is dim, as labels are.
 		table = append(table, partLine{fit(paint(st.Dim, ansi.Strip(head))), goesNever})
 	}
-	if len(cols) > 0 {
-		table = append(table, partLine{row(text.PartSpeed, cpm(&s.run), earlier(cpm), nil, text.PartCPMUnit), goesNever})
-	} else {
-		table = append(table, partLine{row(text.PartSpeed, speedText(&s.run), nil, nil, ""), goesNever})
-	}
+	table = append(table, partLine{fit(speed), goesNever})
 	if len(cols) > 0 {
 		table = append(table, arrows(func(r *store.Run) float64 { return shownCPM(&s.run) - shownCPM(r) }, false))
 	}
 	// A gap after each group of the table, so that the rows do not crowd.
 	table = append(table, partLine{goes: goesGap})
-	table = append(table, partLine{row(text.PartAccuracy, accuracy(&s.run), earlier(accuracy), nil, ""), goesNever})
+	table = append(table, partLine{fit(accurate), goesNever})
 	if len(cols) > 0 {
 		table = append(table, arrows(func(r *store.Run) float64 { return shownAccuracy(&s.run) - shownAccuracy(r) }, true))
 	}
 	table = append(table, partLine{goes: goesGap})
 	table = append(table, partLine{row(text.PartTime, text.PartClock(int(math.Round(float64(s.run.DurationMs)/1000))), nil, nil, ""), goesTime})
-	if s.stars {
-		line := starBar(s.run.Stars)
-		if s.run.Stars == 0 {
-			line += "  " + text.ResultsNoStars
-		}
-		table = append(table, partLine{fit(paint(st.Dim, pad(text.PartStars, figureLabel)) + paint(st.Accent, line)), goesNever})
-	}
 	block(table...)
 
 	if len(s.missed) > 0 {

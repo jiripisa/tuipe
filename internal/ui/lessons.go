@@ -17,17 +17,27 @@ import (
 
 // lessonRecord is what the run history says about one lesson. Both maps are
 // keyed by "test" or "training/<length>"; Last is the latest run of a part,
-// Best the one that did not pause with the most stars and, among those, the
-// highest score. A Trénink has no stars, so its best is the highest score.
-type lessonRecord struct{ Last, Best map[string]*store.Run }
+// Best the best one that did not pause. Grade is what the best Test earned,
+// zero when there is none: both rows of stars always come from that one Test.
+type lessonRecord struct {
+	Last, Best map[string]*store.Run
+	Grade      score.Grade
+}
 
-// better reports whether r beats the best run b so far: more stars, or as
-// many and a higher score.
-func better(r, b *store.Run) bool {
-	if r.Stars != b.Stars {
-		return r.Stars > b.Stars
+// gradeOf is what a Test earned, graded from its speed and accuracy.
+func gradeOf(r *store.Run, t score.Targets) score.Grade { return score.GradeOf(r.WPM, r.Accuracy, t) }
+
+// better reports whether r beats b, the best run of the same part so far. A
+// Test wins on its grade and then on speed; a Trénink, which earns no stars,
+// on its score.
+func better(r, b *store.Run, t score.Targets) bool {
+	if r.Mode != store.ModeTest {
+		return r.Score > b.Score
 	}
-	return r.Score > b.Score
+	if rg, bg := gradeOf(r, t), gradeOf(b, t); rg != bg {
+		return rg.Better(bg)
+	}
+	return r.WPM > b.WPM
 }
 
 // partKey is the key of a part in lessonRecord: "test", or "training/<length>".
@@ -38,9 +48,10 @@ func partKey(mode, length string) string {
 	return mode
 }
 
-// lessonRecords sorts the run history by lesson. Runs of any other mode, such
-// as the placement test or the old rounds, are ignored.
-func lessonRecords(runs []store.Run) map[string]lessonRecord {
+// lessonRecords sorts the run history by lesson, grading Tests against the
+// lesson's targets. Runs of any other mode, such as the placement test or the
+// old rounds, are ignored.
+func lessonRecords(runs []store.Run, targets func(lessonID string) score.Targets) map[string]lessonRecord {
 	out := map[string]lessonRecord{}
 	for i := range runs {
 		r := &runs[i]
@@ -50,13 +61,16 @@ func lessonRecords(runs []store.Run) map[string]lessonRecord {
 		rec, ok := out[r.LessonID]
 		if !ok {
 			rec = lessonRecord{Last: map[string]*store.Run{}, Best: map[string]*store.Run{}}
-			out[r.LessonID] = rec
 		}
 		key := partKey(r.Mode, r.Length)
 		rec.Last[key] = r
-		if b := rec.Best[key]; !r.Paused && (b == nil || better(r, b)) {
+		if b := rec.Best[key]; !r.Paused && (b == nil || better(r, b, targets(r.LessonID))) {
 			rec.Best[key] = r
+			if key == store.ModeTest {
+				rec.Grade = gradeOf(r, targets(r.LessonID))
+			}
 		}
+		out[r.LessonID] = rec
 	}
 	return out
 }
@@ -65,17 +79,39 @@ func lessonRecords(runs []store.Run) map[string]lessonRecord {
 // not break a screen, so what was read is used.
 func (a *App) recordsOf() map[string]lessonRecord {
 	runs, _ := a.Store.Runs()
-	return lessonRecords(runs)
+	return lessonRecords(runs, a.Course.Targets)
 }
+
+// gradesOf is the grade of each lesson's best Test, as the course counts
+// stars, rank and the next lesson.
+func gradesOf(recs map[string]lessonRecord) map[string]score.Grade {
+	grades := make(map[string]score.Grade, len(recs))
+	for id, rec := range recs {
+		grades[id] = rec.Grade
+	}
+	return grades
+}
+
+// grades reads the run history once and grades each lesson by its best Test.
+func (a *App) grades() map[string]score.Grade { return gradesOf(a.recordsOf()) }
 
 // speedText is the speed of a run in characters per minute.
 func speedText(r *store.Run) string { return text.LessonSpeed(score.CPM(r.WPM)) }
 
-// starBar draws earned and missing stars: ★★☆.
+// maxStars is the stars of one row: of accuracy or of speed.
+const maxStars = 3
+
+// starBar draws earned and missing stars of one row: ★★☆.
 func starBar(n int) string {
 	n = max(0, min(n, maxStars))
 	return strings.Repeat("★", n) + strings.Repeat("☆", maxStars-n)
 }
+
+// gradeBars draws both rows of a grade, accuracy first: ★★★ ★★☆.
+func gradeBars(g score.Grade) string { return starBar(g.Accuracy) + " " + starBar(g.Speed) }
+
+// gradeBarsWidth is the width of gradeBars, for a column of them.
+const gradeBarsWidth = 2*maxStars + 1
 
 // bannerLines wraps the banner to the window and paints it. It takes at most
 // half of the rows; a path has no spaces, so it is broken where it must be.
@@ -96,12 +132,13 @@ type lessonsRow struct {
 	pick    bool
 }
 
-// lessonsScreen lists every lesson of the course, grouped by chapter, with its
-// stars and speed. Nothing in it is locked.
+// lessonsScreen lists every lesson of the course, grouped by chapter, with the
+// two rows of stars and the speed of its best Test. Nothing in it is locked.
 type lessonsScreen struct {
-	rows []lessonsRow
-	recs map[string]lessonRecord
-	sel  int // among the lessons
+	rows   []lessonsRow
+	recs   map[string]lessonRecord
+	grades map[string]score.Grade // of recs, for the rank and the next lesson
+	sel    int                    // among the lessons
 }
 
 // NewLessonsScreen builds the lesson list. It opens on the next lesson, or on
@@ -114,6 +151,7 @@ func newLessonsScreen(a *App, at string) *lessonsScreen {
 	a.noteSkipped()
 	a.notePendingShown()
 	l := &lessonsScreen{recs: a.recordsOf()}
+	l.grades = gradesOf(l.recs)
 	for _, ch := range a.Course.Chapters() {
 		l.rows = append(l.rows, lessonsRow{chapter: ch.Title})
 		for _, ls := range ch.Lessons {
@@ -122,7 +160,7 @@ func newLessonsScreen(a *App, at string) *lessonsScreen {
 	}
 	if _, ok := a.Course.Lesson(at); !ok {
 		p := a.Store.Profile()
-		next, _ := a.Course.Next(gradesOf(p.Stars), p.Recommended) // none leaves the first lesson
+		next, _ := a.Course.Next(l.grades, p.Recommended) // none leaves the first lesson
 		at = next.ID
 	}
 	i := 0
@@ -191,18 +229,15 @@ func (l *lessonsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 }
 
 // status is what the right-hand side of a lesson row says: for a lesson with
-// a star, the speed of the best Test when that Test holds the lesson's stars,
-// so that stars and speed belong together; else whether the lesson is
-// recommended or begun.
+// a star, the speed of the best Test, the one its stars come from; else whether
+// the lesson is recommended or begun.
 func (l *lessonsScreen) status(p *store.Profile, ls course.Lesson) string {
-	if stars := p.Stars[ls.ID]; stars > 0 {
-		if best := l.recs[ls.ID].Best["test"]; best != nil && best.Stars == stars {
-			return speedText(best)
-		}
-		return ""
+	rec := l.recs[ls.ID]
+	if best := rec.Best["test"]; best != nil && rec.Grade.Total() > 0 {
+		return speedText(best)
 	}
 	var parts []string
-	if p.Taught[ls.ID] || len(l.recs[ls.ID].Last) > 0 {
+	if p.Taught[ls.ID] || len(rec.Last) > 0 {
 		parts = append(parts, text.LessonStarted)
 	}
 	if p.Recommended == ls.ID {
@@ -217,12 +252,15 @@ func (l *lessonsScreen) View(a *App, w, h int) string {
 	paint := func(col color.Color, bold bool, s string) string {
 		return st.Base().Foreground(col).Bold(bold).Render(s)
 	}
-	got, _ := a.Course.Stars(gradesOf(p.Stars))
-	got /= 2 // TEMPORARY: gradesOf counts the old number in both rows
+	got, _ := a.Course.Stars(l.grades)
+	// The accuracy stars stand under their label, and the speed stars under theirs.
+	accuracyCol := max(ansi.StringWidth(text.LessonsAccuracy), maxStars) + 1
+	padTo := func(s string, n int) string { return s + strings.Repeat(" ", max(n-ansi.StringWidth(s), 0)) }
 	head := []string{
-		paint(st.Accent, false, a.Course.Rank(gradesOf(p.Stars)).String()) +
+		paint(st.Accent, false, a.Course.Rank(l.grades).String()) +
 			paint(st.Dim, false, " · ") + paint(st.Fg, false, fmt.Sprintf(text.LessonsStars, got)),
 		"",
+		paint(st.Dim, false, "  "+ansi.Truncate(padTo(text.LessonsAccuracy, accuracyCol)+text.LessonsSpeed, max(w-4, 1), "…")),
 	}
 
 	width := 0
@@ -240,7 +278,8 @@ func (l *lessonsScreen) View(a *App, w, h int) string {
 			continue
 		}
 		title := r.lesson.Title + strings.Repeat(" ", width-ansi.StringWidth(r.lesson.Title))
-		plain := starBar(p.Stars[r.lesson.ID]) + "  " + title
+		g := l.recs[r.lesson.ID].Grade
+		plain := padTo(starBar(g.Accuracy), accuracyCol) + starBar(g.Speed) + "  " + title
 		status := l.status(p, r.lesson)
 		if status != "" {
 			plain += "  " + status

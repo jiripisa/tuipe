@@ -106,9 +106,9 @@ const (
 
 // Notes on the results of a round.
 const (
-	ResultsPaused  = "pauza: kolo se nepočítá jako rekord"
-	ResultsNoStars = "bez hvězdy"
-	ResultsRank    = "Nová hodnost: %s"
+	ResultsPaused   = "pauza: kolo se nepočítá jako rekord"
+	ResultsFlawless = "bez chyby" // follows three accuracy stars
+	ResultsRank     = "Nová hodnost: %s"
 )
 
 // Labels of the round screen.
@@ -368,6 +368,8 @@ const (
 	LessonStarted      = "rozpracováno"
 	LessonRecommended  = "doporučeno"
 	LessonsStars       = "★ %d"
+	LessonsAccuracy    = "přesnost" // above the accuracy stars of the list
+	LessonsSpeed       = "rychlost" // above the speed stars of the list
 	HintLessons        = "↑↓ výběr · Enter otevřít · S statistiky · N nastavení"
 	HintLesson         = "↑↓ výběr · ←→ délka · Enter spustit · Esc zpět"
 	LessonLanguage     = "Jazyk: %s"
@@ -399,7 +401,6 @@ const (
 	PartSpeed    = "Rychlost"
 	PartAccuracy = "Přesnost"
 	PartTime     = "Čas"
-	PartStars    = "Hvězdy"
 	PartMissed   = "Nejvíc chyb"
 	// The columns of the results: this round, the last one and the best one.
 	PartNow  = "teď"

@@ -1,13 +1,17 @@
 package ui_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -28,6 +32,22 @@ func downTo(t *testing.T, a *ui.App, id string) {
 		a.Update(down)
 	}
 	t.Fatalf("the list never selected %s", id)
+}
+
+// hasRows reports whether line shows the accuracy stars acc and, after them
+// and some space, the speed stars speed.
+func hasRows(line, acc, speed string) bool {
+	for i := 0; ; {
+		j := strings.Index(line[i:], acc)
+		if j < 0 {
+			return false
+		}
+		i += j + len(acc)
+		rest := strings.TrimLeft(line[i:], " ")
+		if len(rest) < len(line[i:]) && strings.HasPrefix(rest, speed) {
+			return true
+		}
+	}
 }
 
 // lineWith returns the line of the screen that holds s.
@@ -56,46 +76,158 @@ func TestListOpensEveryLesson(t *testing.T) {
 	}
 }
 
-// The speed beside the stars is that of the Test that earned them: a faster
-// run with fewer stars, though its score is higher, does not stand there.
-func TestListShowsStarsAndBestSpeed(t *testing.T) {
+// Both rows and the speed beside them come from one Test, the best: more
+// accuracy stars, then more speed stars, then the higher speed. A paused Test
+// never counts.
+func TestListShowsBothRowsOfTheBestTest(t *testing.T) {
 	a, st, clk := playApp(t)
-	id := a.Course.Lessons()[1].ID
-	st.Profile().Stars[id] = 2
-	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 3), Mode: store.ModeTest, LessonID: id, WPM: 40, Score: 35, Stars: 2})
-	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 60, Score: 55, Stars: 1})
-	addRun(t, st, store.Run{ID: "r3", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 50, Score: 45, Stars: 2})
-	addRun(t, st, store.Run{ID: "r4", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 70, Score: 65, Stars: 2, Paused: true})
+	id := a.Course.Lessons()[1].ID // speed targets 10, 15 and 20 wpm
+	for _, r := range []store.Run{
+		{ID: "r1", At: daysAgo(clk, 4), WPM: 15, Accuracy: 0.99},   // ★★ ★★
+		{ID: "r2", At: daysAgo(clk, 3), WPM: 20, Accuracy: 0.98},   // ★ ★★★, faster but less accurate
+		{ID: "r3", At: daysAgo(clk, 2), WPM: 16, Accuracy: 0.995},  // ★★ ★★ and faster than r1: the best
+		{ID: "r4", At: daysAgo(clk, 1), WPM: 15.5, Accuracy: 0.99}, // ★★ ★★, slower than r3
+		{ID: "r5", At: daysAgo(clk, 0), WPM: 30, Accuracy: 1, Paused: true},
+	} {
+		r.Mode, r.LessonID, r.Score = store.ModeTest, id, score.Value(r.WPM, r.Accuracy)
+		addRun(t, st, r)
+	}
 	openLessons(a)
 	l, _ := a.Course.Lesson(id)
 	line := lineWith(t, a, l.Title)
-	for _, want := range []string{"★★☆", "250 zn/min"} {
-		if !strings.Contains(line, want) {
-			t.Errorf("row %q lacks %q", line, want)
-		}
+	if !hasRows(line, "★★☆", "★★☆") || !strings.Contains(line, "80 zn/min") {
+		t.Errorf("row %q, want ★★☆ ★★☆ and 80 zn/min", line)
 	}
-	showsAll(t, a, "★ 2")
+	showsAll(t, a, "★ 4")
 
 	// The lesson screen names the same run as the best.
 	downTo(t, a, id)
 	a.Update(enter)
 	wantScreen(t, a, "lesson")
-	showsAll(t, a, text.LessonBest("250 zn/min"))
+	if l := lineWith(t, a, text.LessonPartTest+"  "); !hasRows(l, "★★☆", "★★☆") {
+		t.Errorf("Test row %q, want ★★☆ ★★☆", l)
+	}
+	showsAll(t, a, text.LessonBest("80 zn/min"))
 }
 
-// A paused round never counts as the best, so when only a paused Test holds
-// the stars, the list shows no speed rather than that of a run with fewer.
-func TestListShowsNoSpeedWhenOnlyAPausedTestHoldsTheStars(t *testing.T) {
+// Two Tests with the same stars: the faster one is the best, whichever came
+// first, and the list, the lesson screen and the rank agree on it.
+func TestEqualStarsFasterIsBest(t *testing.T) {
+	for name, wpms := range map[string][2]float64{"faster first": {18, 16}, "faster last": {16, 18}} {
+		t.Run(name, func(t *testing.T) {
+			a, st, clk := playApp(t)
+			id := a.Course.Lessons()[1].ID // ★★ from 15 wpm, ★★★ from 20
+			for i, wpm := range wpms {
+				addRun(t, st, store.Run{ID: fmt.Sprintf("r%d", i), At: daysAgo(clk, 2-i), Mode: store.ModeTest,
+					LessonID: id, WPM: wpm, Accuracy: 1, Score: wpm})
+			}
+			openLessons(a)
+			l, _ := a.Course.Lesson(id)
+			if line := lineWith(t, a, l.Title); !hasRows(line, "★★★", "★★☆") || !strings.Contains(line, "90 zn/min") {
+				t.Errorf("row %q, want ★★★ ★★☆ and 90 zn/min", line)
+			}
+			want := a.Course.Rank(map[string]score.Grade{id: {Accuracy: 3, Speed: 2}}).String()
+			showsAll(t, a, want+" · ★ 5")
+			downTo(t, a, id)
+			a.Update(enter)
+			if l := lineWith(t, a, text.LessonPartTest+"  "); !hasRows(l, "★★★", "★★☆") {
+				t.Errorf("Test row %q, want ★★★ ★★☆", l)
+			}
+			showsAll(t, a, text.LessonBest("90 zn/min"))
+		})
+	}
+}
+
+// No error at all earns three accuracy stars, and accuracy comes first: a slow
+// flawless Test beats a fast one with errors.
+func TestFlawlessSlowTestBeatsFastWithErrors(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := a.Course.Lessons()[1].ID
-	st.Profile().Stars[id] = 3
-	addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 60, Score: 55, Stars: 3, Paused: true})
-	addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 50, Score: 45, Stars: 2})
+	addRun(t, st, store.Run{ID: "fast", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.98, Score: 27})
+	addRun(t, st, store.Run{ID: "slow", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 10, Accuracy: 1, Score: 10})
 	openLessons(a)
 	l, _ := a.Course.Lesson(id)
-	line := lineWith(t, a, l.Title)
-	if !strings.Contains(line, "★★★") || strings.Contains(line, "zn/min") {
-		t.Errorf("row %q, want three stars and no speed", line)
+	if line := lineWith(t, a, l.Title); !hasRows(line, "★★★", "★☆☆") || !strings.Contains(line, "50 zn/min") {
+		t.Errorf("row %q, want ★★★ ★☆☆ and 50 zn/min", line)
+	}
+	downTo(t, a, id)
+	a.Update(enter)
+	if l := lineWith(t, a, text.LessonPartTest+"  "); !hasRows(l, "★★★", "★☆☆") {
+		t.Errorf("Test row %q, want ★★★ ★☆☆", l)
+	}
+	showsAll(t, a, text.LessonBest("50 zn/min"))
+}
+
+// A lesson whose only Tests paused has no stars and no best speed, and the
+// list claims no result for it; it is still the next lesson.
+func TestPausedTestShowsNoStars(t *testing.T) {
+	a, st, clk := playApp(t)
+	ls := a.Course.Lessons()
+	addGraded(t, a, st, ls[0].ID, score.Grade{Accuracy: 1, Speed: 1})
+	addRun(t, st, store.Run{ID: "p", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: ls[1].ID, WPM: 30, Accuracy: 1, Score: 30, Paused: true})
+	openLessons(a)
+	if got := ui.LessonsSelected(a); got != ls[1].ID {
+		t.Errorf("selected %s, want %s with only a paused Test", got, ls[1].ID)
+	}
+	line := lineWith(t, a, ls[1].Title)
+	if !hasRows(line, "☆☆☆", "☆☆☆") || strings.Contains(line, "★") || strings.Contains(line, "zn/min") {
+		t.Errorf("row %q, want no stars and no speed", line)
+	}
+	showsAll(t, a, "Intern · ★ 2")
+
+	a.Update(enter)
+	wantScreen(t, a, "lesson")
+	if l := lineWith(t, a, text.LessonPartTest+"  "); !hasRows(l, "☆☆☆", "☆☆☆") {
+		t.Errorf("Test row %q, want ☆☆☆ ☆☆☆", l)
+	}
+	showsAll(t, a, text.LessonLast("150 zn/min"))
+	showsNone(t, a, "★", "nejlepší")
+
+	// The results of a paused Test show no stars either.
+	openPart(t, a, ls[1].ID, partTest)
+	typeKeys(a, clk, 2)
+	a.Update(esc)
+	clk.advance(time.Minute)
+	a.Update(esc)
+	finishRound(t, a, clk, typingStep)
+	showsAll(t, a, text.ResultsPaused)
+	for _, label := range []string{text.PartSpeed, text.PartAccuracy} {
+		if l := lineWith(t, a, label); strings.ContainsAny(l, "★☆") {
+			t.Errorf("a paused Test shows stars: %q", l)
+		}
+	}
+}
+
+// The labels of the two rows stand once, above the columns of stars.
+func TestListLabelsTheRowsOnce(t *testing.T) {
+	a, st, _ := playApp(t)
+	first := a.Course.Lessons()[0]
+	addGraded(t, a, st, first.ID, score.Grade{Accuracy: 3, Speed: 1})
+	for _, w := range []int{60, 80} {
+		a.Update(tea.WindowSizeMsg{Width: w, Height: 24})
+		openLessons(a)
+		s := screen(a)
+		if strings.Count(s, "přesnost") != 1 || strings.Count(s, "rychlost") != 1 {
+			t.Fatalf("%d columns: the labels do not stand once:\n%s", w, s)
+		}
+		labels, row := lineWith(t, a, "přesnost"), lineWith(t, a, first.Title)
+		col := func(l, s string) int { return utf8.RuneCountInString(l[:max(strings.Index(l, s), 0)]) }
+		if col(labels, "přesnost") != col(row, "★★★") || col(labels, "rychlost") != col(row, "★☆☆") {
+			t.Errorf("%d columns: the labels are not above their stars:\n%s\n%s", w, labels, row)
+		}
+	}
+}
+
+// Two rows of stars still leave every lesson title whole in 60 columns.
+func TestListKeepsTitlesWholeInNarrowWindows(t *testing.T) {
+	a, _, _ := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	openLessons(a)
+	for _, l := range a.Course.Lessons() {
+		downTo(t, a, l.ID)
+		if line := lineWith(t, a, "> "); !hasRows(line, "☆☆☆", "☆☆☆") || !strings.Contains(line, l.Title) {
+			t.Errorf("row %q, want both rows and the whole title %q", line, l.Title)
+		}
 	}
 }
 
@@ -123,7 +255,7 @@ func TestListMarksRecommended(t *testing.T) {
 	if line := lineWith(t, a, ls[3].Title); !strings.Contains(line, text.LessonRecommended) {
 		t.Errorf("row %q lacks %q", line, text.LessonRecommended)
 	}
-	st.Profile().Stars[ls[3].ID] = 1
+	addGraded(t, a, st, ls[3].ID, score.Grade{Speed: 1})
 	openLessons(a)
 	if strings.Contains(screen(a), text.LessonRecommended) {
 		t.Errorf("a starred lesson is still recommended:\n%s", screen(a))
@@ -133,7 +265,9 @@ func TestListMarksRecommended(t *testing.T) {
 func TestListStartsAtTheNextLesson(t *testing.T) {
 	a, st, _ := playApp(t)
 	ls := a.Course.Lessons()
-	st.Profile().Stars[ls[0].ID], st.Profile().Stars[ls[1].ID] = 3, 1
+	addGraded(t, a, st, ls[0].ID, score.Grade{Accuracy: 3, Speed: 3})
+	addGraded(t, a, st, ls[1].ID, score.Grade{Speed: 1}) // one star in either row is a start
+	addGraded(t, a, st, ls[2].ID, score.Grade{})         // a Test without a star is not
 	openLessons(a)
 	if got := ui.LessonsSelected(a); got != ls[2].ID {
 		t.Errorf("selected %s, want %s", got, ls[2].ID)
@@ -148,7 +282,7 @@ func TestListStartsAtTheNextLesson(t *testing.T) {
 func TestListWithAllStarredStartsAtTheTop(t *testing.T) {
 	a, st, _ := playApp(t)
 	for _, l := range a.Course.Lessons() {
-		st.Profile().Stars[l.ID] = 3
+		addGraded(t, a, st, l.ID, score.Grade{Accuracy: 1})
 	}
 	openLessons(a)
 	if got := ui.LessonsSelected(a); got != a.Course.Lessons()[0].ID {
@@ -185,7 +319,7 @@ func TestListShowsBanner(t *testing.T) {
 func TestListHasNoRankByChapterAndNoNumbers(t *testing.T) {
 	a, _, _ := playApp(t)
 	openLessons(a)
-	showsAll(t, a, a.Course.Chapters()[0].Title, a.Course.Rank(ui.GradesOf(a.Store.Profile().Stars)).String())
+	showsAll(t, a, a.Course.Chapters()[0].Title, "Intern") // nothing played yet
 	if strings.Contains(screen(a), "1  "+a.Course.Chapters()[0].Title) {
 		t.Errorf("a chapter heading is numbered:\n%s", screen(a))
 	}
@@ -259,23 +393,19 @@ func TestListShowsChaptersStarsAndRank(t *testing.T) {
 	a, st, _ := playApp(t)
 	tall(a)
 	ls := a.Course.Lessons()
-	for i, l := range ls {
-		if i < len(ls)/4 {
-			st.Profile().Stars[l.ID] = 3
-		}
+	for _, l := range ls[:len(ls)/4] {
+		addGraded(t, a, st, l.ID, score.Grade{Accuracy: 3, Speed: 3})
 	}
-	st.Profile().Stars[ls[len(ls)/4].ID] = 1
+	addGraded(t, a, st, ls[len(ls)/4].ID, score.Grade{Accuracy: 1})
 	openLessons(a)
-	showsAll(t, a, a.Course.Rank(ui.GradesOf(st.Profile().Stars)).String())
-	if got := a.Course.Rank(ui.GradesOf(st.Profile().Stars)).String(); got != "Junior" {
-		t.Fatalf("rank = %s, want Junior for a quarter of the stars", got)
-	}
+	// A quarter of all stars, six a lesson, is Junior.
+	showsAll(t, a, fmt.Sprintf("Junior · ★ %d", 6*(len(ls)/4)+1))
 	for _, ch := range a.Course.Chapters() {
 		showsAll(t, a, ch.Title)
 	}
-	for id, stars := range map[string]string{ls[0].ID: "★★★", ls[len(ls)/4].ID: "★☆☆", ls[len(ls)-1].ID: "☆☆☆"} {
+	for id, stars := range map[string][2]string{ls[0].ID: {"★★★", "★★★"}, ls[len(ls)/4].ID: {"★☆☆", "☆☆☆"}, ls[len(ls)-1].ID: {"☆☆☆", "☆☆☆"}} {
 		l, _ := a.Course.Lesson(id)
-		if line := lineWith(t, a, l.Title); !strings.Contains(line, stars) {
+		if line := lineWith(t, a, l.Title); !hasRows(line, stars[0], stars[1]) {
 			t.Errorf("row %q lacks %q", line, stars)
 		}
 	}
@@ -316,9 +446,6 @@ func TestTestStarsReachTheList(t *testing.T) {
 	a.Update(enter) // its Test
 	wantScreen(t, a, "round")
 	typeKeys(a, clk, -1)
-	if st.Profile().Stars[id] == 0 {
-		t.Fatal("a Test must record its stars")
-	}
 	runs, _ := st.Runs()
 	if len(runs) != 1 || runs[0].Mode != store.ModeTest {
 		t.Fatalf("runs = %+v, want one Test", runs)
@@ -330,5 +457,8 @@ func TestTestStarsReachTheList(t *testing.T) {
 	if got := ui.LessonsSelected(a); got != id {
 		t.Errorf("selected %s, want %s", got, id)
 	}
-	showsAll(t, a, "★")
+	l, _ := a.Course.Lesson(id)
+	if line := lineWith(t, a, l.Title); !hasRows(line, "★★★", "★★★") {
+		t.Errorf("row %q, want the stars of the clean, fast Test", line)
+	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/play"
+	"github.com/jiripisa/tuipe/internal/score"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
@@ -102,7 +103,7 @@ func hintFor(r rune) *play.HintInfo {
 }
 
 func sample(name string) roundview.View {
-	v := roundview.View{Layout: czech(), Stars: 2}
+	v := roundview.View{Layout: czech(), Stars: &score.Grade{Accuracy: 3, Speed: 2}}
 	switch name {
 	case "plain":
 		v.Frame = frame(prose, "správně vrací")
@@ -749,20 +750,21 @@ func TestVelinSparkline(t *testing.T) {
 func TestNonDefaultNumbersDoNotBreakFrames(t *testing.T) {
 	for _, st := range style.All() {
 		v := sample("hint")
-		v.Stars = 9
+		v.Stars = &score.Grade{Accuracy: 9, Speed: -1}
 		v.Frame.WPM = 1234
 		v.Frame.Accuracy = 0
 		assertFits(t, roundview.Render(st, v, 60, 18), 60, 18)
-		v.Stars = -1
+		v.Stars = nil
 		assertFits(t, roundview.Render(st, v, 80, 24), 80, 24)
 	}
 }
 
+// A Test shows both rows of the best Test of its lesson, accuracy first.
 func TestStars(t *testing.T) {
 	for _, st := range style.All() {
 		v := sample("code")
-		for n, want := range map[int]string{0: "☆☆☆", 2: "★★☆", 3: "★★★"} {
-			v.Stars = n
+		for g, want := range map[score.Grade]string{{}: "☆☆☆ ☆☆☆", {Accuracy: 2}: "★★☆ ☆☆☆", {Accuracy: 1, Speed: 3}: "★☆☆ ★★★"} {
+			v.Stars = &g
 			if s := ansi.Strip(roundview.Render(st, v, 80, 24)); !strings.Contains(s, want) {
 				t.Errorf("%s: no %q:\n%s", st.ID, want, s)
 			}
