@@ -115,3 +115,12 @@ func TestEmptyLogOnNonEmptyTextGivesZeroMetrics(t *testing.T) {
 	eq(t, m.Accuracy, 0.0)
 	eq(t, m.Score, 0.0)
 }
+
+func TestCPM(t *testing.T) {
+	if got := score.CPM(40); got != 200 {
+		t.Errorf("CPM(40) = %v, want 200", got)
+	}
+	if got := score.CPM(0); got != 0 {
+		t.Errorf("CPM(0) = %v, want 0", got)
+	}
+}

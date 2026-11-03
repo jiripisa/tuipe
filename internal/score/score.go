@@ -26,6 +26,10 @@ func Value(wpm, accuracy float64) float64 {
 	return wpm * math.Pow(accuracy, 4)
 }
 
+// CPM is a speed in characters per minute, the unit the app shows. A word is
+// five characters.
+func CPM(wpm float64) float64 { return wpm * 5 }
+
 // Compute derives metrics from the log, so it also works mid-round. Chars is
 // the number of characters typed correctly. Accuracy is the share of reached
 // characters whose first keystroke was correct, where reached means every

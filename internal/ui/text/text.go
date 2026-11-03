@@ -399,7 +399,9 @@ const UpdateNotice = "Je dostupná nová verze %s. Aktualizujte příkazem tuipe
 
 // TutorialFocus opens the explanation of a lesson: what it teaches, such as
 // "Naučíte se: f, j, mezera."
-func TutorialFocus(chars []rune) string {
+func TutorialFocus(chars []rune) string { return "Naučíte se: " + charNames(chars) + "." }
+
+func charNames(chars []rune) string {
 	names := make([]string, len(chars))
 	for i, r := range chars {
 		names[i] = string(r)
@@ -407,8 +409,41 @@ func TutorialFocus(chars []rune) string {
 			names[i] = "mezera"
 		}
 	}
-	return "Naučíte se: " + strings.Join(names, ", ") + "."
+	return strings.Join(names, ", ")
 }
+
+// The lesson list and the lesson screen.
+const (
+	LessonStarted      = "rozpracováno"
+	LessonRecommended  = "doporučeno"
+	LessonsStars       = "★ %d"
+	HintLessons        = "↑↓ výběr · Enter otevřít · S statistiky · N nastavení"
+	HintLesson         = "↑↓ výběr · ←→ délka · Enter spustit · Esc zpět"
+	LessonLanguage     = "Jazyk: %s"
+	LessonTitle        = "Lekce · %s"
+	LessonPartTeach    = "Výuka"
+	LessonPartTraining = "Trénink"
+	LessonPartTest     = "Test"
+	LessonTaught       = "✓ hotovo"
+	LessonNoResult     = "zatím bez výsledku"
+	// LessonNotReady is shown until the rounds of a lesson can be started from here.
+	LessonNotReady = "Trénink a Test se připravují."
+)
+
+// LessonLengths names the lengths of a Trénink, shortest first.
+var LessonLengths = [3]string{"krátký", "střední", "dlouhý"}
+
+// LessonSpeed is a speed in characters per minute, such as "300 zn/min".
+func LessonSpeed(cpm float64) string { return fmt.Sprintf("%.0f zn/min", cpm) }
+
+// LessonBest labels the best result of a Test.
+func LessonBest(result string) string { return "nejlepší " + result }
+
+// LessonLast labels the last result of a part.
+func LessonLast(result string) string { return "poslední " + result }
+
+// LessonReviewFocus lists the characters a review lesson practises.
+func LessonReviewFocus(chars []rune) string { return "Procvičíte: " + charNames(chars) }
 
 // Výuka, the screen that teaches a lesson.
 const (

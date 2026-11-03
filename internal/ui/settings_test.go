@@ -304,6 +304,29 @@ var fitCases = []fitCase{
 		wantText(t, a, text.ResultsPaused)
 	})},
 	{"career", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) { openFromHome(t, a, homeCareer, "career") })},
+	{"lessons", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		first := a.Course.Lessons()[0]
+		st.Profile().Stars[first.ID] = 2
+		st.Profile().Taught[a.Course.Lessons()[1].ID] = true
+		st.Profile().Recommended = a.Course.Lessons()[3].ID
+		a.Banner = append(a.Banner, "Soubor byl odložen stranou.")
+		a.UpdateNotice = "Je tu novější verze"
+		ui.SetScreen(a, ui.NewLessonsScreen(a))
+	})},
+	{"lesson", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		id := a.Course.Lessons()[0].ID
+		st.Profile().Stars[id], st.Profile().Taught[id] = 2, true
+		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 20, Stars: 2})
+		ui.SetScreen(a, ui.NewLessonScreen(a, id))
+	})},
+	{"lesson-review", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		ls := lessonWhere(t, a, func(l course.Lesson) bool { return l.Review && len(l.Focus) > 15 })
+		ui.SetScreen(a, ui.NewLessonScreen(a, ls.ID))
+	})},
+	{"lesson-code", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		ls := lessonWhere(t, a, func(l course.Lesson) bool { return l.Lang != "" })
+		ui.SetScreen(a, ui.NewLessonScreen(a, ls.ID))
+	})},
 	{"stats-gitlog", statsTab(0)},
 	{"stats-heatmap", statsTab(1)},
 	{"stats-trends", statsTab(2)},

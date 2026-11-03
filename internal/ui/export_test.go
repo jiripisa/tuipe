@@ -41,6 +41,10 @@ func ScreenName(a *App) string {
 		return "settings"
 	case *teachScreen:
 		return "teach"
+	case *lessonsScreen:
+		return "lessons"
+	case *lessonScreen:
+		return "lesson"
 	}
 	return "other"
 }
@@ -232,4 +236,31 @@ func TeachHighlights(a *App) []string {
 		return t.highlights(a)
 	}
 	return nil
+}
+
+// LessonRecords is lessonRecords, for tests.
+var LessonRecords = lessonRecords
+
+// LessonsSelected is the id of the lesson under the selection of the lesson list.
+func LessonsSelected(a *App) string {
+	if l, ok := a.screen.(*lessonsScreen); ok {
+		return l.selectedID()
+	}
+	return ""
+}
+
+// LessonScreenID is the lesson the lesson screen shows.
+func LessonScreenID(a *App) string {
+	if l, ok := a.screen.(*lessonScreen); ok {
+		return l.id
+	}
+	return ""
+}
+
+// LessonScreenRow is the selected row of the lesson screen: 0 Výuka, 1 Trénink, 2 Test.
+func LessonScreenRow(a *App) int {
+	if l, ok := a.screen.(*lessonScreen); ok {
+		return l.row
+	}
+	return -1
 }
