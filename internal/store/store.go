@@ -170,6 +170,11 @@ func takeLock(dataDir string) (*flock.Flock, error) {
 
 // load reads the files. The schema of the run history is read first, so that a
 // history from a newer tuipe stops the opening before any file is touched.
+//
+// A history of an older schema is set aside. runs.jsonl is the only source of
+// progress, as every star is graded from it, so setting it aside starts the
+// user from nothing: a future change of its schema must migrate the runs
+// instead of setting them aside.
 func (s *Store) load() error {
 	runsSchema, found, err := s.runsSchema()
 	if err != nil {
@@ -369,7 +374,8 @@ func (s *Store) setAside(path, name string) error {
 }
 
 // setAsideOld renames a file of an older schema to <path>.v1, or <path>.v1-N
-// when an earlier one is already there, and records a notice.
+// when an earlier one is already there, and records a notice. For runs.jsonl
+// that loses every star; see load.
 func (s *Store) setAsideOld(path, name string) error {
 	target, err := moveAside(path, func(n int) string {
 		if n == 1 {
