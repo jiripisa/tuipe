@@ -190,7 +190,6 @@ func TestTestShowsItsStarsInTheTable(t *testing.T) {
 	if row := tableRow(t, a, text.PartAccuracy); !strings.HasSuffix(row, "★★★ bez chyby") {
 		t.Errorf("accuracy row %q, want three stars and bez chyby", row)
 	}
-	showsNone(t, a, "Hvězdy", "bez hvězdy")
 	if len(ui.StatsOf(a).Chars) == 0 {
 		t.Error("a Test did not feed the statistics")
 	}

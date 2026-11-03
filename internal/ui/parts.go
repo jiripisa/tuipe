@@ -103,7 +103,8 @@ func newPartResults(a *App, part lessonPart, spec play.Spec, res play.Result) Sc
 		missed: res.Missed(missedShown),
 	}
 	if spec.Kind == play.KindTest && !run.Paused {
-		s.grade = &res.Grade
+		g := gradeOf(&run, a.Course.Targets(spec.LessonID))
+		s.grade = &g
 	}
 	after := lessonRecords(append(runs, run), a.Course.Targets)
 	if rank := a.Course.Rank(gradesOf(after)); rank > a.Course.Rank(gradesOf(before)) {
