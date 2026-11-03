@@ -27,6 +27,8 @@ func ScreenName(a *App) string {
 		return "round"
 	case *resultsScreen:
 		return "results"
+	case *partResults:
+		return "part-results"
 	case *homeScreen:
 		return "home"
 	case *careerScreen:

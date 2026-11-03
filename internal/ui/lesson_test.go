@@ -121,20 +121,6 @@ func TestLessonShowsTestResults(t *testing.T) {
 	showsAll(t, a, "★★☆", text.LessonBest("150 zn/min"), text.LessonLast("100 zn/min"))
 }
 
-func TestLessonStubsTheRoundsForNow(t *testing.T) {
-	a, st, _ := playApp(t)
-	ui.SetScreen(a, ui.NewLessonScreen(a, firstTeachLesson))
-	for range 2 {
-		a.Update(down)
-		a.Update(enter)
-		wantScreen(t, a, "lesson")
-		wantText(t, a, text.LessonNotReady)
-	}
-	if runs, _ := st.Runs(); len(runs) != 0 {
-		t.Errorf("the stub stored %d runs", len(runs))
-	}
-}
-
 func TestLessonRecordsSkipPausedBest(t *testing.T) {
 	runs := []store.Run{
 		{ID: "1", Mode: store.ModeTest, LessonID: "L", Score: 10},

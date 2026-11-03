@@ -404,9 +404,15 @@ func TutorialFocus(chars []rune) string { return "Naučíte se: " + charNames(ch
 func charNames(chars []rune) string {
 	names := make([]string, len(chars))
 	for i, r := range chars {
-		names[i] = string(r)
-		if r == ' ' {
+		switch r {
+		case ' ':
 			names[i] = "mezera"
+		case '\n':
+			names[i] = "Enter"
+		case ',':
+			names[i] = "čárka" // the list is joined by commas
+		default:
+			names[i] = string(r)
 		}
 	}
 	return strings.Join(names, ", ")
@@ -426,8 +432,6 @@ const (
 	LessonPartTest     = "Test"
 	LessonTaught       = "✓ hotovo"
 	LessonNoResult     = "zatím bez výsledku"
-	// LessonNotReady is shown until the rounds of a lesson can be started from here.
-	LessonNotReady = "Trénink a Test se připravují."
 )
 
 // LessonLengths names the lengths of a Trénink, shortest first.
@@ -444,6 +448,58 @@ func LessonLast(result string) string { return "poslední " + result }
 
 // LessonReviewFocus lists the characters a review lesson practises.
 func LessonReviewFocus(chars []rune) string { return "Procvičíte: " + charNames(chars) }
+
+// Trénink and Test: their rounds and results.
+const (
+	PartSpeed    = "Rychlost"
+	PartAccuracy = "Přesnost"
+	PartTime     = "Čas"
+	PartStars    = "Hvězdy"
+	PartMissed   = "Nejvíc chyb"
+	PartVsLast   = "oproti minule"
+	PartVsBest   = "oproti nejlepšímu"
+	// PartNotReady is shown when the text of a round cannot be made.
+	PartNotReady    = "Text tohoto kola se nepodařilo připravit."
+	HintPartResults = "Enter zpět · R znovu · Ctrl+T styl"
+)
+
+// PartTitle joins what a round is, such as "Trénink · krátký · f j".
+func PartTitle(parts ...string) string { return strings.Join(parts, " · ") }
+
+// PartPercent is an accuracy in 0..1 as a percentage, such as "97,4 %".
+func PartPercent(accuracy float64) string {
+	return decimal(accuracy*100) + " %"
+}
+
+// PartClock is a time in seconds, such as "1:28".
+func PartClock(seconds int) string {
+	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
+}
+
+// PartMissedList names the characters missed most.
+func PartMissedList(chars []rune) string { return PartMissed + ": " + charNames(chars) }
+
+// PartCompare says how a round differs from an earlier one, in characters per
+// minute and percentage points of accuracy; against is PartVsLast or PartVsBest.
+func PartCompare(cpm, points float64, against string) string {
+	speed := fmt.Sprintf("%.0f", cpm)
+	if cpm > 0 {
+		speed = "+" + speed
+	}
+	accuracy := "0"
+	if points != 0 {
+		accuracy = decimal(points)
+		if points > 0 {
+			accuracy = "+" + accuracy
+		}
+	}
+	return fmt.Sprintf("%s zn/min %s · přesnost %s p. b.", speed, against, accuracy)
+}
+
+// decimal writes v with one decimal place and a Czech decimal comma.
+func decimal(v float64) string {
+	return strings.Replace(fmt.Sprintf("%.1f", v), ".", ",", 1)
+}
 
 // Výuka, the screen that teaches a lesson.
 const (

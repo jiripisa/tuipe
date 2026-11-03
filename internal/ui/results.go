@@ -25,23 +25,30 @@ const (
 )
 
 // Finish records a finished round: statistics, the best stars of the lesson,
-// the run and the chapter. A failed save is shown on the status
+// the run and the chapter. A Trénink earns no stars, and a Trénink or a Test
+// leaves the chapters and Resume alone. A failed save is shown on the status
 // line and also returned; the run itself is always returned.
 func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 	now := a.Now()
 	p := a.Store.Profile()
 	a.stats().Record(r.Text, r.Log, now)
 
+	if spec.Kind == play.KindTraining {
+		r.Stars = 0 // stars come from a Test only
+	}
 	if spec.LessonID != "" && r.Stars > p.Stars[spec.LessonID] {
 		p.Stars[spec.LessonID] = r.Stars
 	}
-	a.completeChapter(spec, r)
+	part := isLessonPart(spec.Kind)
+	if !part {
+		a.completeChapter(spec, r)
+	}
 	testOut := spec.Kind == play.KindTestOut
 	placement := spec.Kind == play.KindPlacement // proves skill like a test-out and is no text to beat
 	if testOut && r.Stars >= testOutStars {
 		a.Curr.ApplySkip(p, a.stats(), a.skippedBy(spec.ChapterID))
 	}
-	if !testOut && !placement {
+	if !testOut && !placement && !part {
 		p.Resume = nil // a test-out is no part of the lesson to continue
 	}
 
@@ -51,7 +58,7 @@ func (a *App) Finish(spec play.Spec, r play.Result) (store.Run, error) {
 		ID: runID(now, hash), At: now, Mode: modeName(spec),
 		Session: a.sessionOf(spec), LessonID: spec.LessonID, TextHash: hash, LayoutID: a.Layout.ID,
 		WPM: r.Metrics.WPM, Accuracy: r.Metrics.Accuracy, Score: r.Metrics.Score,
-		Stars: runStars(spec, r), DurationMs: r.Metrics.Duration.Milliseconds(),
+		Stars: runStars(spec, r), Length: spec.Length, DurationMs: r.Metrics.Duration.Milliseconds(),
 		Paused: r.Paused, HintUsed: r.HintUsed,
 	}
 	err := errors.Join(a.Store.AppendRun(run), a.Store.SaveProfile())
@@ -137,6 +144,10 @@ func modeName(spec play.Spec) string {
 		return "testout"
 	case play.KindPlacement:
 		return "placement"
+	case play.KindTraining:
+		return store.ModeTraining
+	case play.KindTest:
+		return store.ModeTest
 	}
 	return "drill"
 }

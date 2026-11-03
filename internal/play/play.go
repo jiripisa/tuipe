@@ -22,6 +22,8 @@ const (
 	KindCode
 	KindTestOut
 	KindPlacement
+	KindTraining // a Trénink of a lesson
+	KindTest     // a Test of a lesson
 )
 
 // Spec describes one round.
@@ -31,9 +33,21 @@ type Spec struct {
 	ChapterID             string // the chapter a test-out would complete
 	Practice              bool   // chosen by hand in Practice, for the run's mode
 	Session               string // how the round was started, for the run record; empty counts as a quick run
+	Length                string // the length of a Trénink, for the run record
 	Text                  string
 	Targets               score.Targets
 	HintsOff              bool
+}
+
+// Missed returns up to n characters with the most wrong presses, most first.
+func (r Result) Missed(n int) []rune {
+	counts := map[rune]int{}
+	for _, k := range r.Log {
+		if !k.Correct {
+			counts[r.Text.Cells[k.Pos].R]++
+		}
+	}
+	return topWrong(counts, n)
 }
 
 // Input is one key press. Alt is set when the terminal reported Alt/Option held.

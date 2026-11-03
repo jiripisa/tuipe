@@ -303,6 +303,28 @@ var fitCases = []fitCase{
 		wantText(t, a, text.ResultsOld)
 		wantText(t, a, text.ResultsPaused)
 	})},
+	{"results-test", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		id := longestCourseLesson(a)
+		starsBelow(t, a, st, id, course.Principal)
+		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: id, WPM: 200, Accuracy: 0.8, Score: 90})
+		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 1, Accuracy: 0.5, Score: 1})
+		openPart(t, a, id, partTest)
+		worstRound(t, a, clk)
+		wantText(t, a, "Principal")
+		wantText(t, a, text.ResultsPaused)
+		wantText(t, a, text.PartVsBest)
+		wantText(t, a, text.PartMissed)
+	})},
+	{"results-training", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+		id := longestCourseLesson(a)
+		addRun(t, st, store.Run{ID: "r1", At: daysAgo(clk, 2), Mode: store.ModeTraining, Length: "medium", LessonID: id, WPM: 200, Accuracy: 0.8, Score: 90})
+		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTraining, Length: "medium", LessonID: id, WPM: 1, Accuracy: 0.5, Score: 1})
+		openPart(t, a, id, partTraining)
+		worstRound(t, a, clk)
+		wantText(t, a, text.ResultsPaused)
+		wantText(t, a, text.PartVsBest)
+		wantText(t, a, text.PartMissed)
+	})},
 	{"career", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) { openFromHome(t, a, homeCareer, "career") })},
 	{"lessons", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		first := a.Course.Lessons()[0]
@@ -468,6 +490,39 @@ func longestLesson(a *ui.App) (id, title string) {
 		}
 	}
 	return id, title
+}
+
+// longestCourseLesson is the drill with the longest title among those whose
+// Test is long enough to earn three stars with three misses.
+func longestCourseLesson(a *ui.App) (id string) {
+	title := ""
+	for _, ls := range a.Course.Lessons() {
+		if ls.Lang == "" && ls.Speed[1] >= 22 && utf8.RuneCountInString(ls.Title) > utf8.RuneCountInString(title) {
+			id, title = ls.ID, ls.Title
+		}
+	}
+	return id
+}
+
+// worstRound finishes a round with the longest results: paused once, and with
+// three characters missed.
+func worstRound(t *testing.T, a *ui.App, clk *clock) {
+	t.Helper()
+	seen := map[rune]bool{}
+	for i, r := range ui.RoundKeys(a) {
+		if !seen[r] && len(seen) < 3 {
+			seen[r] = true
+			a.Update(key('§'))
+		}
+		if i == 5 {
+			a.Update(esc)
+			clk.advance(time.Minute)
+			a.Update(esc)
+		}
+		clk.advance(100 * time.Millisecond)
+		a.Update(key(r))
+	}
+	wantScreen(t, a, "part-results")
 }
 
 // longestHints are the n characters of cand whose typing hints read longest.

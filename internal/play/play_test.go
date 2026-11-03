@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -483,5 +484,26 @@ func TestHintsReadMasteryDecayedByTheClock(t *testing.T) {
 	}
 	if h := hintAfterHesitating(automatic(t0.Add(-15 * 24 * time.Hour))); h == nil {
 		t.Error("an Automatic character unseen for 15 days reads as Solid and hints after 2 s")
+	}
+}
+
+func TestMissedCountsWrongPressesByExpectedCharacter(t *testing.T) {
+	r := play.Result{
+		Text: engine.Prepare("ab c\nd"),
+		Log: []engine.Keystroke{
+			{Pos: 0, Typed: 'x'}, {Pos: 0, Typed: 'y'}, {Pos: 0, Typed: 'a', Correct: true},
+			{Pos: 1, Typed: 'b', Correct: true},
+			{Pos: 2, Typed: 'x'}, {Pos: 2, Typed: 'x'}, {Pos: 2, Typed: 'x'}, {Pos: 2, Typed: ' ', Correct: true},
+			{Pos: 3, Typed: 'x'}, {Pos: 3, Typed: 'c', Correct: true},
+			{Pos: 4, Typed: 'x'}, {Pos: 4, Typed: '\n', Correct: true},
+			{Pos: 5, Typed: 'd', Correct: true},
+		},
+	}
+	if got, want := string(r.Missed(3)), " a\n"; got != want { // the tie goes by character
+		t.Errorf("Missed(3) = %q, want %q", got, want)
+	}
+	clean := play.Result{Text: engine.Prepare("ab")}
+	if got := clean.Missed(3); len(got) != 0 {
+		t.Errorf("a clean round missed %q", string(got))
 	}
 }

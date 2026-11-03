@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/course"
+	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/ui/style"
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
@@ -85,11 +86,24 @@ func (s *lessonScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return s, nil
 }
 
-// startPart runs the Trénink or the Test. It waits for the rounds; until they
-// exist it only says so.
-func (s *lessonScreen) startPart(*App) (Screen, tea.Cmd) {
-	s.note = text.LessonNotReady
-	return s, nil
+// startPart runs the Trénink at the chosen length, or the Test. Either returns
+// here with its result on the screen.
+func (s *lessonScreen) startPart(a *App) (Screen, tea.Cmd) {
+	spec := func(a *App) (play.Spec, error) { return a.testSpec(s.id) }
+	if s.row == rowTraining {
+		length := s.length
+		spec = func(a *App) (play.Spec, error) { return a.trainingSpec(s.id, length) }
+	}
+	part := lessonPart{spec: spec, back: func(a *App) Screen {
+		s.recs = a.recordsOf()[s.id]
+		return s
+	}}
+	round, err := part.round(a)
+	if err != nil {
+		s.note = text.PartNotReady
+		return s, nil
+	}
+	return round, nil
 }
 
 // focusLines says what the lesson is about, wrapped to width: the language of

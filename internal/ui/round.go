@@ -30,12 +30,14 @@ const (
 // roundControl lets a controller take over how a round ends. A round without
 // one ends in the results screen.
 type roundControl struct {
-	stop  func(*roundScreen) bool // ends the round early, before the text is done
+	stop  func(*roundScreen) bool // ends the round early, before the text is done; may be nil
 	done  func(a *App, res play.Result, now time.Time) Screen
 	leave func(*App) Screen // where the pause menu's Leave goes
 }
 
-func (c *roundControl) shouldStop(r *roundScreen) bool { return c != nil && c.stop(r) }
+func (c *roundControl) shouldStop(r *roundScreen) bool {
+	return c != nil && c.stop != nil && c.stop(r)
+}
 
 // tickMsg drives the clock of the round with the given generation.
 type tickMsg struct{ gen int }
@@ -234,9 +236,10 @@ func (r *roundScreen) restart(a *App, now time.Time) tea.Cmd {
 }
 
 // rememberLesson writes Profile.Resume at the first keystroke of a lesson, so
-// a closed window or a killed process still offers to continue it.
+// a closed window or a killed process still offers to continue it. A Trénink
+// or a Test has nothing to continue.
 func (r *roundScreen) rememberLesson(a *App, now time.Time) {
-	if r.resumeSet || r.spec.LessonID == "" {
+	if r.resumeSet || r.spec.LessonID == "" || isLessonPart(r.spec.Kind) {
 		return
 	}
 	if _, log := r.sess.PartialLog(); len(log) == 0 {
@@ -297,7 +300,7 @@ func (r *roundScreen) View(a *App, w, h int) string {
 		Frame: f, Title: r.spec.Title, Lang: r.spec.Lang, Layout: a.Layout,
 		Stars: noStars, Throughput: r.samples,
 	}
-	if r.spec.LessonID != "" {
+	if r.spec.LessonID != "" && r.spec.Kind != play.KindTraining { // a Trénink does not judge
 		v.Stars = a.Store.Profile().Stars[r.spec.LessonID]
 	}
 	if f.AltWarning {
