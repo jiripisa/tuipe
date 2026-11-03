@@ -363,18 +363,6 @@ func TestFrameMetricsAndWeak(t *testing.T) {
 	eq(t, len(f.Cells), 8)
 }
 
-func TestResultCarriesTheGradeOfItsMetrics(t *testing.T) {
-	spec := play.Spec{Targets: score.Targets{Speed: [3]float64{1, 2, 3}}}
-	s := newSession(t, spec, true)
-	for i, r := range "abcd" {
-		press(s, r, i*100)
-	}
-	// 4 chars in 0.3 s without a slip is far above every target
-	r := s.Result(at(300))
-	eq(t, r.Grade, score.GradeOf(r.Metrics.WPM, r.Metrics.Accuracy, spec.Targets))
-	eq(t, r.Grade, score.Grade{Accuracy: 3, Speed: 3})
-}
-
 func TestPartialLog(t *testing.T) {
 	s := newSession(t, play.Spec{}, true)
 	press(s, 'a', 0)

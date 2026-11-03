@@ -34,7 +34,6 @@ type Frame struct {
 // Result is the outcome of a finished (or inspected) round.
 type Result struct {
 	Metrics  score.Metrics
-	Grade    score.Grade
 	HintUsed bool
 	Paused   bool
 	Log      []engine.Keystroke
@@ -98,15 +97,13 @@ func (s *Session) hintAt(at time.Time) *HintInfo {
 func (s *Session) Result(at time.Time) Result {
 	elapsed := s.elapsed(at)
 	m := score.Compute(s.round.Text(), s.round.Log(), elapsed)
-	r := Result{
+	return Result{
 		Metrics:  m,
 		HintUsed: s.hintUsed,
 		Paused:   s.round.WasPaused(),
 		Log:      s.round.Log(),
 		Text:     s.round.Text(),
 	}
-	r.Grade = score.GradeOf(m.WPM, m.Accuracy, s.spec.Targets)
-	return r
 }
 
 // topWrong returns up to n characters with the most wrong presses, most first.
