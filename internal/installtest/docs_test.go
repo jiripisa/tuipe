@@ -4,12 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
 
 // docPages are the pages that describe the app to people.
-var docPages = []string{"README.md", "site/index.html", "site/manual.html"}
+var docPages = []string{"README.md", "docs/layouts.md", "site/index.html", "site/manual.html"}
 
 func repoFile(t *testing.T, name string) string {
 	t.Helper()
@@ -23,6 +24,25 @@ func repoFile(t *testing.T, name string) string {
 // forbiddenWords are the words of the old game. A word with a capital
 // is matched exactly, the others in any case.
 var forbiddenWords = regexp.MustCompile(`\bSLA\b|(?i:sprint|standup|incident|postmortem|retrospectiv|retrospektiv|\bghosts?\b|\bduch|head~1|git log|uptime|error budget|rychlovk|kariér|test-out|locked chapters|nástup|pro programátory)`)
+
+// Every page of the docs is in docPages, so that the checks below read it.
+func TestEveryDocPageIsChecked(t *testing.T) {
+	for _, pattern := range []string{"*.md", "docs/*.md", "site/*.html"} {
+		found, err := filepath.Glob(filepath.Join("..", "..", filepath.FromSlash(pattern)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range found {
+			rel, err := filepath.Rel(filepath.Join("..", ".."), f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(docPages, filepath.ToSlash(rel)) {
+				t.Errorf("%s is not in docPages", filepath.ToSlash(rel))
+			}
+		}
+	}
+}
 
 func TestDocsUseNoWorkplaceWords(t *testing.T) {
 	for _, page := range docPages {
