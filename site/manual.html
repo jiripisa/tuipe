@@ -135,7 +135,7 @@
 </table>
 </div>
 <p>Fáze skončí i předčasně, když po nejméně 20 stiscích tvoří chyby přes čtvrtinu. Test ukončíte sami klávesou <kbd>Esc</kbd> před každou fází.</p>
-<p>Výsledek je jedna věc: doporučená lekce, tedy první lekce první kapitoly, kterou jste nesplnili. Lekce v seznamu dostane značku <code>doporučeno</code>, dokud její Test nedá hvězdu. Vstupní test nedává hvězdy ani hodnost a nic nezamyká: všechny lekce zůstávají otevřené a můžete začít kdekoli.</p>
+<p>Výsledek je jedna věc: doporučená lekce, tedy první lekce první kapitoly, kterou jste nesplnili. Lekce v seznamu dostane značku <code>doporučeno</code>, dokud nemá hvězdu v přesnosti ani v rychlosti. Vstupní test nedává hvězdy ani hodnost a nic nezamyká: všechny lekce zůstávají otevřené a můžete začít kdekoli.</p>
 <figure><img src="assets/offer.png" width="1488" height="904" loading="lazy" alt="Výsledek vstupního testu: zvládli jste 4 fáze z 6, doporučená lekce je zavináč, mřížka, dolar, všechny lekce jsou otevřené."></figure>
 <p>Test můžete zopakovat v Nastavení položkou Znovu vstupní test. Změní jen doporučenou lekci, hvězdy zůstanou.</p>
 
@@ -143,14 +143,14 @@
 <p>Kurz tvoří 12 kapitol a v nich krátké lekce, obvykle o jednom páru kláves: Domovská řada, Horní řada, Dolní řada, Velká písmena a interpunkce, Česká diakritika, Číslice, Symboly se Shiftem, Symboly I, Symboly II, Vzácné a mrtvé klávesy, Skutečný kód (Go, Python, JavaScript, TypeScript, shell, SQL a regulární výrazy) a Všechno dohromady. Kapitola je jen nadpis v seznamu.</p>
 
 <h3>Seznam lekcí</h3>
-<p>Po spuštění se otevře seznam lekcí a kurzor stojí na další lekci, která ještě nemá hvězdu. Když jste dělali vstupní test, počítá se od doporučené lekce. Enter tedy znamená pokračovat.</p>
-<figure><img src="assets/lessons.png" width="1488" height="904" loading="lazy" alt="Seznam lekcí: nahoře hodnost a počet hvězd, pod kapitolami lekce s hvězdami a rychlostí Testu, který je získal, kurzor stojí na další lekci."></figure>
-<p>Nahoře vidíte svou hodnost a počet hvězd. U každé lekce jsou její hvězdy a rychlost Testu, který je získal. Když je získal jen Test s pauzou, rychlost se u lekce neukáže. Lekce, u které jste dokončili Výuku nebo odehráli kolo, ale nemá hvězdu, má poznámku <code>rozpracováno</code>. Kurzor pohybujete šipkami, <kbd>Enter</kbd> lekci otevře, <kbd>S</kbd> ukáže statistiky a <kbd>N</kbd> nastavení.</p>
+<p>Po spuštění se otevře seznam lekcí a kurzor stojí na další lekci, která nemá hvězdu v přesnosti ani v rychlosti. Když jste dělali vstupní test, počítá se od doporučené lekce. Enter tedy znamená pokračovat.</p>
+<figure><img src="assets/lessons.png" width="1488" height="904" loading="lazy" alt="Seznam lekcí: nahoře hodnost a počet hvězd, pod kapitolami lekce s dvěma řádky hvězd a rychlostí Testu, který je získal, kurzor stojí na další lekci."></figure>
+<p>Nahoře vidíte svou hodnost a počet hvězd. U každé lekce jsou dva řádky hvězd, přesnost a rychlost, a vedle nich rychlost Testu, ze kterého hvězdy pocházejí. Oba řádky jsou vždy z jednoho, nejlepšího Testu lekce. Test s pauzou se nepočítá, takže když lekci dohrajete jen s pauzou, hvězdy ani rychlost se u ní neukážou. Lekce, u které jste dokončili Výuku nebo odehráli kolo, ale nemá hvězdu, má poznámku <code>rozpracováno</code>. Kurzor pohybujete šipkami, <kbd>Enter</kbd> lekci otevře, <kbd>S</kbd> ukáže statistiky a <kbd>N</kbd> nastavení.</p>
 <p>Když vaše rozložení klávesnice neumí napsat některé znaky, tuipe jednou řekne, kolik lekcí přeskočil. Ostatní lekce fungují dál a Test nikdy nechce znak, který rozložení neumí.</p>
 
 <h3>Uvnitř lekce</h3>
 <p>Obrazovka lekce říká, co se učíte, a u každého znaku, jak se píše a kterým prstem. Berou se z rozložení, které používáte. U lekcí, které nic nového neučí, stojí skupina znaků, u kódu jazyk. Pod tím jsou tři části: Výuka, Trénink a Test.</p>
-<figure><img src="assets/lesson.png" width="1488" height="904" loading="lazy" alt="Lekce 4 a 7: každý znak s tím, jak se píše a kterým prstem, pod tím části Výuka, Trénink s výběrem délky a Test s hvězdami a výsledky."></figure>
+<figure><img src="assets/lesson.png" width="1488" height="904" loading="lazy" alt="Lekce 4 a 7: každý znak s tím, jak se píše a kterým prstem, pod tím části Výuka, Trénink s výběrem délky a Test s hvězdami přesnosti a rychlosti a výsledky."></figure>
 <p>Šipky nahoru a dolů vybírají část, <kbd>Enter</kbd> ji spustí, <kbd>Esc</kbd> vás vrátí do seznamu. Na řádku Trénink vybíráte délku šipkami doleva a doprava. U Tréninku vidíte poslední výsledek vybrané délky, u Testu nejlepší a poslední.</p>
 
 <h2 id="vyuka">Výuka</h2>
@@ -166,7 +166,7 @@
 <h2 id="trenink">Trénink</h2>
 <p>Trénink je kolo zaměřené na znaky lekce. Dřívější znaky se objeví jen jako podpora. Hvězdy ani hodnost za něj nedostanete a nic se nehodnotí, ale každé kolo se uloží a ukáže jako poslední výsledek lekce.</p>
 <ul>
-<li><strong>Délky</strong> jsou krátký, střední a dlouhý, zhruba 30, 60 a 120 sekund v tempu, které lekce chce na dvě hvězdy. U lekcí kódu je to jeden, dva nebo tři úryvky.</li>
+<li><strong>Délky</strong> jsou krátký, střední a dlouhý, zhruba 30, 60 a 120 sekund v tempu, které lekce chce na dvě hvězdy rychlosti. U lekcí kódu je to jeden, dva nebo tři úryvky.</li>
 <li><strong>Text</strong> je při každém spuštění nový.</li>
 <li><strong>Nápověda</strong> se ukazuje podle toho, jak dobře znak umíte, viz <a href="#napoveda">nápověda</a>.</li>
 <li><strong>Výsledek</strong> ukáže rychlost, přesnost, čas, znaky s nejvíc chybami a tabulku, kde vedle sebe stojí teď, minule a nejlepší Trénink stejné délky. Pod každým číslem je šipka: zelená ▲ znamená, že jste teď lepší, červená ▼ horší. Nahoře jedna věta řekne, jestli jste byli rychlejší než minule, nebo překonali rekord. <kbd>Enter</kbd> vás vrátí do lekce, <kbd>R</kbd> pustí Trénink znovu na novém textu.</li>
@@ -180,28 +180,28 @@
 <h2 id="test">Test</h2>
 <p>Test je kolo ze všeho, co se učilo od začátku kurzu až po tuto lekci, s důrazem na znaky této lekce, takže jde zvládnout jen s nimi. Když otevřete lekci mimo pořadí, Test i tak obsahuje dřívější znaky. Je to záměr.</p>
 <ul>
-<li><strong>Délka</strong> je zhruba 90 sekund v tempu na dvě hvězdy. Text je pokaždé nový, nejde se ho naučit nazpaměť.</li>
+<li><strong>Délka</strong> je zhruba 90 sekund v tempu na dvě hvězdy rychlosti. Text je pokaždé nový, nejde se ho naučit nazpaměť.</li>
 <li><strong>Bez nápovědy.</strong> V Testu se nápověda nikdy neukáže.</li>
 <li><strong>Kód.</strong> Test lekce kódu jsou tři náhodné úryvky z jejího jazyka. Každý jazyk se testuje sám.</li>
 <li><strong>Hvězdy a hodnost</strong> dává jen Test, viz <a href="#hvezdy">Hvězdy a hodnost</a>.</li>
 </ul>
-<figure><img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek Testu: rychlost, přesnost, čas, hvězdy, srovnání s minulým a nejlepším výsledkem a znaky s nejvíc chybami."></figure>
-<p>Na výsledku Testu přibývá řádek <code>Hvězdy</code>. Když kolo nedosáhlo ani první, stojí u něj <code>bez hvězdy</code>. Když Test povýší hodnost, napíše to: <code>Nová hodnost: Medior</code>. Enter a Esc vás vrátí do lekce, <kbd>R</kbd> pustí Test znovu na novém textu.</p>
+<figure><img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek Testu: rychlost, přesnost, čas, dva řádky hvězd, srovnání s minulým a nejlepším výsledkem a znaky s nejvíc chybami."></figure>
+<p>Výsledek Testu má dva řádky hvězd: <code>Přesnost</code> a <code>Rychlost</code>. Tři hvězdy přesnosti doplní poznámka <code>bez chyby</code>. Když Test povýší hodnost, napíše to: <code>Nová hodnost: Medior</code>. Test s pauzou hvězdy nedostane. Enter a Esc vás vrátí do lekce, <kbd>R</kbd> pustí Test znovu na novém textu.</p>
 
 <h2 id="hvezdy">Hvězdy a hodnost</h2>
-<p>Každá lekce má tři hvězdy a získáte je jen v Testu. Každá hvězda chce rychlost i přesnost zároveň:</p>
+<p>Každá lekce má dva řádky po třech hvězdách, přesnost a rychlost, a získáte je jen v Testu. Obě řady se počítají z jednoho Testu a každá zvlášť:</p>
 <div class="scroll">
 <table>
 <thead><tr><th>Hvězda</th><th>Přesnost</th><th>Rychlost</th></tr></thead>
 <tbody>
-<tr><td>★</td><td>aspoň 92 %</td><td>první cíl lekce</td></tr>
-<tr><td>★★</td><td>aspoň 96 %</td><td>druhý cíl lekce</td></tr>
-<tr><td>★★★</td><td>aspoň 98 %</td><td>třetí cíl lekce</td></tr>
+<tr><td>★</td><td>aspoň 97 %</td><td>první cíl lekce</td></tr>
+<tr><td>★★</td><td>aspoň 99 %</td><td>druhý cíl lekce</td></tr>
+<tr><td>★★★</td><td>bez jediné chyby</td><td>třetí cíl lekce</td></tr>
 </tbody>
 </table>
 </div>
-<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. První lekce, <code>f j</code>, chce 30, 45 a 60 zn/min, lekce <code>d k</code> 50, 75 a 100 zn/min. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte.</p>
-<p>Hodnost vychází z hvězd ze všech Testů, jako podíl všech hvězd, které kurz nabízí:</p>
+<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. První lekce, <code>f j</code>, chce 30, 45 a 60 zn/min, lekce <code>d k</code> 50, 75 a 100 zn/min. Přesnost hvězdy rychlosti neovlivňuje: i Test s chybami dá hvězdy za rychlost. Lekce ukazuje hvězdy svého nejlepšího Testu, takže je nikdy neztratíte.</p>
+<p>Hodnost vychází z hvězd nejlepšího Testu každé lekce, z obou řádků, nejvýš šesti na lekci. Počítá se jako podíl všech hvězd, které kurz nabízí:</p>
 <div class="scroll">
 <table>
 <thead><tr><th>Hodnost</th><th>Podíl hvězd</th></tr></thead>
@@ -221,7 +221,7 @@
 <ul>
 <li><strong>Rychlost</strong> je počet správně napsaných znaků za minutu, <code>zn/min</code>. Slovo se počítá za pět znaků.</li>
 <li><strong>Přesnost</strong> je podíl znaků napsaných správně napoprvé.</li>
-<li><strong>Nejlepší výsledek</strong> Testu je ten s nejvíc hvězdami, takže rychlost u lekce v seznamu patří k jejím hvězdám. Mezi Testy se stejným počtem hvězd a u Tréninku, který hvězdy nedává, rozhoduje skóre, tedy rychlost krát přesnost na čtvrtou. Přesnost v něm váží mnohem víc než rychlost a rychlé, odbyté kolo nejlepším výsledkem nebude.</li>
+<li><strong>Nejlepší výsledek</strong> Testu je ten s nejvíc hvězdami přesnosti. Při shodě rozhodují hvězdy rychlosti a při další shodě vyšší rychlost. Test s pauzou nejlepším výsledkem nebude nikdy. Seznam lekcí, lekce i hodnost se řídí tímto jedním Testem. U Tréninku, který hvězdy nedává, rozhoduje skóre, tedy rychlost krát přesnost na čtvrtou. Přesnost v něm váží mnohem víc než rychlost a rychlé, odbyté kolo nejlepším výsledkem nebude.</li>
 </ul>
 
 <h2 id="kolo">Jak funguje kolo</h2>
@@ -275,7 +275,7 @@
 
 <h3>Historie</h3>
 <p>Každé dokončené kolo je jeden řádek, nejnovější nahoře: den, jestli šlo o Test, Trénink nebo Vstupní test, rychlost, přesnost, hvězdy a lekce, u Tréninku i délka. Klávesa <kbd>F</kbd> mění, co se ukazuje: Vše, jen Trénink, nebo jen Test.</p>
-<figure><img src="assets/history.png" width="1488" height="904" loading="lazy" alt="Záložka Historie: kola po dnech s druhem kola, rychlostí, přesností, hvězdami a lekcí, nahoře řádek Zobrazeno: Vše."></figure>
+<figure><img src="assets/history.png" width="1488" height="904" loading="lazy" alt="Záložka Historie: kola po dnech s druhem kola, rychlostí, přesností, hvězdami přesnosti a rychlosti a lekcí, nahoře řádek Zobrazeno: Vše."></figure>
 
 <h3>Klávesy</h3>
 <p>Klávesnice obarvená podle slabosti: čím červenější klávesa, tím hůř. Slabost kombinuje chybovost a prodlevu a počítá se u znaků s aspoň 5 stisky. Pod mapou je nejslabší prst a nejslabší znaky i s tím, jak se píšou.</p>
@@ -523,7 +523,7 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <dd>Okno je menší než 40 × 8. Zvětšete ho, kolo mezitím čeká.</dd>
 
 <dt>Proč nemám třetí hvězdu?</dt>
-<dd>Třetí hvězda chce přesnost aspoň 98 % a třetí cíl rychlosti lekce. Hvězdy dává jen Test, Trénink ne.</dd>
+<dd>Třetí hvězda přesnosti chce Test bez jediné chyby, třetí hvězda rychlosti třetí cíl rychlosti lekce. Řady jsou nezávislé, takže pomalý Test bez chyby dá tři hvězdy přesnosti a rychlý Test s chybami tři hvězdy rychlosti. Hvězdy dává jen Test, Trénink ne.</dd>
 
 <dt>Kolo se samo pozastavilo</dt>
 <dd>Okno ztratilo fokus. Stačí se vrátit a stisknout další klávesu. Čas pauzy se nepočítá, jen se kolo nepočítá jako nejlepší výsledek ani rekord.</dd>

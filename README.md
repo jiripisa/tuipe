@@ -46,7 +46,7 @@ chapter.
   lengths, with hints that fade as you learn. It judges nothing and shows how you
   did against last time.
 - **Test.** A round over everything taught up to that lesson, without hints. Only
-  a Test gives stars (one to three, for speed and accuracy together) and counts
+  a Test gives stars (two rows of one to three, accuracy and speed) and counts
   towards your rank, from Intern to Principal.
 - **Statistics.** A plain history of your runs, a keyboard heatmap of your weak
   keys, trends, records and the days you practised in a row.
