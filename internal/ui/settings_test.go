@@ -378,7 +378,7 @@ var fitCases = []fitCase{
 		addRun(t, st, store.Run{ID: "r2", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: id, WPM: 1, Accuracy: 0.5, Score: 1})
 		openPart(t, a, id, partTest)
 		worstRound(t, a, clk, true)
-		wantText(t, a, text.ResultsPaused)
+		wantText(t, a, text.ResultsPausedTest)
 		wantText(t, a, text.PartBest)
 		wantText(t, a, text.PartMissed)
 	})},

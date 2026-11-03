@@ -352,7 +352,11 @@ func (s *partResults) View(a *App, w, h int) string {
 		notes = append(notes, partLine{fit(paint(st.Accent, s.rank)), goesRank})
 	}
 	if s.run.Paused {
-		notes = append(notes, partLine{fit(paint(st.Dim, text.ResultsPaused)), goesNote})
+		paused := text.ResultsPaused
+		if s.run.Mode == store.ModeTest {
+			paused = text.ResultsPausedTest
+		}
+		notes = append(notes, partLine{fit(paint(st.Dim, paused)), goesNote})
 	}
 	if s.note != "" {
 		notes = append(notes, partLine{fit(paint(st.Dim, s.note)), goesNote})

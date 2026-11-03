@@ -486,12 +486,12 @@ func TestPausedRunIsNeverBest(t *testing.T) {
 	clk.advance(time.Minute)
 	a.Update(esc)
 	finishRound(t, a, clk, typingStep)
-	showsAll(t, a, text.ResultsPaused, text.PartLast)
+	showsAll(t, a, text.ResultsPausedTest, text.PartLast)
 	showsNone(t, a, text.PartBest, text.PartRecord) // nothing earlier counts as best
 
 	a.Update(enter)
 	playPart(t, a, clk, id, partTest)
-	showsNone(t, a, text.PartBest, text.ResultsPaused, text.PartRecord) // nor does the paused round above
+	showsNone(t, a, text.PartBest, text.ResultsPausedTest, text.PartRecord) // nor does the paused round above
 }
 
 func TestResultsListMissedCharacters(t *testing.T) {

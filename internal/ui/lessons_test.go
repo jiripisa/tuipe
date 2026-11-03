@@ -190,7 +190,8 @@ func TestPausedTestShowsNoStars(t *testing.T) {
 	clk.advance(time.Minute)
 	a.Update(esc)
 	finishRound(t, a, clk, typingStep)
-	showsAll(t, a, text.ResultsPaused)
+	showsAll(t, a, text.ResultsPausedTest)
+	showsNone(t, a, text.ResultsPaused)
 	for _, label := range []string{text.PartSpeed, text.PartAccuracy} {
 		if l := lineWith(t, a, label); strings.ContainsAny(l, "★☆") {
 			t.Errorf("a paused Test shows stars: %q", l)

@@ -235,7 +235,7 @@
 
 <h3>Čas a pauza</h3>
 <p>Čas běží od prvního stisku. Kolo se pozastaví samo, když okno terminálu ztratí fokus. V terminálech, které změnu fokusu nehlásí, se kolo pozastaví po 5 sekundách bez stisku. Takovou pauzu ukončí první další klávesa, která se zároveň počítá jako vstup.</p>
-<p>Klávesa <kbd>Esc</kbd> otevře nabídku pauzy s položkami pokračovat, začít znovu a odejít. <kbd>Ctrl+R</kbd> začne kolo znovu rovnou. Čas pauzy se nikdy nezapočítá. Kolo s pauzou se dopíše normálně a počítá se do statistik, jen se nepočítá jako nejlepší výsledek ani rekord a výsledek to řekne: <code>pauza: kolo se nepočítá jako rekord</code>.</p>
+<p>Klávesa <kbd>Esc</kbd> otevře nabídku pauzy s položkami pokračovat, začít znovu a odejít. <kbd>Ctrl+R</kbd> začne kolo znovu rovnou. Čas pauzy se nikdy nezapočítá. Kolo s pauzou se dopíše normálně a počítá se do statistik, jen se nepočítá jako nejlepší výsledek ani rekord a Test s pauzou nedostane hvězdy. Výsledek to řekne: u Tréninku <code>pauza: kolo se nepočítá jako rekord</code>, u Testu <code>pauza: kolo se nepočítá do hvězd ani rekordů</code>.</p>
 <p>Nedopsané kolo není prohra: odejdete-li z něj nebo ho začnete znovu, do historie se nic nezapíše a nedostanete hvězdy, ale stisky z něj se do statistik znaků počítají.</p>
 
 <h3 id="napoveda">Nápověda a jak mizí</h3>
@@ -526,7 +526,7 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <dd>Třetí hvězda přesnosti chce Test bez jediné chyby, třetí hvězda rychlosti třetí cíl rychlosti lekce. Řady jsou nezávislé, takže pomalý Test bez chyby dá tři hvězdy přesnosti a rychlý Test s chybami tři hvězdy rychlosti. Hvězdy dává jen Test, Trénink ne.</dd>
 
 <dt>Kolo se samo pozastavilo</dt>
-<dd>Okno ztratilo fokus. Stačí se vrátit a stisknout další klávesu. Čas pauzy se nepočítá, jen se kolo nepočítá jako nejlepší výsledek ani rekord.</dd>
+<dd>Okno ztratilo fokus. Stačí se vrátit a stisknout další klávesu. Čas pauzy se nepočítá, jen se kolo nepočítá jako nejlepší výsledek ani rekord a Test s pauzou nedostane hvězdy.</dd>
 
 <dt>Zmizela mi stará data</dt>
 <dd>Soubory z verze 0.1.0 má nová verze v jiném formátu. Odložila je s koncovkou <code>.v1</code> vedle původních a při prvním spuštění vám to řekla. Začínáte znovu.</dd>

@@ -106,9 +106,10 @@ const (
 
 // Notes on the results of a round.
 const (
-	ResultsPaused   = "pauza: kolo se nepočítá jako rekord"
-	ResultsFlawless = "bez chyby" // follows three accuracy stars
-	ResultsRank     = "Nová hodnost: %s"
+	ResultsPaused     = "pauza: kolo se nepočítá jako rekord"          // a Trénink
+	ResultsPausedTest = "pauza: kolo se nepočítá do hvězd ani rekordů" // a Test, which earns no stars
+	ResultsFlawless   = "bez chyby"                                    // follows three accuracy stars
+	ResultsRank       = "Nová hodnost: %s"
 )
 
 // Labels of the round screen.
