@@ -60,6 +60,9 @@ func TestPartFigures(t *testing.T) {
 	if got := text.PartPercent(1); got != "100,0 %" {
 		t.Errorf("PartPercent = %q", got)
 	}
+	if got := text.PartPercent(189.0 / 191); got != "99,0 %" {
+		t.Errorf("PartPercent = %q", got)
+	}
 	for sec, want := range map[int]string{0: "0:00", 9: "0:09", 88: "1:28", 600: "10:00"} {
 		if got := text.PartClock(sec); got != want {
 			t.Errorf("PartClock(%d) = %q, want %q", sec, got, want)

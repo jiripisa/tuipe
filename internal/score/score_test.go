@@ -41,6 +41,20 @@ func TestAccuracyStars(t *testing.T) {
 	}
 }
 
+// The accuracy is shown to one decimal, so a Test shown at 99,0 % or 97,0 %
+// earns the stars of that line.
+func TestAccuracyStarsGradeTheShownPercent(t *testing.T) {
+	tg := score.Targets{Speed: [3]float64{20, 30, 40}}
+	for _, tc := range []struct {
+		right, reached int
+		want           int
+	}{{189, 191, 2}, {160, 165, 1}, {494, 500, 1}, {484, 500, 0}} {
+		if got := score.GradeOf(10, float64(tc.right)/float64(tc.reached), tg).Accuracy; got != tc.want {
+			t.Errorf("%d/%d right: %d stars, want %d", tc.right, tc.reached, got, tc.want)
+		}
+	}
+}
+
 func TestSpeedStarsIgnoreAccuracy(t *testing.T) {
 	tg := score.Targets{Speed: [3]float64{20, 30, 40}}
 	for _, tc := range []struct {

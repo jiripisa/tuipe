@@ -5,6 +5,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -216,6 +217,33 @@ func TestFlawlessResultsSayBezChyby(t *testing.T) {
 	showsNone(t, a, "bez chyby")
 	if row := tableRow(t, a, text.PartAccuracy); strings.Contains(row, "★★★") {
 		t.Errorf("accuracy row %q: three stars with an error", row)
+	}
+}
+
+// The accuracy stars agree with the percentage shown beside them, for every
+// Test of up to 600 characters: ★★ from 99,0 % and ★ from 97,0 %.
+func TestShownAccuracyAgreesWithItsStars(t *testing.T) {
+	for reached := 1; reached <= 600; reached++ {
+		for right := reached * 9 / 10; right <= reached; right++ {
+			acc := float64(right) / float64(reached)
+			shown := text.PartPercent(acc)
+			pct, err := strconv.ParseFloat(strings.Replace(strings.TrimSuffix(shown, " %"), ",", ".", 1), 64)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := 0
+			switch {
+			case right == reached:
+				want = 3
+			case pct >= 99:
+				want = 2
+			case pct >= 97:
+				want = 1
+			}
+			if got := score.GradeOf(0, acc, score.Targets{}).Accuracy; got != want {
+				t.Fatalf("%d/%d right shows %s with %d accuracy stars, want %d", right, reached, shown, got, want)
+			}
+		}
 	}
 }
 

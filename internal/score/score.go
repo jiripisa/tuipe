@@ -18,9 +18,14 @@ type Metrics struct {
 // Targets holds the per-lesson speed thresholds in WPM for one, two and three stars.
 type Targets struct{ Speed [3]float64 }
 
-// minAccuracy is the accuracy for one and two accuracy stars. Three stars need
-// no wrong key at all.
-var minAccuracy = [2]float64{0.97, 0.99}
+// minAccuracy is the accuracy in tenths of a percent for one and two accuracy
+// stars. Three stars need no wrong key at all.
+var minAccuracy = [2]float64{970, 990}
+
+// ShownAccuracy is an accuracy in 0..1 in tenths of a percent, rounded as the
+// app shows it, such as 990 for 99,0 %. The stars are graded on it, so that
+// they always agree with the percentage beside them.
+func ShownAccuracy(accuracy float64) float64 { return math.Round(accuracy * 1000) }
 
 // Value is the score: WPM x accuracy^4, with accuracy in 0..1.
 func Value(wpm, accuracy float64) float64 {
@@ -68,16 +73,17 @@ func Compute(_ engine.Text, log []engine.Keystroke, d time.Duration) Metrics {
 type Grade struct{ Accuracy, Speed int }
 
 // GradeOf grades a Test. Accuracy earns three stars only when no key was wrong,
-// two from 99 % and one from 97 %. Speed earns a star for each target reached,
-// whatever the accuracy.
+// two from 99,0 % and one from 97,0 % as shown, rounded to one decimal. Speed
+// earns a star for each target reached, whatever the accuracy.
 func GradeOf(wpm, accuracy float64, t Targets) Grade {
 	var g Grade
+	shown := ShownAccuracy(accuracy)
 	switch {
 	case accuracy >= 1:
 		g.Accuracy = 3
-	case accuracy >= minAccuracy[1]:
+	case shown >= minAccuracy[1]:
 		g.Accuracy = 2
-	case accuracy >= minAccuracy[0]:
+	case shown >= minAccuracy[0]:
 		g.Accuracy = 1
 	}
 	for _, target := range t.Speed {

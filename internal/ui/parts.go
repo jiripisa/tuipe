@@ -170,7 +170,7 @@ func fitLines(lines []partLine, rows int) []string {
 
 // The figures as they are shown, so that every difference agrees with them.
 func shownCPM(r *store.Run) float64      { return math.Round(score.CPM(r.WPM)) }
-func shownAccuracy(r *store.Run) float64 { return math.Round(r.Accuracy*1000) / 10 }
+func shownAccuracy(r *store.Run) float64 { return score.ShownAccuracy(r.Accuracy) / 10 }
 
 // column is one earlier attempt the results compare with.
 type column struct {

@@ -421,9 +421,10 @@ const (
 // PartTitle joins what a round is, such as "Trénink · krátký · f j".
 func PartTitle(parts ...string) string { return strings.Join(parts, " · ") }
 
-// PartPercent is an accuracy in 0..1 as a percentage, such as "97,4 %".
+// PartPercent is an accuracy in 0..1 as a percentage, such as "97,4 %". It is
+// rounded as score.ShownAccuracy rounds it, so the stars agree with it.
 func PartPercent(accuracy float64) string {
-	return decimal(accuracy*100) + " %"
+	return decimal(math.Round(accuracy*1000)/10) + " %"
 }
 
 // PartClock is a time in seconds, such as "1:28".
