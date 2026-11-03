@@ -248,7 +248,7 @@ func TestShownAccuracyAgreesWithItsStars(t *testing.T) {
 }
 
 // A worse Test shows its own stars, and the lesson keeps those of its best.
-func TestBestStarsNeverDrop(t *testing.T) {
+func TestWorseTestKeepsTheBestStars(t *testing.T) {
 	a, _, clk := playApp(t)
 	id := firstTeachLesson
 	playPart(t, a, clk, id, partTest)
