@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manuál tuipe</title>
-<meta name="description" content="Návod k tuipe: instalace, první spuštění, režimy, statistiky, klávesové zkratky a česká klávesnice.">
+<meta name="description" content="Návod k tuipe: instalace, první spuštění, lekce, výuka, trénink a test, hvězdy, statistiky, klávesové zkratky a česká klávesnice.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1b26'/%3E%3Ctext x='16' y='24' font-family='monospace' font-size='24' font-weight='700' text-anchor='middle' fill='%23e0af68'%3E%7B%3C/text%3E%3C/svg%3E">
 <script>
   document.documentElement.classList.add("js");
@@ -35,9 +35,12 @@
     <li><a href="#instalace">Instalace</a></li>
     <li><a href="#option">Nastavení klávesy Option</a></li>
     <li><a href="#prvni-spusteni">První spuštění</a></li>
+    <li><a href="#lekce">Lekce</a></li>
+    <li><a href="#vyuka">Výuka</a></li>
+    <li><a href="#trenink">Trénink</a></li>
+    <li><a href="#test">Test</a></li>
+    <li><a href="#hvezdy">Hvězdy a hodnost</a></li>
     <li><a href="#kolo">Jak funguje kolo</a></li>
-    <li><a href="#duch">Duch HEAD~1</a></li>
-    <li><a href="#rezimy">Režimy</a></li>
     <li><a href="#statistiky">Statistiky</a></li>
     <li><a href="#vzhled">Vzhled a velikost okna</a></li>
     <li><a href="#zkratky">Klávesové zkratky</a></li>
@@ -54,8 +57,8 @@
 <main id="main">
 
 <h1>Manuál tuipe</h1>
-<p class="lead">tuipe je trenažér psaní všemi deseti pro programátory na české klávesnici QWERTY. Běží v terminálu a nejvíc času věnuje tomu, co ostatní trenažéry přeskakují: symbolům, číslicím a mrtvým klávesám.</p>
-<p>Spustíte ho, stisknete Enter a píšete. Kolo trvá zhruba minutu, takže se vejde do čekání na build, a když máte půl hodiny, je tu Sprint. Odběhnout od něj můžete kdykoli, tuipe si počká.</p>
+<p class="lead">tuipe je kurz psaní všemi deseti pro českou klávesnici QWERTY, který vede až k symbolům a ke kódu. Běží v terminálu a nejvíc času věnuje tomu, co ostatní kurzy přeskakují: číslicím, symbolům a mrtvým klávesám.</p>
+<p>Spustíte ho, stisknete Enter a pokračujete další lekcí. Každá lekce vás nejdřív naučí (Výuka), pak procvičí (Trénink) a nakonec změří (Test). Všechny lekce jsou otevřené, žádná není zamčená. tuipe nic neukládá online: žádné účty, žádná telemetrie.</p>
 
 <h2 id="instalace">Instalace</h2>
 <p>Instalace je jeden příkaz. Zkopírujte ho, vložte do terminálu a potvrďte.</p>
@@ -114,30 +117,115 @@
 <p>Kontrolu přeskočíte klávesou <kbd>Esc</kbd>, jiné rozložení vyberete klávesou <kbd>Tab</kbd>.</p>
 
 <h3>Kde začínáte?</h3>
-<p>Dvě možnosti. <strong>Začínám od nuly</strong> ukáže domovskou pozici rukou a pustí vás na úvodní obrazovku. <strong>Vstupní pohovor</strong> trvá asi 4 minuty a přeskočí, co už umíte.</p>
+<p>Dvě možnosti. <strong>Začínám od nuly</strong> ukáže domovskou pozici rukou a pustí vás na seznam lekcí u první lekce. <strong>Vstupní test</strong> trvá asi 4 minuty a doporučí lekci, od které začít.</p>
 
-<h3>Vstupní pohovor</h3>
-<p>Pohovor má šest fází. V každé napíšete krátký text, bez nápovědy. Text ukáže celou skupinu: všechna malá písmena s diakritikou, všechny číslice a všechny symboly se Shiftem i s Option, včetně <code>° ˇ ¨ §</code>, a k tomu pět velkých písmen. Fáze kódu jsou dva řádky skutečného kódu. Fáze je splněná při přesnosti aspoň 90 % a rychlosti z tabulky. Nesplněná fáze pohovor ukončí a nic zlého se neděje.</p>
+<h3>Vstupní test</h3>
+<p>Test má šest fází. V každé napíšete krátký text bez nápovědy. Fáze je splněná při přesnosti aspoň 90 % a rychlosti z tabulky. Nesplněná fáze test ukončí a nic zlého se neděje.</p>
 <div class="scroll">
 <table>
-<thead><tr><th>Fáze</th><th>Rychlost</th><th>Splnění dokončí kapitoly</th><th>Hodnost</th></tr></thead>
+<thead><tr><th>Fáze</th><th>Rychlost</th><th>Splnění přeskočí kapitoly</th></tr></thead>
 <tbody>
-<tr><td>Písmena</td><td>20 WPM</td><td>0 až 4</td><td>Junior</td></tr>
-<tr><td>Diakritika</td><td>15 WPM</td><td>5</td><td>Junior</td></tr>
-<tr><td>Číslice</td><td>12 WPM</td><td>6</td><td>Medior</td></tr>
-<tr><td>Symboly se Shiftem</td><td>12 WPM</td><td>7</td><td>Medior</td></tr>
-<tr><td>Symboly s Option</td><td>10 WPM</td><td>8 až 10</td><td>Senior</td></tr>
-<tr><td>Skutečný kód</td><td>12 WPM</td><td>11</td><td>Staff</td></tr>
+<tr><td>Písmena</td><td>100 zn/min</td><td>Domovská řada, Horní řada, Dolní řada, Velká písmena a interpunkce</td></tr>
+<tr><td>Diakritika</td><td>75 zn/min</td><td>Česká diakritika</td></tr>
+<tr><td>Číslice</td><td>60 zn/min</td><td>Číslice</td></tr>
+<tr><td>Symboly se Shiftem</td><td>60 zn/min</td><td>Symboly se Shiftem</td></tr>
+<tr><td>Symboly s Option</td><td>50 zn/min</td><td>Symboly I, Symboly II, Vzácné a mrtvé klávesy</td></tr>
+<tr><td>Skutečný kód</td><td>60 zn/min</td><td>Skutečný kód, Všechno dohromady</td></tr>
 </tbody>
 </table>
 </div>
-<p>Fáze skončí i předčasně, když po nejméně 20 stiscích tvoří chyby přes čtvrtinu. Pohovor ukončíte sami klávesou <kbd>Esc</kbd> před každou fází.</p>
-<p>Výsledek dostanete jako pracovní nabídku: hodnost a kapitolu, kde začínáte. Přeskočené kapitoly jsou hotové, ale bez hvězd, a jejich lekce zůstávají otevřené. Znaky z nich začínají jako <a href="#napoveda">jisté</a>, nebo jako rozpracované, pokud vám v pohovoru dělaly potíže. Co jste ještě nenapsali, zařadí drilly přednostně. Symboly můžete cvičit hned, nabídka odkazuje na Trénink › Vybrané znaky.</p>
-<figure><img src="assets/offer.png" width="1488" height="904" loading="lazy" alt="Pracovní nabídka: na základě pohovoru Vám nabízíme pozici Medior, začínáte v kapitole 8."></figure>
-<p>Pohovor můžete zopakovat v Nastavení položkou Znovu vstupní pohovor. Hodnost nikdy nesníží.</p>
+<p>Fáze skončí i předčasně, když po nejméně 20 stiscích tvoří chyby přes čtvrtinu. Test ukončíte sami klávesou <kbd>Esc</kbd> před každou fází.</p>
+<p>Výsledek je jedna věc: doporučená lekce, tedy první lekce první kapitoly, kterou jste nesplnili. Lekce v seznamu dostane značku <code>doporučeno</code>, dokud její Test nedá hvězdu. Vstupní test nedává hvězdy ani hodnost a nic nezamyká: všechny lekce zůstávají otevřené a můžete začít kdekoli.</p>
+<figure><img src="assets/offer.png" width="1488" height="904" loading="lazy" alt="Výsledek vstupního testu: zvládli jste 4 fáze z 6, doporučená lekce je zavináč, mřížka, dolar, všechny lekce jsou otevřené."></figure>
+<p>Test můžete zopakovat v Nastavení položkou Znovu vstupní test. Změní jen doporučenou lekci, hvězdy zůstanou.</p>
+
+<h2 id="lekce">Lekce</h2>
+<p>Kurz tvoří 12 kapitol a v nich krátké lekce, obvykle o jednom páru kláves: Domovská řada, Horní řada, Dolní řada, Velká písmena a interpunkce, Česká diakritika, Číslice, Symboly se Shiftem, Symboly I, Symboly II, Vzácné a mrtvé klávesy, Skutečný kód (Go, Python, JavaScript, TypeScript, shell, SQL a regulární výrazy) a Všechno dohromady. Kapitola je jen nadpis v seznamu.</p>
+
+<h3>Seznam lekcí</h3>
+<p>Po spuštění se otevře seznam lekcí a kurzor stojí na další lekci, která ještě nemá hvězdu. Když jste dělali vstupní test, počítá se od doporučené lekce. Enter tedy znamená pokračovat.</p>
+<figure><img src="assets/lessons.png" width="1488" height="904" loading="lazy" alt="Seznam lekcí: nahoře hodnost a počet hvězd, pod kapitolami lekce s hvězdami a nejlepší rychlostí, kurzor stojí na další lekci."></figure>
+<p>Nahoře vidíte svou hodnost a počet hvězd. U každé lekce jsou její hvězdy a rychlost nejlepšího Testu. Lekce, u které jste dokončili Výuku nebo odehráli kolo, ale nemá hvězdu, má poznámku <code>rozpracováno</code>. Kurzor pohybujete šipkami, <kbd>Enter</kbd> lekci otevře, <kbd>S</kbd> ukáže statistiky a <kbd>N</kbd> nastavení.</p>
+<p>Když vaše rozložení klávesnice neumí napsat některé znaky, tuipe jednou řekne, kolik lekcí přeskočil. Ostatní lekce fungují dál a Test nikdy nechce znak, který rozložení neumí.</p>
+
+<h3>Uvnitř lekce</h3>
+<p>Obrazovka lekce říká, co se učíte, a u každého znaku, jak se píše a kterým prstem. Berou se z rozložení, které používáte. U lekcí, které nic nového neučí, stojí skupina znaků, u kódu jazyk. Pod tím jsou tři části: Výuka, Trénink a Test.</p>
+<figure><img src="assets/lesson.png" width="1488" height="904" loading="lazy" alt="Lekce 4 a 7: každý znak s tím, jak se píše a kterým prstem, pod tím části Výuka, Trénink s výběrem délky a Test s hvězdami a výsledky."></figure>
+<p>Šipky nahoru a dolů vybírají část, <kbd>Enter</kbd> ji spustí, <kbd>Esc</kbd> vás vrátí do seznamu. Na řádku Trénink vybíráte délku šipkami doleva a doprava. U Tréninku vidíte poslední výsledek vybrané délky, u Testu nejlepší a poslední.</p>
+
+<h2 id="vyuka">Výuka</h2>
+<p>Výuka vás lekcí provede. Nic se v ní neměří, nepočítá se do statistik a nezapíše se jako kolo. Když ji dokončíte, u lekce svítí <code>✓ hotovo</code>. Když ji opustíte klávesou <kbd>Esc</kbd>, žádná značka se nenastaví.</p>
+<figure><img src="assets/teach.png" width="1488" height="904" loading="lazy" alt="Výuka lekce o složených závorkách: { se píše levým Option a í, } levým Option a é, na klávesnici svítí í, é a levý Option."></figure>
+<ol>
+<li>Nejdřív krátký text: co se učíte a jak. Řekne ruku a prst každé klávesy a u znaku s Option, Shiftem nebo mrtvou klávesou i to, kterou klávesu stisknout první. Začíná levou rukou. <kbd>Enter</kbd> začne psát.</li>
+<li>Přes všechny kroky je vidět klávesnice se zvýrazněnými klávesami lekce.</li>
+<li>Pak píšete řádky: každý znak lekce sám, potom dvojice střídavě, nakonec jeden řádek ze slov. Špatná klávesa kurzor neposune.</li>
+</ol>
+<p>Lekce, které nic nového neučí, mají krátký text a jeden řádek. Lekce kódu mají krátký text o tom, na co si u jazyka dát pozor, a jeden úryvek.</p>
+
+<h2 id="trenink">Trénink</h2>
+<p>Trénink je kolo zaměřené na znaky lekce. Dřívější znaky se objeví jen jako podpora. Hvězdy ani hodnost za něj nedostanete a nic se nehodnotí, ale každé kolo se uloží a ukáže jako poslední výsledek lekce.</p>
+<ul>
+<li><strong>Délky</strong> jsou krátký, střední a dlouhý, zhruba 30, 60 a 120 sekund v tempu, které lekce chce na dvě hvězdy. U lekcí kódu je to jeden, dva nebo tři úryvky.</li>
+<li><strong>Text</strong> je při každém spuštění nový.</li>
+<li><strong>Nápověda</strong> se ukazuje podle toho, jak dobře znak umíte, viz <a href="#napoveda">nápověda</a>.</li>
+<li><strong>Výsledek</strong> ukáže rychlost, přesnost, čas, znaky s nejvíc chybami a srovnání s minulým a nejlepším Tréninkem stejné délky, třeba <code>+12 zn/min oproti minule</code>. <kbd>Enter</kbd> vás vrátí do lekce, <kbd>R</kbd> pustí Trénink znovu na novém textu.</li>
+</ul>
+<figure class="by-style">
+<img class="editor" src="assets/round-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor: kód v Go se zvýrazněnou syntaxí, čísla řádků, přehled postupu a stavový řádek s rychlostí a přesností.">
+<img class="fosfor" src="assets/round-fosfor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Fosfor: zelený text na černém pozadí a pod ním rychlost, přesnost a série.">
+<img class="velin" src="assets/round-velin.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Velín: panely s postupem, rychlostí a statistikou nad textem, přehled a další znak pod ním.">
+</figure>
+
+<h2 id="test">Test</h2>
+<p>Test je kolo ze všeho, co se učilo od začátku kurzu až po tuto lekci, s důrazem na znaky této lekce, takže jde zvládnout jen s nimi. Když otevřete lekci mimo pořadí, Test i tak obsahuje dřívější znaky. Je to záměr.</p>
+<ul>
+<li><strong>Délka</strong> je zhruba 90 sekund v tempu na dvě hvězdy. Text je pokaždé nový, nejde se ho naučit nazpaměť.</li>
+<li><strong>Bez nápovědy.</strong> V Testu se nápověda nikdy neukáže.</li>
+<li><strong>Kód.</strong> Test lekce kódu jsou tři náhodné úryvky z jejího jazyka. Každý jazyk se testuje sám.</li>
+<li><strong>Hvězdy a hodnost</strong> dává jen Test, viz <a href="#hvezdy">Hvězdy a hodnost</a>.</li>
+</ul>
+<figure><img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek Testu: rychlost, přesnost, čas, hvězdy, srovnání s minulým a nejlepším výsledkem a znaky s nejvíc chybami."></figure>
+<p>Na výsledku Testu přibývá řádek <code>Hvězdy</code>. Když kolo nedosáhlo ani první, stojí u něj <code>bez hvězdy</code>. Když Test povýší hodnost, napíše to: <code>Nová hodnost: Medior</code>. Enter a Esc vás vrátí do lekce, <kbd>R</kbd> pustí Test znovu na novém textu.</p>
+
+<h2 id="hvezdy">Hvězdy a hodnost</h2>
+<p>Každá lekce má tři hvězdy a získáte je jen v Testu. Každá hvězda chce rychlost i přesnost zároveň:</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Hvězda</th><th>Přesnost</th><th>Rychlost</th></tr></thead>
+<tbody>
+<tr><td>★</td><td>aspoň 92 %</td><td>první cíl lekce</td></tr>
+<tr><td>★★</td><td>aspoň 96 %</td><td>druhý cíl lekce</td></tr>
+<tr><td>★★★</td><td>aspoň 98 %</td><td>třetí cíl lekce</td></tr>
+</tbody>
+</table>
+</div>
+<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. První lekce, <code>f j</code>, chce 30, 45 a 60 zn/min, lekce <code>d k</code> 50, 75 a 100 zn/min. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte.</p>
+<p>Hodnost vychází z hvězd ze všech Testů, jako podíl všech hvězd, které kurz nabízí:</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Hodnost</th><th>Podíl hvězd</th></tr></thead>
+<tbody>
+<tr><td>Intern</td><td>od začátku</td></tr>
+<tr><td>Junior</td><td>od 10 %</td></tr>
+<tr><td>Medior</td><td>od 30 %</td></tr>
+<tr><td>Senior</td><td>od 55 %</td></tr>
+<tr><td>Staff</td><td>od 80 %</td></tr>
+<tr><td>Principal</td><td>od 95 %</td></tr>
+</tbody>
+</table>
+</div>
+<p>Vidíte ji nahoře v seznamu lekcí. Hodnost nezávisí na rozložení klávesnice a hvězdy se neodebírají.</p>
+
+<h3>Rychlost a přesnost</h3>
+<ul>
+<li><strong>Rychlost</strong> je počet správně napsaných znaků za minutu, <code>zn/min</code>. Slovo se počítá za pět znaků.</li>
+<li><strong>Přesnost</strong> je podíl znaků napsaných správně napoprvé.</li>
+<li><strong>Nejlepší výsledek</strong> lekce se vybírá podle skóre, tedy rychlosti krát přesnosti na čtvrtou. Přesnost tu váží mnohem víc než rychlost a rychlé, odbyté kolo nejlepším výsledkem nebude.</li>
+</ul>
 
 <h2 id="kolo">Jak funguje kolo</h2>
-<p>Kolo je jeden napsaný text. Všechny režimy se z kol skládají, liší se jen tím, jaká kola a v jakém pořadí vyberou.</p>
+<p>Trénink, Test i vstupní test jsou kola: jeden napsaný text. Platí v nich tato pravidla.</p>
 
 <h3>Zastavení na chybě</h3>
 <p>Při špatné klávese se kurzor nepohne, dokud nenapíšete správný znak. Chyba se zapíše, znak zčervená a podtržení na něm zůstane. Backspace není potřeba a nic nedělá. Odnaučíte se tak opravovat a naučíte se rovnou trefovat.</p>
@@ -147,13 +235,13 @@
 
 <h3>Čas a pauza</h3>
 <p>Čas běží od prvního stisku. Kolo se pozastaví samo, když okno terminálu ztratí fokus. V terminálech, které změnu fokusu nehlásí, se kolo pozastaví po 5 sekundách bez stisku. Takovou pauzu ukončí první další klávesa, která se zároveň počítá jako vstup.</p>
-<p>Klávesa <kbd>Esc</kbd> otevře nabídku pauzy s položkami pokračovat, začít znovu a odejít. <kbd>Ctrl+R</kbd> začne kolo znovu rovnou. Čas pauzy se nikdy nezapočítá. Kolo s pauzou se dopíše normálně a počítá se pro statistiky, hvězdy i uptime, jen se z něj nestane duch ani rekord. Nedopsané kolo není prohra: do historie se nezapíše, ale stisky z něj se do statistik znaků počítají.</p>
-<p>Když zavřete aplikaci uprostřed lekce, další spuštění nabídne <code>pokračuj: název lekce</code>. Kolo pak začne od začátku.</p>
+<p>Klávesa <kbd>Esc</kbd> otevře nabídku pauzy s položkami pokračovat, začít znovu a odejít. <kbd>Ctrl+R</kbd> začne kolo znovu rovnou. Čas pauzy se nikdy nezapočítá. Kolo s pauzou se dopíše normálně a počítá se do statistik, jen se nepočítá jako nejlepší výsledek ani rekord a výsledek to řekne: <code>pauza: kolo se nepočítá jako rekord</code>.</p>
+<p>Nedopsané kolo není prohra: odejdete-li z něj nebo ho začnete znovu, do historie se nic nezapíše a nedostanete hvězdy, ale stisky z něj se do statistik znaků počítají.</p>
 
 <h3 id="napoveda">Nápověda a jak mizí</h3>
-<p>Nápověda říká, co stisknout a kterým prstem. Třeba:</p>
+<p>Nápověda říká, co stisknout a kterým prstem. Ukazuje se v Tréninku, v Testu nikdy. Třeba:</p>
 <pre class="block"><code>{ → levý Option + í (pravý prsteník)</code></pre>
-<figure><img src="assets/hint-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor s nápovědou pro znak { a mapou klávesnice, na které svítí í a levý Option."></figure>
+<figure><img src="assets/hint-editor.png" width="1488" height="904" loading="lazy" alt="Trénink ve stylu Editor s nápovědou pro znak { a mapou klávesnice, na které svítí í a levý Option."></figure>
 <p>Kdy se ukáže, záleží na tom, jak dobře znak umíte. tuipe si u každého znaku vede rychlost a chybovost a podle nich ho řadí do čtyř stavů:</p>
 <div class="scroll">
 <table>
@@ -166,150 +254,50 @@
 </tbody>
 </table>
 </div>
-<p>Od stavu rozpracovaný výš se nápověda ukáže i při druhé chybě na stejném místě, nikdy při první. Jeden překlep vás tak stojí přesnost, ale ne třetí hvězdu. Výš se znak posune, jen když chybovost nepřesáhne 12 %. Může se i zhoršit: klesne, když chybovost přeroste 12 %, ale nejvýš o stupeň za kolo, a jeden překlep na znaku, který píšete poprvé, ho neshodí. Znak, který jste dva týdny nepsali, se pro nápovědu čte o stupeň níž, za každé další dva týdny o další.</p>
+<p>Od stavu rozpracovaný výš se nápověda ukáže i při druhé chybě na stejném místě, nikdy při první. Výš se znak posune, jen když chybovost nepřesáhne 12 %. Může se i zhoršit: klesne, když chybovost přeroste 12 %, ale nejvýš o stupeň za kolo, a jeden překlep na znaku, který píšete poprvé, ho neshodí. Znak, který jste dva týdny nepsali, se pro nápovědu čte o stupeň níž, za každé další dva týdny o další.</p>
 <p>Mapa klávesnice a panel Další znak jsou také nápověda a řídí se stejnými pravidly. Mimo nápovědu jsou tyto plochy prázdné nebo ukazují neutrální přehled, takže neprozradí, co přijde.</p>
 
-<h3>Hvězdy</h3>
-<p>Každá lekce má tři hvězdy. Každá hvězda chce rychlost i přesnost zároveň:</p>
-<div class="scroll">
-<table>
-<thead><tr><th>Hvězda</th><th>Přesnost</th><th>Rychlost</th><th>Nápověda</th></tr></thead>
-<tbody>
-<tr><td>★</td><td>aspoň 92 %</td><td>první cíl lekce</td><td>smí být</td></tr>
-<tr><td>★★</td><td>aspoň 96 %</td><td>druhý cíl lekce</td><td>smí být</td></tr>
-<tr><td>★★★</td><td>aspoň 98 %</td><td>třetí cíl lekce</td><td>žádná</td></tr>
-</tbody>
-</table>
-</div>
-<p>Cíle rychlosti se liší podle lekce, protože lekci symbolů nejde měřit jako lekci písmen. Například „Prostředníky“ chtějí 10, 15 a 20 WPM, „Velká písmena v tempu“ 20, 28 a 36 WPM. Každá ukázaná nápověda se počítá jako použitá a na výsledku to tuipe napíše: <code>nápověda použita: třetí hvězda není možná</code>. U lekce se pamatuje nejlepší výsledek, takže hvězdu nikdy neztratíte. Na výsledku kola ukazují hvězdy jen lekce. Po drillu, kódu, test-outu ani incidentu je neuvidíte, protože by je nikdo nedržel. Jen <code>git log</code> ukazuje u každého kola, jak dopadlo.</p>
-
-<h3>Výsledek a skóre</h3>
-<p>Po kole vidíte výsledek jako <code>git diff</code> proti nejlepšímu předchozímu pokusu na stejném textu. U textu, který píšete poprvé, je místo <code>HEAD~1</code> nahoře <code>/dev/null</code>.</p>
-<figure><img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek kola: řádky wpm, přesnost a čas se starou hodnotou červeně a novou zeleně, pod nimi dvě hvězdy."></figure>
-<ul>
-<li><strong>WPM</strong> je počet správně napsaných znaků děleno pěti a děleno minutami.</li>
-<li><strong>Přesnost</strong> je podíl znaků napsaných správně napoprvé.</li>
-<li><strong>Skóre</strong> je <code>WPM × přesnost⁴</code>. 60 WPM při 98 % dá skóre 55, při 90 % jen 39. Přesnost tu váží mnohem víc než rychlost. Skóre uvidíte v <a href="#statistiky">rekordech</a>.</li>
-</ul>
-
-<h2 id="duch">Duch HEAD~1</h2>
-<p>Duch je druhý kurzor, který běží textem s vámi. Vidíte ho jako barevné pole v textu a váš náskok nebo ztrátu v sekundách: <code>+1.3 s</code> znamená, že vedete, <code>-0.3 s</code>, že prohráváte.</p>
-<figure class="by-style">
-<img class="editor" src="assets/round-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor: fialové pole ducha je o kus za kurzorem a stavový řádek ukazuje náskok před HEAD~1.">
-<img class="fosfor" src="assets/round-fosfor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Fosfor: dva pruhy HEAD~1 a ty pod textem a náskok před duchem.">
-<img class="velin" src="assets/round-velin.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Velín: panel HEAD~1 s náskokem vpravo nahoře a fialové pole ducha v textu.">
-</figure>
-<p>Jsou dva druhy:</p>
-<ul>
-<li><strong>Záznam.</strong> Lekce, úryvky kódu a incidenty mají pevný text, takže duch přesně přehrává váš nejlepší pokus na tomto textu.</li>
-<li><strong>Duch tempa.</strong> Generované drilly nemají starší pokus. Duch se proto spočítá z vaší průměrné rychlosti na jednotlivých znacích a je o 3 % rychlejší, aby vás popoháněl. U znaků, kde žádná data nejsou, počítá s 400 ms na znak. Dokud nemáte napsaných aspoň 20 znaků, duch tempa se nezobrazí, protože by závodil s odhadem.</li>
-</ul>
-<p>Nový pokus ducha nahradí, jen když má vyšší skóre, takže rychlé a odbyté kolo se duchem nestane. Nestane se jím ani kolo s pauzou nebo prohraný incident. Když na textu žádného ducha nemáte, závod se nezobrazí. Vstupní pohovor a test-out ducha nemají.</p>
-
-<h2 id="rezimy">Režimy</h2>
-<figure><img src="assets/home.png" width="1488" height="904" loading="lazy" alt="Úvodní obrazovka: hodnost, uptime, vybraná Rychlovka a pod ní nabídka Denní standup, Sprint, Kariéra, Trénink, Incident v produkci, Statistiky a Nastavení."></figure>
-
-<h3>Rychlovka</h3>
-<p>První položka úvodní obrazovky a to, co spustíte klávesou Enter hned po startu. tuipe vybere nejužitečnější kolo. Zhruba v 60 % případů je to další lekce kariéry, jinak drill na vaše slabá místa. Dokud o nich nic neví, je to vždycky lekce. Od kapitoly 11 se přidává i skutečný kód. Každé osmé kolo je incident, pokud je nějaký k dispozici. Když máte v kapitole všechny lekce s hvězdou a čeká vás závěrečný incident, Rychlovka nabídne ten a jmenuje ho. Po prohře přijde jeden drill na nejslabší znaky a pak incident znovu.</p>
-<p>Každý drill trvá při vašem tempu asi minutu a ze svých pěti hlavních znaků dva vyhrazuje těm, které jste nejdéle nepsali. Znaky, které jste ještě nepsali vůbec, jdou první. Vzácné symboly se tak z tréninku neztratí. Slabé dvojice znaků se do drillu dostanou taky.</p>
-<p>Na obrazovce výsledku Enter spustí další kolo a <kbd>R</kbd> stejný text znovu. U lekce a kódu poběžíte proti svému nejlepšímu pokusu, u drillu proti vlastnímu tempu, a hvězda z lekce se tím neztratí. Ve Standupu a Sprintu <kbd>R</kbd> nefunguje, protože mají pevný plán, stejně jako po splněném test-outu. Krátká pauza a dlouhé sezení tak mají stejný průběh.</p>
-
-<h3>Denní standup</h3>
-<p>Pět drillů za sebou na vaše nejslabší a nejdéle nepsané znaky, každý zhruba minutu, dohromady asi pět minut. Průběh vidíte jako <code>Standup 2/5</code>. Po dokončení má položka v nabídce poznámku <code>(hotovo)</code>. Znovu ho spustit můžete, ale cíl na dnešek je splněný.</p>
-
-<h3>Sprint a Retro</h3>
-<p>Plánované sezení na 10, 20 nebo 30 minut. Začíná rozehřátím na slabých znacích, pokračuje nedokončenými lekcemi, od kapitoly 11 i kódem, pak přijde další drill a na závěr incident. Minuty se počítají jen z aktivního psaní, takže pauza Sprint prodlouží. Průběh vidíte jako <code>Sprint 3:12 / 20:00</code>. Když naplánovaná kola skončí dřív, pokračují další drilly na slabá místa, dokud minuty nevyprší. Když čas vyprší, další kolo je rovnou závěrečné.</p>
-<p>Ze Sprintu můžete kdykoli odejít. Ještě týž den u něj v nabídce najdete <code>(pokračovat)</code> a naváže se tam, kde jste skončili. Řádek <code>Ukončit sprint</code> pod ním Sprint rovnou uzavře a ukáže Retro z toho, co jste stihli. Další den se Sprint uzavře sám.</p>
-<p>Retro porovná průměrnou rychlost a přesnost se sedmi dny před Sprintem a vypíše až tři znaky, které se nejvíc zlepšily a zhoršily. Počítají se změny chybovosti aspoň o 2 procentní body.</p>
-<figure><img src="assets/retro.png" width="1488" height="904" loading="lazy" alt="Retro po Sprintu: 13 kol, rychlost a přesnost se změnou proti minulému týdnu a seznamy zlepšených a zhoršených znaků."></figure>
-
-<h3>Incident v produkci</h3>
-<p>Časovaný scénář o několika krocích: diagnostikujte v shellu, opravte kód, nasaďte. Nad textem běží příběh a kroky se oddělují klávesou Enter. Incidentů je 18. Dvanáct uzavírá kapitoly 1 až 12, šest je navíc k volnému hraní. V nabídce vidíte všechny z odemčených kapitol a u každého nejtěžší závažnost, kterou jste vyhráli, třeba <code>[SEV2]</code>.</p>
-<figure class="by-style">
-<img class="editor" src="assets/incident-editor.png" width="1488" height="904" loading="lazy" alt="Incident ve stylu Editor: příběh nahoře, kód pod ním a SLA ve stavovém řádku.">
-<img class="fosfor" src="assets/incident-fosfor.png" width="1488" height="904" loading="lazy" alt="Incident ve stylu Fosfor: příběh, text, závod s duchem a SLA s měřidlem.">
-<img class="velin" src="assets/incident-velin.png" width="1488" height="904" loading="lazy" alt="Incident ve stylu Velín: velký panel SLA vlevo nahoře.">
-</figure>
-<p>SLA začíná na 100 % a hranice SLO je 99 %. Hoří s časem a každá chyba ubere další kus, v krátkém incidentu 5 % rozpočtu, v dlouhém méně. Když SLA klesne na SLO, je to výpadek a incident je prohraný. Na začátku každého dalšího kroku měřidlo chvíli počká, abyste si přečetli zadání. Čekání ukončí první stisk.</p>
-<p>Závažnost nastavuje, jak rychle hoří. Vychází z vašeho základního tempa, což je medián posledních 20 kol, nejméně 15 WPM. Když píšete přesně tempem závažnosti, spálíte polovinu rozpočtu. Druhou polovinu si berou chyby, takže při běžném tempu a přesnosti 92 %, tedy na jednu hvězdu, přežijete na SEV3 i nejdelší incident, jen tak tak.</p>
-<div class="scroll">
-<table>
-<thead><tr><th>Závažnost</th><th>Požadované tempo</th><th>Situace</th></tr></thead>
-<tbody>
-<tr><td>SEV3</td><td>vaše běžné</td><td>nikdo nevolá</td></tr>
-<tr><td>SEV2</td><td>o 5 % rychleji</td><td>někdo už píše do chatu</td></tr>
-<tr><td>SEV1</td><td>o 15 % rychleji</td><td>volá ředitel</td></tr>
-</tbody>
-</table>
-</div>
-<p><strong>Výhra</strong> ukáže MTTR, tedy čas do vyřešení, zbývající SLA a srovnání s minulým řešením. <strong>Prohra</strong> skončí postmortemem bez hledání viníka: vypíše znaky, které napáchaly největší škodu, i s tím, jak se píšou. Klávesa <kbd>d</kbd> z nich rovnou udělá drill.</p>
-<figure><img src="assets/postmortem.png" width="1488" height="904" loading="lazy" alt="Postmortem incidentu INC-1008: souhrn, seznam znaků, které selhaly, s nápovědou, příčina a opatření."></figure>
-
-<h3>Kariéra</h3>
-<p>Mapa celé cesty: 13 kapitol, 102 lekcí a šest hodností. Hodnost získáte dokončením kapitoly a nikdy o ni nepřijdete.</p>
-<div class="scroll">
-<table>
-<thead><tr><th>Kapitola</th><th>Co trénuje</th><th>Hodnost</th></tr></thead>
-<tbody>
-<tr><td>0 Nástup</td><td>ruce na klávesách, <code>f</code> a <code>j</code></td><td>Intern</td></tr>
-<tr><td>1 Domovská řada</td><td><code>a s d f j k l ů</code>, mezera, <code>g h</code></td><td>Intern</td></tr>
-<tr><td>2 Horní řada</td><td><code>q w e r t y u i o p</code></td><td>Intern</td></tr>
-<tr><td>3 Dolní řada</td><td><code>z x c v b n m , .</code></td><td>Intern</td></tr>
-<tr><td>4 Velká písmena a interpunkce</td><td>Shift, <code>- _ : ? !</code></td><td>Junior</td></tr>
-<tr><td>5 Česká diakritika</td><td><code>ě š č ř ž ý á í é ú</code>, mrtvé klávesy, velká písmena</td><td>Junior</td></tr>
-<tr><td>6 Číslice</td><td><code>0</code> až <code>9</code> se Shiftem</td><td>Medior</td></tr>
-<tr><td>7 Symboly se Shiftem</td><td><code>+ = % / ( ) " `</code></td><td>Medior</td></tr>
-<tr><td>8 Symboly s Option I</td><td><code>@ # $ { } [ ] ; '</code></td><td>Senior</td></tr>
-<tr><td>9 Symboly s Option II</td><td><code>~ ^ &amp; * &lt; &gt; \ |</code></td><td>Senior</td></tr>
-<tr><td>10 Vzácné a mrtvé klávesy</td><td><code>° ˇ ¨ §</code></td><td>Senior</td></tr>
-<tr><td>11 Skutečný kód</td><td>Go, Python, JavaScript, TypeScript, shell, SQL, regulární výrazy</td><td>Staff</td></tr>
-<tr><td>12 Všechno dohromady</td><td>všechno, bez nápovědy</td><td>Principal</td></tr>
-</tbody>
-</table>
-</div>
-<p>Kapitola je hotová, když mají všechny její lekce aspoň jednu hvězdu a vyhrajete její závěrečný incident na libovolnou závažnost. Výjimkou je kapitola 0, ta žádný incident nemá. Když má kapitola všechny lekce s hvězdou, objeví se v seznamu Kariéry pod nimi řádek s dlužným incidentem. Nabídne ho i Rychlovka a najdete ho také v nabídce Incident v produkci. Výhra před dokončením lekcí se zapíše a kapitolu uzavře hvězda u poslední z nich, výsledek to oznámí.</p>
-<figure><img src="assets/career.png" width="1488" height="904" loading="lazy" alt="Obrazovka Kariéra: lekce s hvězdami, kapitola 12 a pod jejími lekcemi řádek test-out."></figure>
-<p>Enter na lekci ji spustí a po kole se vrátíte do seznamu, takže chybějící hvězdu můžete dohánět, jak dlouho chcete. Zamčená kapitola ukazuje jen test-out, odemčená ho má pod lekcemi. Kapitola 0 a hotové kapitoly test-out nemají.</p>
-<p>Test-out je jedno kolo bez nápovědy, které musíte zvládnout aspoň na ★★. Text obsahuje všechny znaky kapitoly a vzorek z každé kapitoly před ní. Test-out kapitoly 11 je skutečný kód, test-out kapitoly 12 je směs plná symbolů ze všech kapitol. Tyhle dva jsou delší než ostatní. Úspěch dokončí tuto kapitolu i všechny nedokončené před ní, bez hvězd. Když by test-out uzavřel víc kapitol, řádek to řekne předem, třeba <code>test-out: uzavře 5 kapitol naráz</code>, a výsledek napíše, kolik jich uzavřel. Neúspěch nic nezmění.</p>
-
-<h3>Trénink</h3>
-<p>Když chcete trénovat něco konkrétního, vyberte si sami:</p>
-<ul>
-<li><strong>Kapitola</strong> vygeneruje drill na znaky, které kapitola přináší.</li>
-<li><strong>Lekce</strong> pustí kteroukoli lekci z odemčených kapitol.</li>
-<li><strong>Jazyk</strong> vybere náhodný úryvek v jazyce <code>go</code>, <code>python</code>, <code>js</code>, <code>ts</code>, <code>shell</code>, <code>sql</code> nebo <code>regex</code>.</li>
-<li><strong>Vybrané znaky</strong> vygenerují drill na znaky, které napíšete, nejvýše na 12. Stačí je napsat, klidně s Option. Backspace maže, Enter spouští.</li>
-</ul>
-
 <h2 id="statistiky">Statistiky</h2>
-<p>Čtyři záložky. Přepínáte je šipkami vlevo a vpravo, nebo klávesou <kbd>Tab</kbd> dopředu a <kbd>Shift+Tab</kbd> zpět.</p>
+<p>Otevřete je klávesou <kbd>S</kbd> v seznamu lekcí. Čtyři záložky přepínáte šipkami vlevo a vpravo, nebo klávesou <kbd>Tab</kbd> dopředu a <kbd>Shift+Tab</kbd> zpět. Nahoře je vždy počet dní v řadě, kdy jste psali.</p>
+<p>Každá část čte jiná kola:</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Co</th><th>Test</th><th>Trénink</th><th>Výuka</th></tr></thead>
+<tbody>
+<tr><td>Hvězdy a hodnost</td><td>ano</td><td>ne</td><td>ne</td></tr>
+<tr><td>Trendy a rekordy</td><td>ano</td><td>ne</td><td>ne</td></tr>
+<tr><td>Slabé znaky a mapa klávesnice</td><td>ano</td><td>ano</td><td>ne</td></tr>
+<tr><td>Dny v řadě</td><td>ano</td><td>ano</td><td>ne</td></tr>
+<tr><td>Historie</td><td>ano</td><td>ano</td><td>ne</td></tr>
+</tbody>
+</table>
+</div>
 
-<h3>git log</h3>
-<p>Každé dokončené kolo je jeden řádek. Řádky jsou seskupené po dnech, nejnovější nahoře: krátký hash, rychlost, přesnost, hvězdy, rozdíl proti duchovi a co jste psali. Prohraný incident má poznámku <code>prohráno</code>.</p>
-<figure><img src="assets/gitlog.png" width="1488" height="904" loading="lazy" alt="Záložka git log: kola po dnech s hashem, rychlostí, přesností, hvězdami a náskokem."></figure>
+<h3>Historie</h3>
+<p>Každé dokončené kolo je jeden řádek, nejnovější nahoře: den, jestli šlo o Test, Trénink nebo Vstupní test, rychlost, přesnost, hvězdy a lekce, u Tréninku i délka. Klávesa <kbd>F</kbd> mění, co se ukazuje: Vše, jen Trénink, nebo jen Test.</p>
+<figure><img src="assets/history.png" width="1488" height="904" loading="lazy" alt="Záložka Historie: kola po dnech s druhem kola, rychlostí, přesností, hvězdami a lekcí, nahoře řádek Zobrazeno: Vše."></figure>
 
-<h3>heatmap</h3>
+<h3>Klávesy</h3>
 <p>Klávesnice obarvená podle slabosti: čím červenější klávesa, tím hůř. Slabost kombinuje chybovost a prodlevu a počítá se u znaků s aspoň 5 stisky. Pod mapou je nejslabší prst a nejslabší znaky i s tím, jak se píšou.</p>
-<figure><img src="assets/heatmap.png" width="1488" height="904" loading="lazy" alt="Záložka heatmap: klávesnice v odstínech červené, nejslabší prst a seznam nejslabších znaků s nápovědou."></figure>
+<figure><img src="assets/heatmap.png" width="1488" height="904" loading="lazy" alt="Záložka Klávesy: klávesnice v odstínech červené, nejslabší prst a seznam nejslabších znaků s tím, jak se píšou."></figure>
 
-<h3>trendy</h3>
-<p>Rychlost a přesnost v čase jako malé grafy, jeden sloupek za aktivní den, nejvýš za posledních 30 aktivních dní. Za každý den se bere medián. Řádek <code>celkem</code> obsahuje všechna kola kromě vstupního pohovoru a prohrané incidenty se nepočítají do rychlosti. Skupiny <code>písmena</code>, <code>diakritika</code>, <code>čísla</code>, <code>Shift</code>, <code>Option</code> a <code>kód</code> se počítají z lekcí, podle kapitoly, do které lekce patří. Do skupiny <code>kód</code> patří kapitoly 11 a 12. Číslo vpravo je poslední hodnota.</p>
-<figure><img src="assets/trends.png" width="1488" height="904" loading="lazy" alt="Záložka trendy: sloupcové grafy rychlosti a přesnosti pro skupiny znaků."></figure>
+<h3>Trendy</h3>
+<p>Rychlost a přesnost v čase jako malé grafy, jeden sloupek za den, kdy jste dělali Test, nejvýš za posledních 30 takových dní. Za každý den se bere medián. Řádek <code>celkem</code> obsahuje všechny Testy. Skupiny <code>písmena</code>, <code>diakritika</code>, <code>čísla</code>, <code>Shift</code>, <code>Option</code> a <code>kód</code> se berou podle kapitoly, do které lekce Testu patří. Do skupiny <code>kód</code> patří kapitoly Skutečný kód a Všechno dohromady. Číslo vpravo je poslední hodnota, pomlčka znamená, že zatím není z čeho.</p>
+<figure><img src="assets/trends.png" width="1488" height="904" loading="lazy" alt="Záložka Trendy: sloupcové grafy rychlosti a přesnosti pro skupiny znaků."></figure>
 
-<h3>rekordy</h3>
-<p>Nejlepší kolo podle skóre v každé kategorii: Rychlovka, Lekce, Kód, Incident, Standup a Sprint. Kola s pauzou a prohrané incidenty se nepočítají.</p>
-<figure><img src="assets/records.png" width="1488" height="904" loading="lazy" alt="Záložka rekordy: pro každou kategorii rychlost, přesnost a skóre."></figure>
+<h3>Rekordy</h3>
+<p>Tři řádky: nejvyšší rychlost v Testu, nejlepší přesnost v Testu a nejvíc dní v řadě. Kola s pauzou se do rekordů nepočítají.</p>
+<figure><img src="assets/records.png" width="1488" height="904" loading="lazy" alt="Záložka Rekordy: nejvyšší rychlost v testu, nejlepší přesnost v testu a nejvíc dní v řadě."></figure>
 
-<h3>uptime a rozpočet chyb</h3>
-<p>Série po sobě jdoucích dnů se jmenuje <code>uptime</code> a čte se jako u serveru: <code>up 24 days</code>. Den se počítá, když v něm dokončíte aspoň jedno kolo. Dnešek, dokud jste nepsali, sérii nepřeruší, jen se zatím nepočítá.</p>
-<p>Jeden vynechaný den za kalendářní týden (pondělí až neděle) odpustí rozpočet chyb. Vynechaný den se do uptime nepřičte, ale série běží dál. Když je rozpočet na tento týden pryč, úvodní obrazovka napíše <code>(rozpočet chyb na tento týden je vyčerpaný)</code>. Série se přetrhne po dvou vynechaných dnech za sebou nebo po druhém vynechaném dni v jednom týdnu.</p>
+<h3>Dny v řadě</h3>
+<p>Den se počítá, když v něm dokončíte aspoň jeden Test nebo Trénink. Výuka a Vstupní test se nepočítají. Vynechaný den sérii přeruší. Dnešek, dokud jste nepsali, sérii nepřeruší, jen se zatím nepočítá.</p>
 
 <h2 id="vzhled">Vzhled a velikost okna</h2>
-<p>Kolo a incident mají ve třech stylech opravdu tři různá rozložení. Ostatní obrazovky mají stejnou strukturu, jen se barvami a rámečky přizpůsobí stylu. Výchozí je Editor. <kbd>Ctrl+T</kbd> přepíná v pořadí Fosfor, Editor, Velín a funguje kdykoli, i uprostřed kola. Volba se hned uloží.</p>
+<p>Kolo má ve třech stylech opravdu tři různá rozložení. Ostatní obrazovky mají stejnou strukturu, jen se barvami a rámečky přizpůsobí stylu. Výchozí je Editor. <kbd>Ctrl+T</kbd> přepíná v pořadí Fosfor, Editor, Velín a funguje kdykoli, i uprostřed kola. Volba se hned uloží.</p>
 <ul>
-<li><strong>Fosfor</strong> je monochromatický zelený monitor. Řádek, který píšete, stojí na místě a text se pod ním posouvá. Pod ním je závod s duchem. Mapa klávesnice se ukáže jen při nápovědě.</li>
+<li><strong>Fosfor</strong> je monochromatický zelený monitor. Řádek, který píšete, stojí na místě a text se pod ním posouvá. Pod textem jsou rychlost, přesnost a série. Mapa klávesnice se ukáže jen při nápovědě.</li>
 <li><strong>Editor</strong> vypadá jako Neovim: zvýraznění syntaxe, čísla řádků, stavový řádek a dole přehled, který při nápovědě vystřídá mapa klávesnice.</li>
-<li><strong>Velín</strong> je hustý dashboard ve stylu <code>htop</code>: postup nebo SLA, propustnost, náskok před duchem, přehled a panel Další znak.</li>
+<li><strong>Velín</strong> je hustý dashboard ve stylu <code>htop</code>: postup, rychlost, statistika, přehled a panel Další znak.</li>
 </ul>
 <p>Ideální okno je polovina obrazovky vedle jiné práce, kolem 80 × 45, stejně dobře ale poslouží běžných 80 × 24.</p>
 <div class="scroll">
@@ -344,33 +332,33 @@
 <tr><td><kbd>Esc</kbd></td><td>kontrolu přeskočit</td></tr>
 <tr><th scope="row" rowspan="2">První spuštění: domovská pozice</th><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>k</kbd> <kbd>j</kbd>, <kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>posun textu</td></tr>
 <tr><td><kbd>Enter</kbd></td><td>pokračovat</td></tr>
-<tr><th scope="row" rowspan="2">Úvodní obrazovka</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
-<tr><td><kbd>Enter</kbd></td><td>spustit</td></tr>
+<tr><th scope="row" rowspan="4">Seznam lekcí</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr lekce</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>otevřít lekci</td></tr>
+<tr><td><kbd>S</kbd></td><td>statistiky</td></tr>
+<tr><td><kbd>N</kbd></td><td>nastavení</td></tr>
+<tr><th scope="row" rowspan="4">Lekce</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr: Výuka, Trénink, Test</td></tr>
+<tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>délka Tréninku</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>spustit vybranou část</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>zpět do seznamu</td></tr>
+<tr><th scope="row" rowspan="2">Výuka</th><td><kbd>Enter</kbd></td><td>začít psát po úvodním textu</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>zpět do lekce</td></tr>
 <tr><th scope="row" rowspan="3">Kolo</th><td><kbd>Esc</kbd></td><td>pauza</td></tr>
 <tr><td><kbd>Ctrl+R</kbd></td><td>začít kolo znovu</td></tr>
 <tr><td><kbd>Enter</kbd></td><td>konec řádku v textu</td></tr>
 <tr><th scope="row" rowspan="2">Pauza</th><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Enter</kbd></td><td>výběr a potvrzení</td></tr>
 <tr><td><kbd>Esc</kbd></td><td>pokračovat</td></tr>
-<tr><th scope="row" rowspan="3">Výsledek kola</th><td><kbd>Enter</kbd></td><td>další kolo</td></tr>
-<tr><td><kbd>R</kbd></td><td>zopakovat kolo</td></tr>
-<tr><td><kbd>Esc</kbd></td><td>domů</td></tr>
-<tr><th scope="row" rowspan="2">Výhra nebo postmortem incidentu</th><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>další, domů (obrazovka prvních 0,7 s klávesy ignoruje)</td></tr>
-<tr><td><kbd>d</kbd></td><td>v postmortemu drill na znaky, které selhaly</td></tr>
-<tr><th scope="row" rowspan="2">Seznamy (Kariéra, Trénink, Incident, Sprint)</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
-<tr><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>spustit, zpět</td></tr>
-<tr><th scope="row" rowspan="3">Vybrané znaky</th><td><kbd>Backspace</kbd></td><td>smazat znak</td></tr>
-<tr><td><kbd>Enter</kbd></td><td>spustit drill</td></tr>
-<tr><td><kbd>Esc</kbd></td><td>zpět do nabídky Trénink</td></tr>
-<tr><th scope="row" rowspan="2">Vstupní pohovor a pracovní nabídka</th><td><kbd>Enter</kbd></td><td>začít fázi nebo pokračovat z nabídky</td></tr>
-<tr><td><kbd>Esc</kbd></td><td>ukončit pohovor (před fází)</td></tr>
-<tr><th scope="row" rowspan="4">Statistiky</th><td><kbd>→</kbd>, <kbd>l</kbd> nebo <kbd>Tab</kbd></td><td>další záložka</td></tr>
+<tr><th scope="row" rowspan="2">Výsledek Tréninku a Testu</th><td><kbd>Enter</kbd> nebo <kbd>Esc</kbd></td><td>zpět do lekce</td></tr>
+<tr><td><kbd>R</kbd></td><td>zopakovat na novém textu</td></tr>
+<tr><th scope="row" rowspan="2">Vstupní test a jeho výsledek</th><td><kbd>Enter</kbd></td><td>začít fázi nebo pokračovat z výsledku</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>ukončit test (před fází)</td></tr>
+<tr><th scope="row" rowspan="5">Statistiky</th><td><kbd>→</kbd>, <kbd>l</kbd> nebo <kbd>Tab</kbd></td><td>další záložka</td></tr>
 <tr><td><kbd>←</kbd>, <kbd>h</kbd> nebo <kbd>Shift+Tab</kbd></td><td>předchozí záložka</td></tr>
-<tr><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>k</kbd> <kbd>j</kbd>, <kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>posun v git logu</td></tr>
-<tr><td><kbd>Esc</kbd></td><td>domů</td></tr>
-<tr><th scope="row">Retro</th><td><kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>domů</td></tr>
+<tr><td><kbd>↑</kbd> <kbd>↓</kbd>, <kbd>k</kbd> <kbd>j</kbd>, <kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>posun v historii</td></tr>
+<tr><td><kbd>F</kbd></td><td>filtr historie: Vše, Trénink, Test</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>zpět do seznamu</td></tr>
 <tr><th scope="row" rowspan="3">Nastavení</th><td><kbd>↑</kbd> <kbd>↓</kbd> nebo <kbd>k</kbd> <kbd>j</kbd></td><td>výběr</td></tr>
 <tr><td><kbd>Enter</kbd>, <kbd>←</kbd> <kbd>→</kbd> nebo <kbd>h</kbd> <kbd>l</kbd></td><td>změnit hodnotu</td></tr>
-<tr><td><kbd>Esc</kbd></td><td>domů</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>zpět do seznamu</td></tr>
 </tbody>
 </table>
 </div>
@@ -414,7 +402,7 @@
 <li><code>&lt;</code> a <code>&gt;</code> se učí s Option na čárce a tečce, blízko domovské pozice.</li>
 </ul>
 
-<h3>Programátorské symboly</h3>
+<h3>Symboly v kódu</h3>
 <p>Tabulka ukazuje přesně to, co vám řekne nápověda v aplikaci, včetně prstu. Kde je jen znak, stačí jeho vlastní klávesa.</p>
 <div class="scroll">
 <table class="symbols">
@@ -466,9 +454,8 @@
 <tbody>
 <tr><td><code>~/.config/<wbr>tuipe/<wbr>config.toml</code></td><td>nastavení</td></tr>
 <tr><td><code>~/.config/<wbr>tuipe/<wbr>layouts/<wbr>*.toml</code></td><td>vaše rozložení klávesnice</td></tr>
-<tr><td><code>~/.local/<wbr>share/<wbr>tuipe/<wbr>profile.json</code></td><td>znalost znaků, hvězdy, dokončené kapitoly</td></tr>
+<tr><td><code>~/.local/<wbr>share/<wbr>tuipe/<wbr>profile.json</code></td><td>znalost znaků, hvězdy, značky Výuky, doporučená lekce</td></tr>
 <tr><td><code>~/.local/<wbr>share/<wbr>tuipe/<wbr>runs.jsonl</code></td><td>historie kol</td></tr>
-<tr><td><code>~/.local/<wbr>share/<wbr>tuipe/<wbr>ghosts/</code></td><td>jeden soubor na ducha</td></tr>
 </tbody>
 </table>
 </div>
@@ -477,14 +464,14 @@
 <pre class="block"><code>style = "editor"
 layout = "macos-czech-qwerty"
 update_check = true</code></pre>
-<p><code>style</code> může být <code>fosfor</code>, <code>editor</code> nebo <code>velin</code>. Statistiky se vedou zvlášť pro každé rozložení. Poškozený soubor aplikaci neshodí: tuipe ho odloží s koncovkou <code>.corrupt-1</code>, začne bez něj a na úvodní obrazovce řekne, co se stalo a kde odložený soubor leží. Hlášení zmizí po prvním stisku klávesy.</p>
+<p><code>style</code> může být <code>fosfor</code>, <code>editor</code> nebo <code>velin</code>. Statistiky se vedou zvlášť pro každé rozložení. Poškozený soubor aplikaci neshodí: tuipe ho odloží s koncovkou <code>.corrupt-1</code>, začne bez něj a v seznamu lekcí řekne, co se stalo a kde odložený soubor leží. Stejně naloží se soubory z verze 0.1.0, ta měla jiné uložení: odloží se s koncovkou <code>.v1</code> a začínáte znovu. Hlášení zmizí po prvním stisku klávesy.</p>
 
 <h2 id="aktualizace">Aktualizace</h2>
 <pre class="block"><code>tuipe upgrade</code></pre>
 <p>Stáhne nejnovější vydání z GitHubu, ověří kontrolní součet a vymění program. Když stažení nebo kontrola selže, nainstalovaná verze zůstane beze změny.</p>
 <pre class="block"><code>tuipe upgrade --check</code></pre>
 <p>Jen zjistí, jestli je dostupná novější verze, a nic nemění. Nainstalovanou verzi vypíše <code>tuipe version</code>.</p>
-<p>Na novou verzi vás upozorní i tichý řádek na úvodní obrazovce. Kontrola běží nejvýš jednou denně na pozadí a start ani psaní nezdržuje. Vypnete ji v Nastavení položkou Kontrola aktualizací. Program z <code>go install</code> se tímto příkazem aktualizovat nedá, napíše vám, ať <code>go install</code> spustíte znovu.</p>
+<p>Na novou verzi vás upozorní i tichý řádek v seznamu lekcí. Kontrola běží nejvýš jednou denně na pozadí a start ani psaní nezdržuje. Vypnete ji v Nastavení položkou Kontrola aktualizací. Program z <code>go install</code> se tímto příkazem aktualizovat nedá, napíše vám, ať <code>go install</code> spustíte znovu.</p>
 
 <h2 id="reset">Začít znovu</h2>
 <p>Příkaz <code>tuipe reset</code> vrátí aplikaci do výchozího stavu. Vždy musíte říct, co se má smazat:</p>
@@ -492,7 +479,7 @@ update_check = true</code></pre>
 <table>
 <thead><tr><th>Příkaz</th><th>Co smaže</th></tr></thead>
 <tbody>
-<tr><td><code>tuipe reset --score</code></td><td>znalost znaků, hvězdy, dokončené kapitoly, historii kol a duchy</td></tr>
+<tr><td><code>tuipe reset --score</code></td><td>znalost znaků, hvězdy, značky Výuky, doporučenou lekci a historii kol</td></tr>
 <tr><td><code>tuipe reset --settings</code></td><td>nastavení a vaše rozložení klávesnice</td></tr>
 <tr><td><code>tuipe reset --all</code></td><td>obojí, jako by tuipe běžel poprvé</td></tr>
 </tbody>
@@ -536,10 +523,13 @@ Remove-Item -Recurse -Force "$HOME\.config\tuipe", "$HOME\.local\share\tuipe"</c
 <dd>Okno je menší než 40 × 8. Zvětšete ho, kolo mezitím čeká.</dd>
 
 <dt>Proč nemám třetí hvězdu?</dt>
-<dd>Třetí hvězda chce přesnost aspoň 98 %, třetí cíl rychlosti a kolo bez jediné nápovědy. Pokud se nápověda ukázala, i kdyby jen na chvíli, výsledek napíše <code>nápověda použita: třetí hvězda není možná</code>.</dd>
+<dd>Třetí hvězda chce přesnost aspoň 98 % a třetí cíl rychlosti lekce. Hvězdy dává jen Test, Trénink ne.</dd>
 
 <dt>Kolo se samo pozastavilo</dt>
-<dd>Okno ztratilo fokus. Stačí se vrátit a stisknout další klávesu. Čas pauzy se nepočítá, jen se kolo nestane duchem ani rekordem.</dd>
+<dd>Okno ztratilo fokus. Stačí se vrátit a stisknout další klávesu. Čas pauzy se nepočítá, jen se kolo nepočítá jako nejlepší výsledek ani rekord.</dd>
+
+<dt>Zmizela mi stará data</dt>
+<dd>Soubory z verze 0.1.0 má nová verze v jiném formátu. Odložila je s koncovkou <code>.v1</code> vedle původních a při prvním spuštění vám to řekla. Začínáte znovu.</dd>
 
 <dt>Upgrade říká, že kopie nebyla nainstalována z vydání</dt>
 <dd>Program pochází z <code>go install</code>. Aktualizujte ho znovu tímtéž příkazem, nebo použijte instalační skript.</dd>

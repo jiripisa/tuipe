@@ -128,12 +128,12 @@ A file is skipped, and named in settings, when:
 - a `c` is not exactly one character, or a character is defined twice;
 - a `route` is empty, names a key that is not in a row, or has an unknown modifier.
 
-The loader does not check that a layout is complete. A lesson or incident with a
-character the layout has no route for is left out, without a message. If a
-chapter's incident cannot be typed, the chapter completes through its lessons, so
-progress never gets stuck. Define at least the space (`" "`), the newline
-(`"\n"`) and the alphabet, or little will remain to play. The curriculum needs
-all of these to run in full:
+The loader does not check that a layout is complete. A lesson that teaches a
+character the layout has no route for is left out of the lesson list, and the
+list says once how many lessons were skipped. Later lessons still work, and a
+Trénink or a Test never asks for a character the layout cannot type. Define at
+least the space (`" "`), the newline (`"\n"`) and the alphabet, or little will
+remain to practise. The course needs all of these to run in full:
 
 ```text
 a-z A-Z  0-9

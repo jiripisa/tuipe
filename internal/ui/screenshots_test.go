@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/content"
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -43,6 +45,7 @@ func TestScreenshots(t *testing.T) {
 	s.playWeeks()
 	s.shootRound()
 	s.shootHint()
+	s.shootLessonScreens()
 	s.shootShared()
 	newPlacementShots(t, dir)
 }
@@ -53,10 +56,11 @@ const (
 	firstDay     = 8  // October 2026
 	skippedDay   = 29 // a Thursday: a day without typing
 	lastDay      = 32 // 1 November
-	startWPM     = 34.0
-	wpmPerDay    = 0.9
-	roundsADay   = 3
+	startWPM     = 22.0
+	wpmPerDay    = 0.8
+	roundsADay   = 2
 	endingWait   = time.Second // the pause before leaving a results screen
+	taughtLesson = 58          // the curly brackets: the lesson of the Výuka picture
 )
 
 // session is the app of the simulated user.
@@ -207,25 +211,51 @@ func (s *session) shootRound() {
 	for _, st := range []style.ID{style.Editor, style.Fosfor, style.Velin} {
 		s.shoot("round-"+string(st), st)
 	}
-	for ui.ScreenName(s.a) == "round" {
-		keys := ui.RoundKeys(s.a)
-		s.press(keys[len(keys)-roundKeysLeft(s.a)])
+	s.a.Update(esc)
+	s.a.Update(down)
+	s.a.Update(down)
+	s.a.Update(enter) // the pause menu: leave
+}
+
+// shootLessonScreens draws the lesson the user did last with a Trénink behind
+// it, a Výuka and the results of a second Test of that lesson.
+func (s *session) shootLessonScreens() {
+	ui.SetScreen(s.a, ui.NewLessonsScreen(s.a))
+	ls := s.a.Course.Lessons()
+	next := slices.IndexFunc(ls, func(l course.Lesson) bool { return l.ID == ui.LessonsSelected(s.a) })
+	if next < 1 {
+		s.t.Fatalf("the list selects lesson %d", next)
+	}
+	id := ls[next-1].ID
+
+	s.clk.t = dayAt(lastDay)
+	ui.SetScreen(s.a, ui.NewLessonScreen(s.a, id))
+	s.a.Update(down) // Trénink
+	s.a.Update(enter)
+	s.playRound()
+	s.clk.advance(endingWait)
+	s.a.Update(esc) // back to the lesson
+	if ui.ScreenName(s.a) != "lesson" {
+		s.t.Fatalf("the Trénink ended on %s", ui.ScreenName(s.a))
+	}
+	s.shoot("lesson", style.Editor)
+
+	ui.SetScreen(s.a, ui.NewTeachScreen(s.a, ls[taughtLesson].ID, ui.NewLessonsScreen))
+	s.shoot("teach", style.Editor)
+
+	round, err := ui.LessonTestRound(s.a, id)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	ui.SetScreen(s.a, round)
+	s.a.Update(ui.TickMsg(s.a))
+	s.playRound()
+	if ui.ScreenName(s.a) != "part-results" {
+		s.t.Fatalf("the Test ended on %s", ui.ScreenName(s.a))
 	}
 	s.shoot("results", style.Editor)
 	s.clk.advance(endingWait)
 	s.a.Update(esc)
-}
-
-// roundKeysLeft counts the keys still to type.
-func roundKeysLeft(a *ui.App) int {
-	f := ui.RoundFrame(a)
-	left := 0
-	for i := f.Pos; i < len(f.Cells); i++ {
-		if !f.Cells[i].Auto {
-			left++
-		}
-	}
-	return left
 }
 
 // shootHint waits on a { until the hint and the keyboard map appear.
@@ -255,7 +285,7 @@ func (s *session) shootShared() {
 
 	ui.SetScreen(s.a, ui.NewStatsScreen(s.a))
 	right := tea.KeyPressMsg{Code: tea.KeyRight}
-	for _, name := range []string{"gitlog", "heatmap", "trends", "records"} {
+	for _, name := range []string{"history", "heatmap", "trends", "records"} {
 		s.shoot(name, style.Editor)
 		s.a.Update(right)
 	}

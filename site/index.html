@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tuipe</title>
-<meta name="description" content="Terminálový trenažér psaní všemi deseti pro programátory na české klávesnici QWERTY.">
+<meta name="description" content="Kurz psaní všemi deseti pro českou klávesnici, který vede až k symbolům a ke kódu. Lekce, výuka, trénink a test v terminálu.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1b26'/%3E%3Ctext x='16' y='24' font-family='monospace' font-size='24' font-weight='700' text-anchor='middle' fill='%23e0af68'%3E%7B%3C/text%3E%3C/svg%3E">
 <script>
   document.documentElement.classList.add("js");
@@ -38,7 +38,7 @@
 <header class="hero">
   <h1 data-typed aria-label="Všemi deseti, včetně { a }.">Všemi deseti,<br>včetně { a }.</h1>
   <p class="hint-line" data-typed-hint><span class="cap">{</span> → <span class="chord">levý Option + í</span> (pravý prsteník)</p>
-  <p class="pitch">Většina trenažérů psaní skončí u písmen. Na české klávesnici ale práce teprve začíná: číslice jsou za Shiftem, závorky za Option a ď se píše na dva stisky. tuipe to trénuje přímo v terminálu, od domovské řady až po skutečný kód.</p>
+  <p class="pitch">tuipe je kurz psaní všemi deseti pro českou klávesnici, který vede až k symbolům a ke kódu. Většina kurzů skončí u písmen. Na české klávesnici ale práce teprve začíná: číslice jsou za Shiftem, závorky za Option a ď se píše na dva stisky. Každá lekce vás nejdřív naučí, pak procvičí a nakonec změří.</p>
 
   <section class="install" aria-label="Instalace">
     <div class="tabs" role="tablist" aria-label="Operační systém">
@@ -69,10 +69,46 @@
   </section>
 </header>
 
+<section class="split" id="lekce">
+  <div>
+    <h2>Lekce</h2>
+    <p>Kurz má 12 kapitol: domovská řada, horní a dolní řada, velká písmena, česká diakritika, číslice, symboly se Shiftem a s Option, vzácné a mrtvé klávesy, skutečný kód a nakonec všechno dohromady. V každé kapitole je několik krátkých lekcí, obvykle o jednom páru kláves.</p>
+    <p>Všechny lekce jsou otevřené. Seznam ukazuje hvězdy a nejlepší rychlost a kurzor stojí na další lekci, kterou ještě nemáte s hvězdou. Po spuštění tak stačí Enter a pokračujete.</p>
+  </div>
+  <figure>
+    <img src="assets/lessons.png" width="1488" height="904" loading="lazy" alt="Seznam lekcí: kapitoly s lekcemi, u každé hvězdy a nejlepší rychlost v znacích za minutu. Nahoře hodnost a počet hvězd, kurzor stojí na další lekci.">
+  </figure>
+</section>
+
+<section class="split" id="tri-casti">
+  <div>
+    <h2>Výuka, Trénink, Test</h2>
+    <p>Každá lekce má tři části a vyberete si, kterou chcete.</p>
+    <p><strong>Výuka</strong> řekne, co se učíte a kterým prstem se každá klávesa píše, a ukáže ji na klávesnici. Pak vás provede krátkými řádky: nejdřív každý znak sám, pak dva střídavě, nakonec jeden řádek ze slov. Nic se neměří a nic se neukládá do statistik. Po dokončení u lekce svítí <code>✓ hotovo</code>.</p>
+    <p><strong>Trénink</strong> je kolo na znacích lekce, krátký, střední nebo dlouhý. Nápověda tu pomáhá a nic se nehodnotí. Výsledek vidíte vedle minulého a nejlepšího Tréninku stejné délky.</p>
+    <p><strong>Test</strong> je kolo ze všeho, co se učilo až do této lekce, bez nápovědy. Jen Test dává hvězdy.</p>
+  </div>
+  <figure>
+    <img src="assets/teach.png" width="1488" height="904" loading="lazy" alt="Výuka lekce o složených závorkách: text říká, že { se píše levým Option a í pravým prsteníkem, a klávesnice má zvýrazněné klávesy í, é a levý Option.">
+    <figcaption>Výuka lekce o složených závorkách.</figcaption>
+  </figure>
+</section>
+
+<section class="split" id="hvezdy">
+  <div>
+    <h2>Hvězdy a hodnost</h2>
+    <p>Test dá jednu až tři hvězdy. Každá chce rychlost i přesnost zároveň a rychlost se liší podle lekce. Nejlepší hvězdy lekce se nikdy neberou zpět.</p>
+    <p>Z hvězd ze všech Testů vzniká hodnost od Interna po Principala. Po Testu vidíte rychlost, přesnost, čas, hvězdy, znaky, na kterých jste chybovali nejvíc, a srovnání s minulým a s nejlepším výsledkem. Enter vás vrátí do lekce, <kbd>R</kbd> pustí Test znovu na novém textu.</p>
+  </div>
+  <figure>
+    <img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek Testu: rychlost, přesnost, čas, dvě hvězdy, srovnání s minulým a s nejlepším výsledkem a znaky s nejvíc chybami.">
+  </figure>
+</section>
+
 <section class="split" id="kolo">
   <div>
     <h2>Kde co je</h2>
-    <p>Terminál vidí jen výsledný znak, ne klávesu. tuipe proto zná rozložení macOS Czech QWERTY a umí říct přesně, co stisknout a kterým prstem. Nápověda se objeví, když zaváháte. Jak se znak učíte, chodí později a nakonec jen po druhé chybě na stejném místě.</p>
+    <p>Terminál vidí jen výsledný znak, ne klávesu. tuipe proto zná rozložení macOS Czech QWERTY a umí říct přesně, co stisknout a kterým prstem. V Tréninku se nápověda objeví, když zaváháte. Jak se znak učíte, chodí později a nakonec jen po druhé chybě na stejném místě.</p>
     <dl class="routes">
       <div><dt class="cap">@</dt><dd>pravý Option + ě</dd></div>
       <div><dt class="cap">~</dt><dd>pravý Option + ř</dd></div>
@@ -82,10 +118,10 @@
     </dl>
   </div>
   <figure class="by-style">
-    <img class="editor" src="assets/hint-editor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Editor: kurzor stojí na znaku {, pod textem je nápověda „levý Option + í (pravý prsteník)“ a mapa klávesnice se zvýrazněnými klávesami.">
-    <img class="fosfor" src="assets/hint-fosfor.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Fosfor: po zaváhání na znaku { se dole objeví nápověda a mapa klávesnice.">
-    <img class="velin" src="assets/hint-velin.png" width="1488" height="904" loading="lazy" alt="Kolo ve stylu Velín: panel Klávesnice ukazuje zvýrazněné klávesy a panel Další znak popisuje, jak napsat {.">
-    <figcaption>Dvě sekundy váhání nad <code>{</code>. Tato nápověda stojí třetí hvězdu.</figcaption>
+    <img class="editor" src="assets/hint-editor.png" width="1488" height="904" loading="lazy" alt="Trénink ve stylu Editor: kurzor stojí na znaku {, pod textem je nápověda „levý Option + í (pravý prsteník)“ a mapa klávesnice se zvýrazněnými klávesami.">
+    <img class="fosfor" src="assets/hint-fosfor.png" width="1488" height="904" loading="lazy" alt="Trénink ve stylu Fosfor: po zaváhání na znaku { se dole objeví nápověda a mapa klávesnice.">
+    <img class="velin" src="assets/hint-velin.png" width="1488" height="904" loading="lazy" alt="Trénink ve stylu Velín: panel Klávesnice ukazuje zvýrazněné klávesy a panel Další znak popisuje, jak napsat {.">
+    <figcaption>Dvě sekundy váhání nad <code>{</code> v Tréninku. V Testu nápověda není.</figcaption>
   </figure>
 </section>
 
@@ -94,52 +130,27 @@
     <h2>Tři styly</h2>
     <p>Stejné kolo, tři obrazovky. V aplikaci je přepnete klávesou <kbd>Ctrl+T</kbd>, i uprostřed psaní. Tady klikněte a celá stránka změní barvy.</p>
     <ul class="styles">
-      <li><button type="button" data-set-style="fosfor" aria-pressed="false"><b>Fosfor</b><span>Zelená obrazovka, text a závod s duchem.</span></button></li>
+      <li><button type="button" data-set-style="fosfor" aria-pressed="false"><b>Fosfor</b><span>Zelená obrazovka, jen text a čísla.</span></button></li>
       <li><button type="button" data-set-style="editor" aria-pressed="true"><b>Editor</b><span>Skoro Neovim: zvýraznění syntaxe, čísla řádků, stavový řádek.</span></button></li>
-      <li><button type="button" data-set-style="velin" aria-pressed="false"><b>Velín</b><span>Hustý dashboard jako v htopu: propustnost, náskok, SLA.</span></button></li>
+      <li><button type="button" data-set-style="velin" aria-pressed="false"><b>Velín</b><span>Hustý dashboard jako v htopu: postup, rychlost, přehled a další znak.</span></button></li>
     </ul>
   </div>
   <figure class="by-style">
-    <img class="editor" src="assets/round-editor.png" width="1488" height="904" loading="lazy" alt="Styl Editor: kód v Go se zvýrazněnou syntaxí, čísla řádků a stavový řádek s rychlostí, přesností a náskokem před duchem.">
-    <img class="fosfor" src="assets/round-fosfor.png" width="1488" height="904" loading="lazy" alt="Styl Fosfor: zelený text na černém pozadí a pod ním dva pruhy závodu s duchem HEAD~1.">
-    <img class="velin" src="assets/round-velin.png" width="1488" height="904" loading="lazy" alt="Styl Velín: panely s postupem, propustností a náskokem nad textem, přehled a nejslabší znaky pod ním.">
-    <figcaption>Skutečný výstup aplikace při 80 × 24. Rychlovka na úryvku <code>go-1</code>.</figcaption>
+    <img class="editor" src="assets/round-editor.png" width="1488" height="904" loading="lazy" alt="Styl Editor: kód v Go se zvýrazněnou syntaxí, čísla řádků, přehled postupu a stavový řádek s rychlostí a přesností.">
+    <img class="fosfor" src="assets/round-fosfor.png" width="1488" height="904" loading="lazy" alt="Styl Fosfor: zelený text na černém pozadí a pod ním rychlost, přesnost a série.">
+    <img class="velin" src="assets/round-velin.png" width="1488" height="904" loading="lazy" alt="Styl Velín: panely s postupem, rychlostí a statistikou nad textem, přehled a nejslabší znaky pod ním.">
+    <figcaption>Skutečný výstup aplikace při 80 × 24. Trénink na úryvku <code>go-1</code>.</figcaption>
   </figure>
 </section>
 
-<section class="split" id="duch">
+<section class="split" id="statistiky">
   <div>
-    <h2>Duch HEAD~1</h2>
-    <p>Druhý kurzor v textu je váš dosavadní nejlepší pokus. Běží naživo a vy pořád vidíte, o kolik sekund vedete. U generovaných drillů, kde žádný starý pokus není, vás honí duch tempa, o 3 % rychlejší než váš průměr.</p>
-    <p>Ducha nahradí jen pokus s vyšším skóre a skóre je <code>WPM × přesnost⁴</code>. Rychlé a odbyté kolo tedy nepomůže. Výsledek pak čtete jako <code>git diff</code>.</p>
+    <h2>Statistiky</h2>
+    <p>Historie je prostý seznam vašich kol: den, Trénink nebo Test, rychlost, přesnost, hvězdy a lekce. Klávesou <kbd>F</kbd> ji omezíte jen na Trénink nebo jen na Test. Vedle toho je klávesnice obarvená podle slabých míst, trendy, rekordy a počet dní v řadě, kdy jste psali.</p>
+    <p>Rychlost se všude počítá ve znacích za minutu. Hvězdy, trendy a rekordy čtou jen Testy, slabá místa a dny v řadě i Tréninky.</p>
   </div>
   <figure>
-    <img src="assets/results.png" width="1488" height="904" loading="lazy" alt="Výsledek kola jako git diff proti HEAD~1: červeně staré hodnoty, zeleně nové, dvě hvězdy a poznámka, že kvůli nápovědě není třetí hvězda možná.">
-  </figure>
-</section>
-
-<section class="split" id="incident">
-  <div>
-    <h2>Incident v produkci</h2>
-    <p>Diagnóza v shellu, oprava v kódu, nasazení. SLA začíná na 100 %, hoří s časem a každá chyba ubere kus. Když klesne na 99 %, je výpadek a incident je prohraný. Tempo se měří podle vás, takže to bude napínavé i za tři měsíce.</p>
-    <p>Prohra končí postmortemem bez hledání viníka. Závěr zní: <q>Příčina: prsty, ne lidé. Nikdo nebude potrestán.</q></p>
-  </div>
-  <figure class="by-style">
-    <img class="editor" src="assets/incident-editor.png" width="1488" height="904" loading="lazy" alt="Incident INC-1011 ve stylu Editor: příběh nad textem a ve stavovém řádku SLA 99,73 % a náskok 2,2 sekundy před duchem.">
-    <img class="fosfor" src="assets/incident-fosfor.png" width="1488" height="904" loading="lazy" alt="Incident INC-1011 ve stylu Fosfor: závod s duchem a pod ním SLA 99,73 % s klesajícím měřidlem.">
-    <img class="velin" src="assets/incident-velin.png" width="1488" height="904" loading="lazy" alt="Incident INC-1011 ve stylu Velín: velký panel SLA, propustnost, náskok před duchem a text s krokem opravy v Go.">
-    <figcaption>INC-1011: auth handler vrací 500. Krok 3 z 5, SLA se tenčí.</figcaption>
-  </figure>
-</section>
-
-<section class="split" id="historie">
-  <div>
-    <h2>git log</h2>
-    <p>Každé kolo je commit: hash, rychlost, přesnost, hvězdy a rozdíl proti duchovi. Vedle toho heatmapa klávesnice, trendy a rekordy. Série dnů se jmenuje <code>uptime</code> a jeden vynechaný den za týden odpustí rozpočet chyb.</p>
-    <p>Kariéra má 13 kapitol a šest hodností od Interna po Principala. Hodnost nikdy neklesne. Když umíte víc, Vstupní pohovor vás posadí, kam patříte.</p>
-  </div>
-  <figure>
-    <img src="assets/gitlog.png" width="1488" height="904" loading="lazy" alt="Obrazovka Statistiky, záložka git log: kola po dnech s hashem, rychlostí, přesností, hvězdami a náskokem, jeden incident je označený jako prohraný.">
+    <img src="assets/history.png" width="1488" height="904" loading="lazy" alt="Obrazovka Statistiky, záložka Historie: kola po dnech s druhem kola, rychlostí, přesností, hvězdami a lekcí.">
   </figure>
 </section>
 
