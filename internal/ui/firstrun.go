@@ -485,7 +485,7 @@ func (f *firstRunScreen) styleView(a *App, w, h int) string {
 		return view
 	}
 	lines := strings.Split(view, "\n")
-	room := min(len(lines)-len(box)-boxMargin, len(lines)) - 1
+	room := len(lines) - len(box) - boxMargin - 1 // the rows between the title and the box
 	for i, b := range banner[:min(len(banner), max(room, 0))] {
 		lines[1+i] = st.Paint("  "+b, w)
 	}
