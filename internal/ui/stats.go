@@ -137,7 +137,7 @@ func (s *statsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		s.move(-page)
 	case "pgdown":
 		s.move(page)
-	case "f":
+	case "f", "F":
 		if s.tab == tabHistory {
 			s.filter = (s.filter + 1) % filterCount
 			s.shown = runsFor(s.runs, s.filter)
@@ -242,10 +242,15 @@ const (
 )
 
 // runLine is a run as a plain line: date, part, speed, accuracy, stars, and
-// last what was typed: the length of a Trénink and the lesson.
+// last what was typed: the length of a Trénink and the lesson. Only a Test has
+// stars; the other parts judge nothing and leave the column blank.
 func (s *statsScreen) runLine(r store.Run) string {
+	stars := strings.Repeat(" ", maxStars)
+	if r.Mode == store.ModeTest {
+		stars = starBar(r.Stars)
+	}
 	line := fmt.Sprintf("%-*s  %-*s  %*s  %7s  %s", dateCol, r.At.Local().Format("2. 1. 2006"), partCol, modeLabel(r.Mode),
-		speedCol, text.LessonSpeed(score.CPM(r.WPM)), text.PartPercent(r.Accuracy), starBar(r.Stars))
+		speedCol, text.LessonSpeed(score.CPM(r.WPM)), text.PartPercent(r.Accuracy), stars)
 	var what []string
 	if r.Mode == store.ModeTraining {
 		for i, name := range text.LessonLengths {
@@ -258,7 +263,7 @@ func (s *statsScreen) runLine(r store.Run) string {
 		what = append(what, title)
 	}
 	if len(what) == 0 {
-		return line
+		return strings.TrimRight(line, " ")
 	}
 	return line + "  " + text.PartTitle(what...)
 }

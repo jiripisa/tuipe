@@ -176,6 +176,15 @@ func TestHistoryFilter(t *testing.T) {
 	showsAll(t, a, text.StatsFilterLabel+": "+text.StatsFilters[1])
 }
 
+// The hint says F, and Shift or Caps Lock gives a capital: both letters work.
+func TestHistoryFilterTakesACapitalF(t *testing.T) {
+	a, st, clk := statsApp(t, 100, 30)
+	addRun(t, st, store.Run{ID: "k", At: daysAgo(clk, 0), Mode: store.ModeTraining, Length: "short", WPM: 30, Accuracy: 0.9})
+	openStats(t, a)
+	a.Update(key('F'))
+	showsAll(t, a, text.StatsFilterLabel+": "+text.StatsFilters[1])
+}
+
 func TestHistoryFilterWithNothingToShow(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
 	addRun(t, st, store.Run{ID: "k", At: daysAgo(clk, 0), Mode: store.ModeTraining, Length: "short", WPM: 30, Accuracy: 0.9})
@@ -655,9 +664,10 @@ func TestTabsSwitchWithTabAndArrowsAndEscGoesToTheList(t *testing.T) {
 
 func TestHistoryColumnsAlign(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
-	addRun(t, st, store.Run{ID: "a", At: daysAgo(clk, 0), Mode: store.ModeTest, WPM: 70, Accuracy: 1, Stars: 3})
-	addRun(t, st, store.Run{ID: "b", At: daysAgo(clk, 0).Add(-time.Minute), Mode: store.ModeTraining, WPM: 5, Accuracy: 0.5})
-	addRun(t, st, store.Run{ID: "c", At: daysAgo(clk, 3).Add(-2 * time.Minute), Mode: store.ModePlacement, WPM: 30, Accuracy: 0.9})
+	id, title := lessonOf(t, a, 1)
+	addRun(t, st, store.Run{ID: "a", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 70, Accuracy: 1, Stars: 3})
+	addRun(t, st, store.Run{ID: "b", At: daysAgo(clk, 0).Add(-time.Minute), Mode: store.ModeTraining, LessonID: id, WPM: 5, Accuracy: 0.5})
+	addRun(t, st, store.Run{ID: "c", At: daysAgo(clk, 3).Add(-2 * time.Minute), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.9})
 	openStats(t, a)
 	lines := historyLines(screen(a))
 	if len(lines) != 3 {
@@ -665,10 +675,33 @@ func TestHistoryColumnsAlign(t *testing.T) {
 	}
 	col := func(l string) int {
 		l = strings.TrimPrefix(l, "> ")
-		return len([]rune(l[:strings.IndexAny(l, "★☆")]))
+		return len([]rune(l[:strings.Index(l, title)]))
 	}
 	if col(lines[0]) != col(lines[1]) || col(lines[1]) != col(lines[2]) {
-		t.Errorf("the stars column is not aligned (100,0 %% and a long date push it):\n%s", strings.Join(lines, "\n"))
+		t.Errorf("the lesson column is not aligned (100,0 %% and a row without stars push it):\n%s", strings.Join(lines, "\n"))
+	}
+}
+
+// A Trénink and the placement test judge nothing, so their rows show no stars
+// at all rather than three empty ones, which would read as a failed Test.
+func TestHistoryShowsStarsOnATestOnly(t *testing.T) {
+	a, st, clk := statsApp(t, 100, 30)
+	id, _ := lessonOf(t, a, 1)
+	addRun(t, st, store.Run{ID: "t", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id, WPM: 30, Accuracy: 0.9})
+	addRun(t, st, store.Run{ID: "k", At: daysAgo(clk, 1), Mode: store.ModeTraining, Length: "short", LessonID: id, WPM: 30, Accuracy: 0.9})
+	addRun(t, st, store.Run{ID: "p", At: daysAgo(clk, 2), Mode: store.ModePlacement, WPM: 40, Accuracy: 0.9})
+	openStats(t, a)
+	lines := historyLines(screen(a))
+	if len(lines) != 3 {
+		t.Fatalf("lines = %q", lines)
+	}
+	if !strings.Contains(lines[0], "☆☆☆") {
+		t.Errorf("a Test without a star shows its empty stars: %q", lines[0])
+	}
+	for _, l := range lines[1:] {
+		if strings.ContainsAny(l, "★☆") {
+			t.Errorf("a row that judges nothing shows stars: %q", l)
+		}
 	}
 }
 
