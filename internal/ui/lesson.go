@@ -35,6 +35,16 @@ type lessonScreen struct {
 	note    string
 }
 
+// chapterTitle is the title of a chapter of the course.
+func (a *App) chapterTitle(id string) string {
+	for _, ch := range a.Course.Chapters() {
+		if ch.ID == id {
+			return ch.Title
+		}
+	}
+	return ""
+}
+
 // NewLessonScreen builds the screen of a lesson. An unknown lesson gives the
 // lesson list.
 func NewLessonScreen(a *App, lessonID string) Screen {
@@ -42,11 +52,9 @@ func NewLessonScreen(a *App, lessonID string) Screen {
 	if !ok {
 		return NewLessonsScreen(a)
 	}
-	s := &lessonScreen{id: lessonID, lesson: ls, recs: a.recordsOf()[lessonID], length: course.Medium}
-	for _, ch := range a.Course.Chapters() {
-		if ch.ID == ls.ChapterID {
-			s.chapter = ch.Title
-		}
+	s := &lessonScreen{
+		id: lessonID, lesson: ls, chapter: a.chapterTitle(ls.ChapterID),
+		recs: a.recordsOf()[lessonID], length: course.Medium,
 	}
 	if ls.Lang == "" && !ls.Review {
 		if tu, err := a.Course.Tutorial(lessonID, 0); err == nil && len(tu.Explain) > 1 {

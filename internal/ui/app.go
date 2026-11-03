@@ -16,7 +16,6 @@ import (
 
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/course"
-	"github.com/jiripisa/tuipe/internal/curriculum"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -41,7 +40,6 @@ type App struct {
 	Store  *store.Store
 	Layout *layout.Layout
 	Lib    *content.Library
-	Curr   *curriculum.Curriculum
 	Course *course.Course
 	Style  style.Style
 	Now    func() time.Time
@@ -49,20 +47,18 @@ type App struct {
 
 	screen    Screen
 	saveWarn  string
-	Entries   []menuEntry // home menu entries; later screens register theirs
 	focusSeen bool        // a focus message has arrived in this process
 	tickGen   int         // identifies the running round tick; older ticks are dropped
 	update    updateCheck // the daily look for a newer release
 
-	// UpdateNotice is the quiet line about a newer version, shown on the home
-	// screen when it is not empty.
+	// UpdateNotice is the quiet line about a newer version, shown on the lesson
+	// list when it is not empty.
 	UpdateNotice string
 
 	// Banner holds what the user must be told: a file set aside, a layout that
-	// is gone, content that was skipped. The home screen shows it in an area of
+	// is gone, content that was skipped. The lesson list shows it in an area of
 	// its own until a key is pressed there, and no save touches it.
-	Banner      []string
-	noticesRead int // store notices already taken into the banner
+	Banner []string
 }
 
 // initer is implemented by a screen that needs a command when it appears,
@@ -113,7 +109,6 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 	}
 	a := &App{
 		Store: st, Layout: lay, Lib: lib,
-		Curr:   curriculum.New(lib, lay),
 		Course: course.New(lib, lay),
 		Style:  style.ByID(styleID),
 		// Round(0) strips the monotonic reading, so the wall clock is compared
@@ -127,27 +122,20 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 	if notice != "" {
 		a.Banner = append(a.Banner, notice)
 	}
-	a.Entries = defaultEntries()
-	a.RegisterEntry(EntryCareer, func(a *App) (Screen, tea.Cmd) { return NewCareerScreen(a), nil })
-	a.RegisterEntry(EntryStats, func(a *App) (Screen, tea.Cmd) { return NewStatsScreen(a), nil })
-	a.RegisterEntry(EntrySettings, func(a *App) (Screen, tea.Cmd) { return NewSettingsScreen(a), nil })
-	a.screen = NewHomeScreen(a)
-	if !st.Profile().FirstRunDone {
+	a.Banner = append(a.Banner, st.Notices()...) // the store only has notices from opening
+	if st.Profile().FirstRunDone {
+		a.screen = NewLessonsScreen(a)
+	} else {
 		a.screen = NewFirstRunScreen(a)
 	}
 	return a, nil
 }
 
-// fillBanner takes in what has come up since the last look: new store notices,
-// such as a damaged file found during play, and once per layout the note about
-// skipped content.
-func (a *App) fillBanner() {
-	notices := a.Store.Notices()
-	a.Banner = append(a.Banner, notices[a.noticesRead:]...)
-	a.noticesRead = len(notices)
+// noteSkipped tells once per layout that it cannot type some lessons.
+func (a *App) noteSkipped() {
 	p := a.Store.Profile()
-	lessons := a.Curr.Skipped()
-	if note := text.SkippedContent(a.Layout.Name, lessons); note != "" && !p.SkipNoted[a.Layout.ID] {
+	note := text.SkippedContent(a.Layout.Name, a.Course.Skipped())
+	if note != "" && !p.SkipNoted[a.Layout.ID] {
 		a.Banner = append(a.Banner, note)
 		p.SkipNoted[a.Layout.ID] = true
 		a.SaveErr(a.Store.SaveProfile())
@@ -236,11 +224,10 @@ func (a *App) setStyle(id style.ID) {
 }
 
 // setLayout switches the keyboard layout for the rest of the session and saves
-// the choice. The curriculum is resolved against the layout, so it is rebuilt.
+// the choice. The course is resolved against the layout, so it is rebuilt.
 // Statistics are kept per layout id and need no change.
 func (a *App) setLayout(l *layout.Layout) {
 	a.Layout = l
-	a.Curr = curriculum.New(a.Lib, l)
 	a.Course = course.New(a.Lib, l)
 	cfg := a.Store.Config()
 	cfg.Layout = l.ID

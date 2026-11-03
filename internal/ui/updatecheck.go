@@ -70,7 +70,7 @@ func (a *App) initUpdate() tea.Cmd {
 	return UpdateCheckCmd(a)
 }
 
-// showUpdate sets the home notice when version is newer than the running one,
+// showUpdate sets the notice of the list when version is newer than the running one,
 // and clears a notice that no longer holds.
 func (a *App) showUpdate(version string) {
 	a.UpdateNotice = ""

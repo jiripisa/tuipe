@@ -69,50 +69,75 @@ func typeKeys(a *ui.App, clk *clock, n int) {
 
 func screen(a *ui.App) string { return ansi.Strip(a.View().Content) }
 
-func firstLesson(t *testing.T, a *ui.App) (id, title string) {
-	t.Helper()
-	for _, ch := range a.Curr.Chapters() {
-		if len(ch.Lessons) > 0 {
-			return ch.Lessons[0].ID, ch.Lessons[0].Title
-		}
-	}
-	t.Fatal("no lesson")
-	return "", ""
-}
-
-// startLesson opens the first lesson as a round.
+// startLesson starts the Test of the first lesson.
 func startLesson(t *testing.T, a *ui.App) string {
 	t.Helper()
-	id, _ := firstLesson(t, a)
-	var again func(*ui.App) ui.Screen
-	again = func(*ui.App) ui.Screen { return lessonRound(t, a, id, again) }
-	ui.SetScreen(a, lessonRound(t, a, id, again))
+	id := a.Course.Lessons()[0].ID
+	ui.SetScreen(a, testRound(t, a, id))
 	a.Update(ui.TickMsg(a))
 	return id
 }
 
-// lessonRound builds the round of a lesson, as the lesson list starts it.
-func lessonRound(t *testing.T, a *ui.App, id string, next func(*ui.App) ui.Screen) ui.Screen {
+// testRound builds the round of a Test, as the lesson screen starts it.
+func testRound(t *testing.T, a *ui.App, id string) ui.Screen {
 	t.Helper()
-	s, err := ui.LessonRound(a, id, next)
+	s, err := ui.LessonTestRound(a, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
+// onlyRun returns the single run in the store.
+func onlyRun(t *testing.T, st *store.Store) store.Run {
+	t.Helper()
+	runs, _ := st.Runs()
+	if len(runs) != 1 {
+		t.Fatalf("runs = %d, want 1", len(runs))
+	}
+	return runs[0]
+}
+
+// playAppAt is playApp with a known data directory.
+func playAppAt(t *testing.T) (*ui.App, *store.Store, *clock, string) {
+	t.Helper()
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "cfg"), filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Profile().FirstRunDone = true // these tests start on the lesson list
+	clk := newClock()
+	a, err := ui.New(st, lib, ui.WithClock(clk.now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a, st, clk, filepath.Join(dir, "data")
+}
+
+// tall gives the app a window that shows the whole lesson list.
+func tall(a *ui.App) { a.Update(tea.WindowSizeMsg{Width: 100, Height: 150}) }
+
+// view is the screen without its blank lines, so failures stay readable.
+func view(a *ui.App) string {
+	var out []string
+	for _, l := range strings.Split(screen(a), "\n") {
+		if strings.TrimSpace(l) != "" {
+			out = append(out, strings.TrimRight(l, " "))
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
 // today is the date of the fixed test clock.
 const today = "2026-10-31"
 
 var up = tea.KeyPressMsg{Code: tea.KeyUp}
-
-// openEntry moves down the home menu and presses Enter.
-func openEntry(a *ui.App, downs int) {
-	for range downs {
-		a.Update(down)
-	}
-	a.Update(enter)
-}
 
 func wantScreen(t *testing.T, a *ui.App, name string) {
 	t.Helper()
@@ -125,100 +150,6 @@ func wantText(t *testing.T, a *ui.App, want string) {
 	t.Helper()
 	if v := screen(a); !strings.Contains(v, want) {
 		t.Fatalf("screen lacks %q:\n%s", want, v)
-	}
-}
-
-// typist is someone with a history at wpm, placed before the given chapter.
-func typist(t *testing.T, wpm float64, chapter int) (*ui.App, *store.Store, *clock) {
-	t.Helper()
-	a, st, clk := playApp(t)
-	var skipped []string
-	for _, ch := range a.Curr.Chapters()[:chapter] {
-		skipped = append(skipped, ch.ID)
-	}
-	a.Curr.ApplySkip(st.Profile(), ui.StatsOf(a), skipped)
-	for i := range 20 {
-		run := store.Run{ID: fmt.Sprintf("h%d", i), At: clk.now().Add(-time.Hour), Mode: "lesson", WPM: wpm, Accuracy: 0.98}
-		if err := st.AppendRun(run); err != nil {
-			t.Fatal(err)
-		}
-	}
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	return a, st, clk
-}
-
-func TestHomeOffersOnlyCareerStatsSettings(t *testing.T) {
-	a, _, _ := playApp(t)
-	v := screen(a)
-	for _, want := range []string{"Kariéra", "Statistiky", "Nastavení"} {
-		if !strings.Contains(v, want) {
-			t.Errorf("home lacks %q:\n%s", want, v)
-		}
-	}
-	for _, gone := range []string{"Sprint", "Denní standup", "Rychlovka", "Trénink"} {
-		if strings.Contains(v, gone) {
-			t.Errorf("home still offers %q:\n%s", gone, v)
-		}
-	}
-}
-
-func TestFinishingARoundShowsDiffAgainstThePreviousRun(t *testing.T) {
-	a, st, clk := playApp(t)
-	startLesson(t, a)
-	typeKeys(a, clk, -1)
-	if ui.ScreenName(a) != "results" {
-		t.Fatalf("after the last key: %s, want results", ui.ScreenName(a))
-	}
-	first := screen(a)
-	if !strings.Contains(first, "+ wpm") || strings.Contains(first, "- wpm") {
-		t.Errorf("first attempt must only add lines:\n%s", first)
-	}
-	runs, _ := st.Runs()
-	if len(runs) != 1 || !strings.Contains(first, runs[0].ID) || len(runs[0].ID) != 7 {
-		t.Fatalf("run id not shown or not 7 characters: %+v", runs)
-	}
-
-	// Second attempt at the same text, twice as slow.
-	clk.advance(time.Minute)
-	a.Update(enter)
-	if ui.ScreenName(a) != "round" {
-		t.Fatalf("Enter on results: %s", ui.ScreenName(a))
-	}
-	for _, r := range ui.RoundKeys(a) {
-		clk.advance(400 * time.Millisecond)
-		a.Update(key(r))
-	}
-	second := screen(a)
-	runs, _ = st.Runs()
-	if len(runs) != 2 {
-		t.Fatalf("runs = %d, want 2", len(runs))
-	}
-	assertDiff(t, second, runs[0], runs[1])
-	if !strings.Contains(second, "--- HEAD~1") {
-		t.Errorf("no baseline header:\n%s", second)
-	}
-	if strings.Contains(first, "--- HEAD~1") {
-		t.Errorf("a first attempt has no HEAD~1:\n%s", first)
-	}
-}
-
-func TestEnterOnResultsStartsNextRound(t *testing.T) {
-	a, _, clk := playApp(t)
-	startLesson(t, a)
-	typeKeys(a, clk, -1)
-	_, cmd := a.Update(enter)
-	if ui.ScreenName(a) != "round" || cmd == nil {
-		t.Errorf("screen %s, tick cmd nil: %v", ui.ScreenName(a), cmd == nil)
-	}
-}
-
-func TestEscOnResultsGoesHome(t *testing.T) {
-	a, _, clk := playApp(t)
-	startLesson(t, a)
-	typeKeys(a, clk, -1)
-	a.Update(esc)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("screen = %s", ui.ScreenName(a))
 	}
 }
 
@@ -261,9 +192,6 @@ func TestCtrlRRestartsWithoutCountingAFailure(t *testing.T) {
 	if runs, _ := st.Runs(); len(runs) != 0 {
 		t.Errorf("restart added %d runs", len(runs))
 	}
-	if r := st.Profile().Resume; r == nil {
-		t.Error("the lesson stays offered for continuing after a restart")
-	}
 	if n := len(st.Profile().Stats[a.Layout.ID].Chars); n == 0 {
 		t.Error("the keys before the restart must feed the stats")
 	}
@@ -271,23 +199,18 @@ func TestCtrlRRestartsWithoutCountingAFailure(t *testing.T) {
 
 func TestAbandonedRoundFeedsStatsButNotRuns(t *testing.T) {
 	a, st, clk := playApp(t)
-	id := startLesson(t, a)
+	startLesson(t, a)
 	typeKeys(a, clk, 5)
 	a.Update(esc)
 	a.Update(down)
 	a.Update(down)
 	a.Update(enter)
-	if ui.ScreenName(a) != "home" {
-		t.Fatalf("screen = %s, want home", ui.ScreenName(a))
-	}
+	wantScreen(t, a, "lesson")
 	if runs, _ := st.Runs(); len(runs) != 0 {
 		t.Errorf("abandoning added %d runs", len(runs))
 	}
 	if n := len(st.Profile().Stats[a.Layout.ID].Chars); n == 0 {
 		t.Error("keystrokes did not reach the stats")
-	}
-	if r := st.Profile().Resume; r == nil || r.LessonID != id {
-		t.Errorf("Resume = %+v, want lesson %s", r, id)
 	}
 }
 
@@ -382,14 +305,10 @@ func TestPauseAddsNoThroughputSamples(t *testing.T) {
 	}
 }
 
-func TestFinishingSavesStarsAndClearsResume(t *testing.T) {
+func TestFinishingSavesStars(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := startLesson(t, a)
-	st.Profile().Resume = &store.Resume{Kind: "lesson", LessonID: id}
 	typeKeys(a, clk, -1)
-	if st.Profile().Resume != nil {
-		t.Error("Resume not cleared")
-	}
 	runs, _ := st.Runs()
 	if st.Profile().Stars[id] != runs[0].Stars {
 		t.Errorf("stars %d, run %d", st.Profile().Stars[id], runs[0].Stars)
@@ -411,7 +330,7 @@ func TestSaveFailureStillShowsResults(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	lib, _ := content.Load()
-	st.Profile().FirstRunDone = true // these tests start on the home screen
+	st.Profile().FirstRunDone = true // these tests start on the lesson list
 	clk := newClock()
 	a, err := ui.New(st, lib, ui.WithClock(clk.now))
 	if err != nil {
@@ -424,63 +343,11 @@ func TestSaveFailureStillShowsResults(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
 	typeKeys(a, clk, -1)
-	if ui.ScreenName(a) != "results" {
-		t.Fatalf("screen = %s, want results", ui.ScreenName(a))
-	}
+	wantScreen(t, a, "part-results")
 	v := screen(a)
-	if !strings.Contains(v, "+ wpm") || !strings.Contains(v, "Uložení se nepovedlo") {
+	if !strings.Contains(v, text.PartSpeed) || !strings.Contains(v, "Uložení se nepovedlo") {
 		t.Errorf("results or warning missing:\n%s", v)
 	}
-}
-
-// assertDiff checks that old values are on '-' lines and new values on '+' lines.
-func assertDiff(t *testing.T, view string, old, cur store.Run) {
-	t.Helper()
-	if old.WPM == cur.WPM {
-		t.Fatal("test needs different speeds")
-	}
-	for _, want := range []string{
-		fmt.Sprintf("- wpm   %6.1f", old.WPM),
-		fmt.Sprintf("+ wpm   %6.1f", cur.WPM),
-		fmt.Sprintf("- přes. %5.1f %%", old.Accuracy*100),
-		fmt.Sprintf("+ přes. %5.1f %%", cur.Accuracy*100),
-		fmt.Sprintf("- čas   %6.1f s", float64(old.DurationMs)/1000),
-		fmt.Sprintf("+ čas   %6.1f s", float64(cur.DurationMs)/1000),
-	} {
-		if !strings.Contains(view, want) {
-			t.Errorf("missing %q in\n%s", want, view)
-		}
-	}
-}
-
-// playLesson plays the first lesson to the end at the given pace, optionally with a pause.
-func playLesson(t *testing.T, a *ui.App, clk *clock, step time.Duration, withPause bool) {
-	t.Helper()
-	startLesson(t, a)
-	for i, r := range ui.RoundKeys(a) {
-		clk.advance(step)
-		if withPause && i == 5 {
-			a.Update(esc)
-			clk.advance(time.Minute)
-			a.Update(esc)
-		}
-		a.Update(key(r))
-	}
-	if ui.ScreenName(a) != "results" {
-		t.Fatalf("screen = %s", ui.ScreenName(a))
-	}
-}
-
-func TestDiffIsAgainstTheBestRunThatDidNotPause(t *testing.T) {
-	a, st, clk := playApp(t)
-	playLesson(t, a, clk, 100*time.Millisecond, true) // fast but paused
-	playLesson(t, a, clk, 200*time.Millisecond, false)
-	playLesson(t, a, clk, 400*time.Millisecond, false)
-	runs, _ := st.Runs()
-	if len(runs) != 3 || !runs[0].Paused || runs[0].Score <= runs[1].Score {
-		t.Fatalf("setup: %+v", runs)
-	}
-	assertDiff(t, screen(a), runs[1], runs[2])
 }
 
 func execCmd(cmd tea.Cmd) []tea.Msg {
@@ -510,8 +377,10 @@ func execCmd(cmd tea.Cmd) []tea.Msg {
 
 func TestTickLoop(t *testing.T) {
 	a, _, clk := playApp(t)
-	a.Update(enter) // Kariéra, with the first lesson selected
-	_, cmd := a.Update(enter)
+	a.Update(enter) // the lesson the list selects
+	a.Update(down)
+	a.Update(down)
+	_, cmd := a.Update(enter) // its Test
 	first := execCmd(cmd)
 	if len(first) != 1 {
 		t.Fatalf("starting a round must schedule one tick, got %v", first)
@@ -597,7 +466,7 @@ func openApp(t *testing.T, dir string) (*ui.App, *store.Store) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	lib, _ := content.Load()
-	st.Profile().FirstRunDone = true // these tests start on the home screen
+	st.Profile().FirstRunDone = true // these tests start on the lesson list
 	a, err := ui.New(st, lib, ui.WithClock(newClock().now))
 	if err != nil {
 		t.Fatal(err)
@@ -629,7 +498,7 @@ func runProgram(t *testing.T, a *ui.App, input string, stop func()) {
 func testLeave(t *testing.T, suffix string, stop func()) {
 	dir := t.TempDir()
 	a, st := openApp(t, dir)
-	id := startLesson(t, a)
+	startLesson(t, a)
 	keys := string(ui.RoundKeys(a)[:3])
 	runProgram(t, a, keys+suffix, stop)
 	if runs, _ := st.Runs(); len(runs) != 0 {
@@ -641,29 +510,11 @@ func testLeave(t *testing.T, suffix string, stop func()) {
 	_ = st.Close()
 
 	b, _ := openApp(t, dir) // relaunch
-	if want := "> pokračuj: "; !strings.Contains(screen(b), want) {
-		t.Fatalf("home does not offer to continue:\n%s", screen(b))
-	}
-	b.Update(enter)
-	if ui.RoundLessonID(b) != id {
-		t.Errorf("continued lesson %q, want %q", ui.RoundLessonID(b), id)
-	}
+	wantScreen(t, b, "lessons")
 }
 
-func TestCtrlCMidRoundKeepsResumeAndKeystrokes(t *testing.T) {
+func TestCtrlCMidRoundKeepsKeystrokes(t *testing.T) {
 	testLeave(t, "\x03", func() {})
-}
-
-func TestResumeIsWrittenAtTheFirstKeystroke(t *testing.T) {
-	a, st, clk := playApp(t)
-	id := startLesson(t, a)
-	if st.Profile().Resume != nil {
-		t.Fatal("Resume set before any key")
-	}
-	typeKeys(a, clk, 1)
-	if r := st.Profile().Resume; r == nil || r.LessonID != id {
-		t.Errorf("Resume = %+v, want lesson %s", r, id)
-	}
 }
 
 func TestAltChordReachesTheSession(t *testing.T) {
@@ -689,17 +540,12 @@ func TestAltChordReachesTheSession(t *testing.T) {
 func TestEnterTypesNewlineInMultiLineText(t *testing.T) {
 	a, _, clk := playApp(t)
 	var id string
-	for _, ch := range a.Curr.Chapters() {
-		for _, l := range ch.Lessons {
-			if spec, err := ui.LessonSpec(a, l.ID); err == nil && spec.Lang != "" && strings.Contains(spec.Text, "\n") {
-				id = l.ID
-			}
+	for _, l := range a.Course.Lessons() {
+		if l.Lang != "" {
+			id = l.ID
 		}
 	}
-	if id == "" {
-		t.Fatal("no multi-line code lesson")
-	}
-	ui.SetScreen(a, lessonRound(t, a, id, nil))
+	ui.SetScreen(a, testRound(t, a, id))
 	keys := ui.RoundKeys(a)
 	if !slices.Contains(keys, '\n') {
 		t.Fatal("no newline to type")
@@ -708,13 +554,8 @@ func TestEnterTypesNewlineInMultiLineText(t *testing.T) {
 		clk.advance(100 * time.Millisecond)
 		a.Update(key(r))
 	}
-	if ui.ScreenName(a) != "results" {
+	if ui.ScreenName(a) != "part-results" {
 		t.Fatalf("Enter did not type the newlines: screen %s pos %d", ui.ScreenName(a), ui.RoundPos(a))
-	}
-	// A nil next function returns home instead of panicking.
-	a.Update(enter)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("screen = %s, want home", ui.ScreenName(a))
 	}
 }
 
@@ -755,42 +596,15 @@ func syntheticResult(stars int) play.Result {
 	}
 }
 
-func TestFinishCompletesAChapterOnItsLastLessonOnly(t *testing.T) {
-	a, st, _ := playApp(t)
-	ch := a.Curr.Chapters()[1]
-	if len(ch.Lessons) < 2 {
-		t.Fatalf("chapter %s has %d lessons, want at least 2", ch.ID, len(ch.Lessons))
-	}
-	if _, err := a.Finish(play.Spec{LessonID: ch.Lessons[0].ID, Kind: play.KindLesson}, syntheticResult(1)); err != nil {
-		t.Fatal(err)
-	}
-	if st.Profile().Completed[ch.ID] {
-		t.Error("a star on the first lesson completed the chapter")
-	}
-	last := ch.Lessons[len(ch.Lessons)-1].ID
-	if _, err := a.Finish(play.Spec{LessonID: last, Kind: play.KindLesson}, syntheticResult(0)); err != nil {
-		t.Fatal(err)
-	}
-	if st.Profile().Completed[ch.ID] {
-		t.Error("a round without a star completed the chapter")
-	}
-	if _, err := a.Finish(play.Spec{LessonID: last, Kind: play.KindLesson}, syntheticResult(1)); err != nil {
-		t.Fatal(err)
-	}
-	if !st.Profile().Completed[ch.ID] {
-		t.Errorf("chapter %s not completed by a star on its last lesson", ch.ID)
-	}
-}
-
 func TestFinishKeepsTheBestStars(t *testing.T) {
 	a, st, _ := playApp(t)
-	id, _ := firstLesson(t, a)
+	id := a.Course.Lessons()[0].ID
 	st.Profile().Stars[id] = 3
-	run, _ := a.Finish(play.Spec{LessonID: id, Kind: play.KindLesson}, syntheticResult(1))
+	run, _ := a.Finish(play.Spec{LessonID: id, Kind: play.KindTest}, syntheticResult(1))
 	if st.Profile().Stars[id] != 3 || run.Stars != 1 {
 		t.Errorf("stars: profile %d run %d", st.Profile().Stars[id], run.Stars)
 	}
-	a.Finish(play.Spec{LessonID: id, Kind: play.KindLesson}, syntheticResult(2))
+	a.Finish(play.Spec{LessonID: id, Kind: play.KindTest}, syntheticResult(2))
 	if st.Profile().Stars[id] != 3 {
 		t.Error("a worse round lowered the stars")
 	}
@@ -798,116 +612,33 @@ func TestFinishKeepsTheBestStars(t *testing.T) {
 
 func TestFinishRecordsStats(t *testing.T) {
 	a, st, clk := playApp(t)
-	playLesson(t, a, clk, 100*time.Millisecond, false)
+	startLesson(t, a)
+	typeKeys(a, clk, -1)
 	if len(st.Profile().Stats[a.Layout.ID].Chars) == 0 {
 		t.Error("Finish did not feed the stats")
-	}
-}
-
-func TestLessonSpec(t *testing.T) {
-	a, _, _ := playApp(t)
-	var late string
-	for _, ch := range a.Curr.Chapters() {
-		if ch.Number == 12 && len(ch.Lessons) > 0 {
-			late = ch.Lessons[0].ID
-		}
-	}
-	if late == "" {
-		t.Fatal("no chapter 12 lesson")
-	}
-	spec, err := ui.LessonSpec(a, late)
-	if err != nil || !spec.HintsOff {
-		t.Errorf("chapter 12: err %v hintsOff %v", err, spec.HintsOff)
-	}
-	id, _ := firstLesson(t, a)
-	spec, err = ui.LessonSpec(a, id)
-	if err != nil || spec.HintsOff || spec.Text == "" || spec.LessonID != id {
-		t.Errorf("first lesson: err %v hintsOff %v", err, spec.HintsOff)
-	}
-	if _, err := ui.LessonSpec(a, "no-such-lesson"); err == nil {
-		t.Error("an unknown lesson must be an error")
-	}
-}
-
-func TestEveryHomeEntryOpensAScreen(t *testing.T) {
-	a, _, _ := playApp(t)
-	for i := range a.Entries {
-		ui.SetScreen(a, ui.NewHomeScreen(a))
-		openEntry(a, i)
-		if got := ui.ScreenName(a); got == "home" || got == "other" {
-			t.Errorf("entry %d (%s) opens %q, want a screen of its own", i, a.Entries[i].Label(), got)
-		}
-	}
-}
-
-func TestHomeShowsRankAndUptime(t *testing.T) {
-	a, st, clk := playApp(t)
-	for i, d := range []int{2, 1} {
-		_ = st.AppendRun(store.Run{ID: fmt.Sprint("r", i), At: clk.t.AddDate(0, 0, -d)})
-	}
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	v := screen(a)
-	for _, want := range []string{"hodnost  Intern", "up 2 days"} {
-		if !strings.Contains(v, want) {
-			t.Errorf("home lacks %q:\n%s", want, v)
-		}
 	}
 }
 
 func TestSmallWindows(t *testing.T) {
 	a, _, clk := playApp(t)
 	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
-	a.Update(tea.KeyPressMsg{Code: tea.KeyUp}) // wraps to the last entry
-	if !strings.Contains(screen(a), "> Nastavení") {
+	a.Update(up) // wraps to the last lesson
+	lessons := a.Course.Lessons()
+	if !strings.Contains(screen(a), "> ") || !strings.Contains(screen(a), lessons[len(lessons)-1].Title[:10]) {
 		t.Errorf("the selection scrolled out of view:\n%s", screen(a))
 	}
 	a.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	playLesson(t, a, clk, 200*time.Millisecond, false)
+	startLesson(t, a)
+	typeKeys(a, clk, -1)
 	a.Update(tea.WindowSizeMsg{Width: 40, Height: 8})
 	if !strings.Contains(screen(a), "☆") && !strings.Contains(screen(a), "★") {
 		t.Errorf("no stars in a small results window:\n%s", screen(a))
 	}
 }
 
-func TestRegisteredEntryOpens(t *testing.T) {
-	a, _, _ := playApp(t)
-	opened := false
-	a.RegisterEntry(ui.EntryStats, func(*ui.App) (ui.Screen, tea.Cmd) {
-		opened = true
-		return ui.NewHomeScreen(a), nil
-	})
-	a.Update(down)
-	a.Update(enter)
-	if !opened {
-		t.Error("the registered entry was not opened")
-	}
-}
-
-func TestCodeLessonsCarryTheLanguageOfTheirSnippet(t *testing.T) {
-	a, _, _ := playApp(t)
-	byLesson := map[string]string{
-		"ch11-01": "go", "ch11-03": "python", "ch11-04": "js", "ch11-05": "ts",
-		"ch11-06": "shell", "ch11-07": "sql", "ch11-08": "regex",
-		"ch11-09": "go", "ch11-10": "python", "ch11-11": "js",
-	}
-	for id, lang := range byLesson {
-		spec, err := ui.LessonSpec(a, id)
-		if err != nil {
-			t.Fatalf("%s: %v", id, err)
-		}
-		if spec.Lang != lang {
-			t.Errorf("%s: Lang = %q, want %q", id, spec.Lang, lang)
-		}
-	}
-	spec, err := ui.LessonSpec(a, "ch02-01")
-	if err != nil || spec.Lang != "" {
-		t.Errorf("a drill lesson has no language: %q %v", spec.Lang, err)
-	}
-}
-
 func TestCodeLessonInEditorShowsItsFileNotProse(t *testing.T) {
 	a, _, _ := playApp(t)
-	ui.SetScreen(a, lessonRound(t, a, "ch11-09", nil))
+	ui.SetScreen(a, testRound(t, a, "ch11-01"))
 	a.Update(ui.TickMsg(a))
 	if v := screen(a); strings.Contains(v, text.RoundProseFile) || !strings.Contains(v, "main.go") {
 		t.Errorf("the Go lesson does not read as Go:\n%s", v)
@@ -935,26 +666,13 @@ func TestAltWarningNamesTheSettingOfThisTerminal(t *testing.T) {
 }
 
 func TestRoundsWithoutALessonShowNoStars(t *testing.T) {
-	a, _, clk := playApp(t)
-	var chapter string
-	for _, ch := range a.Curr.Chapters() {
-		if ch.Number == 1 {
-			chapter = ch.ID
-		}
-	}
-	round, err := ui.ChapterTestOutRound(a, chapter)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ui.SetScreen(a, round)
+	a, _, _ := playApp(t)
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	a.Update(enter)
+	wantScreen(t, a, "round")
 	a.Update(ui.TickMsg(a))
 	if v := screen(a); strings.ContainsAny(v, "★☆") {
-		t.Errorf("test-out round shows stars:\n%s", v)
-	}
-	typeKeys(a, clk, -1)
-	wantScreen(t, a, "results")
-	if v := screen(a); strings.ContainsAny(v, "★☆") || strings.Contains(v, text.ResultsNoStars) {
-		t.Errorf("test-out results show stars:\n%s", v)
+		t.Errorf("a placement round shows stars:\n%s", v)
 	}
 }
 
@@ -964,32 +682,6 @@ func TestLessonResultsKeepTheirStars(t *testing.T) {
 	typeKeys(a, clk, -1)
 	if v := screen(a); !strings.Contains(v, "★") {
 		t.Errorf("a lesson shows its stars:\n%s", v)
-	}
-}
-
-func TestRepeatOnResultsPlaysTheSameTextAgain(t *testing.T) {
-	for _, press := range []tea.KeyPressMsg{key('r'), key('R'), {Code: 'r', Mod: tea.ModCtrl}} {
-		a, st, clk := playApp(t)
-		id := startLesson(t, a)
-		keys := ui.RoundKeys(a)
-		typeKeys(a, clk, -1)
-		wantText(t, a, text.HintResultsRepeat)
-
-		_, cmd := a.Update(press)
-		wantScreen(t, a, "round")
-		if cmd == nil {
-			t.Fatalf("%v: the repeated round has no tick", press)
-		}
-		if !slices.Equal(ui.RoundKeys(a), keys) {
-			t.Fatalf("%v: the text changed", press)
-		}
-		typeKeys(a, clk, -1)
-		wantScreen(t, a, "results")
-
-		runs, _ := st.Runs()
-		if len(runs) != 2 || runs[0].TextHash != runs[1].TextHash || runs[1].LessonID != id {
-			t.Fatalf("%v: runs = %+v", press, runs)
-		}
 	}
 }
 
@@ -1005,17 +697,5 @@ func TestRoundShowsNoSecondCursor(t *testing.T) {
 			t.Errorf("style %d: a repeated round shows a second cursor:\n%s", i, v)
 		}
 		a.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
-	}
-}
-
-func TestEnterAfterARepeatStillGoesOn(t *testing.T) {
-	a, _, clk := playApp(t)
-	startLesson(t, a)
-	typeKeys(a, clk, -1)
-	a.Update(key('r'))
-	typeKeys(a, clk, -1)
-	_, cmd := a.Update(enter)
-	if ui.ScreenName(a) != "round" || cmd == nil {
-		t.Errorf("screen %s, tick cmd nil: %v", ui.ScreenName(a), cmd == nil)
 	}
 }

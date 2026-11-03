@@ -29,7 +29,7 @@ func newApp(t *testing.T) (*ui.App, *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st.Profile().FirstRunDone = true // these tests start on the home screen
+	st.Profile().FirstRunDone = true // these tests start on the lesson list
 	a, err := ui.New(st, lib, ui.WithClock(newClock().now))
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func newApp(t *testing.T) (*ui.App, *store.Store) {
 
 func TestNewDefaults(t *testing.T) {
 	a, _ := newApp(t)
-	if a.Style.ID != "editor" || a.Layout.ID != "macos-czech-qwerty" || a.Curr == nil || a.Now == nil {
+	if a.Style.ID != "editor" || a.Layout.ID != "macos-czech-qwerty" || a.Course == nil || a.Now == nil {
 		t.Errorf("unexpected defaults: style %q layout %q", a.Style.ID, a.Layout.ID)
 	}
 	if strings.Contains(a.Now().String(), "m=") {
@@ -221,9 +221,9 @@ func corruptProfile(t *testing.T) func(cfg, data string) {
 	}
 }
 
-func TestCorruptedProfileIsToldOnHomeWithThePathOfTheFile(t *testing.T) {
+func TestCorruptedProfileIsToldOnTheListWithThePathOfTheFile(t *testing.T) {
 	a, _, data := startWith(t, corruptProfile(t))
-	wantScreen(t, a, "home")
+	wantScreen(t, a, "lessons")
 	wantText(t, a, "Profil byl poškozený")
 	wantText(t, a, filepath.Join(data, "profile.json.corrupt-1"))
 }
@@ -242,12 +242,11 @@ func TestBannerStaysThroughASaveAndGoesWithAKey(t *testing.T) {
 	}
 }
 
-func TestBannerGoesWhenLeavingHome(t *testing.T) {
+func TestBannerGoesWhenLeavingTheList(t *testing.T) {
 	a, _, _ := startWith(t, corruptProfile(t))
-	a.Update(enter) // Kariéra
 	a.Update(enter) // the selected lesson
-	wantScreen(t, a, "round")
-	ui.SetScreen(a, ui.NewHomeScreen(a))
+	wantScreen(t, a, "lesson")
+	ui.SetScreen(a, ui.NewLessonsScreen(a))
 	if strings.Contains(screen(a), "Profil byl poškozený") {
 		t.Errorf("the banner came back:\n%s", screen(a))
 	}
@@ -316,10 +315,40 @@ func TestBannerFitsTheSmallestWindow(t *testing.T) {
 	a, _, _ := startWith(t, corruptProfile(t))
 	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
 	if n := len(strings.Split(ui.RawView(a), "\n")); n > 18 {
-		t.Errorf("home has %d rows with a banner:\n%s", n, screen(a))
+		t.Errorf("the list has %d rows with a banner:\n%s", n, screen(a))
 	}
 	wantText(t, a, "Profil byl poškozený")
 	if !strings.Contains(screen(a), "> ") {
 		t.Errorf("the selection is off screen:\n%s", screen(a))
+	}
+}
+
+func TestLaunchOpensTheList(t *testing.T) {
+	a, st := newApp(t)
+	wantScreen(t, a, "lessons")
+	first := a.Course.Lessons()[0]
+	if got := ui.LessonsSelected(a); got != first.ID {
+		t.Errorf("selected %q, want the first lesson %s", got, first.ID)
+	}
+
+	// With a star earned, launching lands on the next lesson, one key from it.
+	st.Profile().FirstRunDone = true
+	st.Profile().Stars[first.ID] = 2
+	if err := st.SaveProfile(); err != nil {
+		t.Fatal(err)
+	}
+	b, again := reopen(t, st)
+	wantScreen(t, b, "lessons")
+	next := b.Course.Lessons()[1]
+	if got := ui.LessonsSelected(b); got != next.ID {
+		t.Errorf("selected %q, want the next lesson %s", got, next.ID)
+	}
+	if got := again.Profile().Stars[first.ID]; got != 2 {
+		t.Errorf("stars after the restart = %d", got)
+	}
+	b.Update(enter)
+	wantScreen(t, b, "lesson")
+	if got := ui.LessonScreenID(b); got != next.ID {
+		t.Errorf("Enter opened %q, want %s", got, next.ID)
 	}
 }

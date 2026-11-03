@@ -61,6 +61,24 @@ func (a *App) recordsOf() map[string]lessonRecord {
 // speedText is the speed of a run in characters per minute.
 func speedText(r *store.Run) string { return text.LessonSpeed(score.CPM(r.WPM)) }
 
+// starBar draws earned and missing stars: ★★☆.
+func starBar(n int) string {
+	n = max(0, min(n, maxStars))
+	return strings.Repeat("★", n) + strings.Repeat("☆", maxStars-n)
+}
+
+// bannerLines wraps the banner to the window and paints it. It takes at most
+// half of the rows; a path has no spaces, so it is broken where it must be.
+func (a *App) bannerLines(w, rows int) []string {
+	var out []string
+	for _, b := range a.Banner {
+		for _, l := range strings.Split(ansi.Wrap(b, max(w-4, 10), ""), "\n") {
+			out = append(out, a.Style.Base().Foreground(a.Style.Bad).Render(l))
+		}
+	}
+	return out[:min(len(out), max(rows/2, 1))]
+}
+
 // lessonsRow is one line of the list: a chapter heading, or a lesson.
 type lessonsRow struct {
 	chapter string // the title, for a heading
@@ -83,7 +101,7 @@ func NewLessonsScreen(a *App) Screen { return newLessonsScreen(a, "") }
 // newLessonsScreen builds the list with the selection on lesson at, or on the
 // default when at is empty or unknown.
 func newLessonsScreen(a *App, at string) *lessonsScreen {
-	a.fillBanner()
+	a.noteSkipped()
 	l := &lessonsScreen{recs: a.recordsOf()}
 	for _, ch := range a.Course.Chapters() {
 		l.rows = append(l.rows, lessonsRow{chapter: ch.Title})
@@ -223,7 +241,7 @@ func (l *lessonsScreen) View(a *App, w, h int) string {
 		i++
 	}
 
-	// The banner and the update notice take rows of their own, as on the home screen.
+	// The banner and the update notice take rows of their own.
 	rows := h - 3
 	banner := a.bannerLines(w, rows)
 	if len(banner) > 0 {

@@ -17,22 +17,15 @@ type Kind int
 
 // Kinds of round.
 const (
-	KindLesson Kind = iota
-	KindDrill
-	KindCode
-	KindTestOut
-	KindPlacement
-	KindTraining // a Trénink of a lesson
-	KindTest     // a Test of a lesson
+	KindTraining  Kind = iota // a Trénink of a lesson
+	KindTest                  // a Test of a lesson
+	KindPlacement             // a stage of the placement test
 )
 
 // Spec describes one round.
 type Spec struct {
 	Kind                  Kind
 	Title, Lang, LessonID string
-	ChapterID             string // the chapter a test-out would complete
-	Practice              bool   // chosen by hand in Practice, for the run's mode
-	Session               string // how the round was started, for the run record; empty counts as a quick run
 	Length                string // the length of a Trénink, for the run record
 	Text                  string
 	Targets               score.Targets

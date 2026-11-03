@@ -96,7 +96,7 @@ func layoutOf(t *testing.T, chars map[rune]bool, missing string) *layout.Layout 
 	return ls[0]
 }
 
-// oldCharacters is every character the previous curriculum introduced, except
+// oldCharacters is every character v0.1.0 taught, except
 // Enter, which no lesson of the course has a focus for.
 const oldCharacters = "asdfjklů gh" + "qwertyuiop" + "zxcvbnm,." +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ-_:?!" +

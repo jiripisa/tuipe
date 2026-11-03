@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/content"
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
@@ -165,7 +166,7 @@ func TestLayoutCheckPassesOnExpectedChars(t *testing.T) {
 	a.Update(key('{'))
 	showsAll(t, a, "@")
 	a.Update(key('@'))
-	showsAll(t, a, "Začínám od nuly", "Vstupní pohovor")
+	showsAll(t, a, "Začínám od nuly", text.PlacementTitle)
 	fits(t, a)
 	if st.Config().Layout != "" {
 		t.Errorf("a passing check saved a layout: %q", st.Config().Layout)
@@ -240,9 +241,9 @@ func TestOptionAsMetaShowsTerminalSpecificHelp(t *testing.T) {
 			showsAll(t, a, tc.want...)
 			showsAll(t, a, "znovu načtěte")
 			fits(t, a)
-			if st.Config().Layout != "" || len(st.Profile().Completed) != 0 || st.Profile().FirstRunDone {
-				t.Errorf("the help saved something: config %+v, completed %v, done %v",
-					st.Config(), st.Profile().Completed, st.Profile().FirstRunDone)
+			if st.Config().Layout != "" || st.Profile().Recommended != "" || st.Profile().FirstRunDone {
+				t.Errorf("the help saved something: config %+v, recommended %q, done %v",
+					st.Config(), st.Profile().Recommended, st.Profile().FirstRunDone)
 			}
 			// Retry goes back to the same step and the fixed key passes.
 			a.Update(enter)
@@ -290,30 +291,6 @@ func TestNonDarwinWithUserLayoutRunsTheCheck(t *testing.T) {
 	a.Update(enter)
 	showsNone(t, a, "docs/layouts.md")
 	showsAll(t, a, "ě")
-}
-
-func TestStartingFromZeroSkipsPlacement(t *testing.T) {
-	a, st, _ := firstRunApp(t)
-	passChecks(t, a)
-	a.Update(enter) // Začínám od nuly is the first choice
-	showsAll(t, a, "Domovská pozice", "f", "j")
-	fits(t, a)
-	if st.Profile().FirstRunDone {
-		t.Error("first run marked done before its end")
-	}
-	a.Update(enter)
-	if ui.ScreenName(a) != "home" {
-		t.Fatalf("screen = %s, want home", ui.ScreenName(a))
-	}
-	if !st.Profile().FirstRunDone {
-		t.Error("FirstRunDone not set at the end")
-	}
-	if len(st.Profile().Completed) != 0 {
-		t.Errorf("starting from zero completed %v", st.Profile().Completed)
-	}
-	if got := a.Curr.CurrentChapter(st.Profile()).Number; got != 0 {
-		t.Errorf("current chapter = %d, want 0", got)
-	}
 }
 
 func TestClosingDuringFirstRunRestartsIt(t *testing.T) {
@@ -371,53 +348,6 @@ func failStage(t *testing.T, a *ui.App, clk *clock) int {
 	return presses
 }
 
-func TestPlacementResultIsAJobOfferAndAppliesSkip(t *testing.T) {
-	a, st, clk := firstRunApp(t)
-	p := st.Profile()
-	p.Resume = &store.Resume{Kind: "lesson", LessonID: "keep-me"}
-	toPlacement(t, a)
-	for i := range 6 {
-		showsAll(t, a, "Vstupní pohovor", "Esc ukončit", string(rune('1'+i))+"/6")
-		fits(t, a)
-		playStage(t, a, clk)
-	}
-	chs := a.Curr.Chapters()
-	last := chs[len(chs)-1]
-	showsAll(t, a, "Staff", last.Title, "nabíd")
-	fits(t, a)
-	for _, ch := range chs {
-		if want := ch.Number <= 11; p.Completed[ch.ID] != want {
-			t.Errorf("chapter %d completed = %v, want %v", ch.Number, p.Completed[ch.ID], want)
-		}
-	}
-	if len(p.Stars) != 0 {
-		t.Errorf("placement wrote stars: %v", p.Stars)
-	}
-	if p.Resume == nil || p.Resume.LessonID != "keep-me" {
-		t.Errorf("Resume = %+v, placement must not touch it", p.Resume)
-	}
-	runs, _ := st.Runs()
-	if len(runs) != 6 {
-		t.Fatalf("runs = %d, want 6", len(runs))
-	}
-	for _, r := range runs {
-		if r.Mode != "placement" {
-			t.Errorf("run mode = %q", r.Mode)
-		}
-	}
-	s := p.Stats[a.Layout.ID]
-	if m := s.MasteryOf('@'); m != stats.Solid {
-		t.Errorf("mastery of @ = %v, want solid after the test", m)
-	}
-	if p.FirstRunDone {
-		t.Error("first run done before Enter on the offer")
-	}
-	a.Update(enter)
-	if ui.ScreenName(a) != "home" || !p.FirstRunDone {
-		t.Errorf("after the offer: %s, done %v", ui.ScreenName(a), p.FirstRunDone)
-	}
-}
-
 func TestPlacementHasNoHints(t *testing.T) {
 	a, _, clk := firstRunApp(t)
 	toPlacement(t, a)
@@ -447,11 +377,11 @@ func TestBadStageEndsPlacementEarly(t *testing.T) {
 	if ui.ScreenName(a) != "placement" {
 		t.Fatalf("screen = %s, want the offer", ui.ScreenName(a))
 	}
-	showsAll(t, a, "od nuly", "v pořádku", "Intern")
+	showsAll(t, a, "v pořádku", "každý někde", a.Course.Lessons()[0].Title)
 	showsNone(t, a, "selhal", "neuspěl")
 	fits(t, a)
-	if len(st.Profile().Completed) != 0 {
-		t.Errorf("completed %v after a failed first stage", st.Profile().Completed)
+	if got, want := st.Profile().Recommended, a.Course.Lessons()[0].ID; got != want {
+		t.Errorf("Recommended = %q, want %s", got, want)
 	}
 	if e := st.Profile().Stats[a.Layout.ID].Chars; len(e) == 0 {
 		t.Error("the aborted stage left no evidence in the statistics")
@@ -459,9 +389,7 @@ func TestBadStageEndsPlacementEarly(t *testing.T) {
 	a.Update(enter)
 	showsAll(t, a, "Domovská pozice", "ukazovák") // as when starting from zero
 	a.Update(enter)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("screen = %s, want home", ui.ScreenName(a))
-	}
+	wantScreen(t, a, "lessons")
 }
 
 func TestSlowFirstStageFailsWithoutHumiliation(t *testing.T) {
@@ -472,12 +400,10 @@ func TestSlowFirstStageFailsWithoutHumiliation(t *testing.T) {
 		clk.advance(3 * time.Second)
 		a.Update(key(r))
 	}
-	showsAll(t, a, "od nuly", "v pořádku")
-	if len(st.Profile().Completed) != 0 {
-		t.Errorf("completed %v", st.Profile().Completed)
+	showsAll(t, a, "v pořádku", "každý někde")
+	if got, want := st.Profile().Recommended, a.Course.Lessons()[0].ID; got != want {
+		t.Errorf("Recommended = %q, want %s", got, want)
 	}
-	showsAll(t, a, "Dobrý den,")
-	showsNone(t, a, "Vážený")
 }
 
 func TestFailedStageEndsTheTestAndKeepsEarlierStages(t *testing.T) {
@@ -490,41 +416,11 @@ func TestFailedStageEndsTheTestAndKeepsEarlierStages(t *testing.T) {
 		t.Fatalf("screen = %s", ui.ScreenName(a))
 	}
 	showsNone(t, a, "3/6")
-	p := st.Profile()
-	for _, ch := range a.Curr.Chapters() {
-		if want := ch.Number <= 4; p.Completed[ch.ID] != want {
-			t.Errorf("chapter %d completed = %v, want %v", ch.Number, p.Completed[ch.ID], want)
-		}
+	want := firstOfChapter(t, a, "ch05")
+	if got := st.Profile().Recommended; got != want.ID {
+		t.Errorf("Recommended = %q, want %s", got, want.ID)
 	}
-	showsAll(t, a, "Junior", a.Curr.CurrentChapter(p).Title)
-}
-
-func TestPlacementCanBeRetaken(t *testing.T) {
-	a, st, clk := firstRunApp(t)
-	p := st.Profile()
-	p.FirstRunDone = true
-	chs := a.Curr.Chapters()
-	for _, ch := range chs {
-		if ch.Number <= 8 {
-			a.Curr.CompleteChapter(p, ch.ID)
-		}
-	}
-	back := false
-	ui.SetScreen(a, ui.NewPlacementScreen(a, func(a *ui.App) ui.Screen {
-		back = true
-		return ui.NewHomeScreen(a)
-	}))
-	failStage(t, a, clk)
-	showsAll(t, a, "Senior") // the rank of chapter 8 stays
-	for _, ch := range chs {
-		if ch.Number <= 8 && !p.Completed[ch.ID] {
-			t.Errorf("chapter %d lost its completion", ch.Number)
-		}
-	}
-	a.Update(enter)
-	if !back || ui.ScreenName(a) != "home" {
-		t.Errorf("next called %v, screen %s", back, ui.ScreenName(a))
-	}
+	showsAll(t, a, text.OfferPassed(1, 6), want.Title, "Česká diakritika")
 }
 
 // ---- Review fixes ----
@@ -686,15 +582,14 @@ func TestOptionStageEndsAfterFiveIgnoredAltPresses(t *testing.T) {
 	if ui.ScreenName(a) != "placement" {
 		t.Fatalf("screen after 5 ignored Alt presses = %s, want the offer", ui.ScreenName(a))
 	}
-	showsAll(t, a, "Medior")
-	for _, ch := range a.Curr.Chapters() {
-		if want := ch.Number <= 7; st.Profile().Completed[ch.ID] != want {
-			t.Errorf("chapter %d completed = %v, want %v", ch.Number, st.Profile().Completed[ch.ID], want)
-		}
+	want := firstOfChapter(t, a, "ch08")
+	if got := st.Profile().Recommended; got != want.ID {
+		t.Errorf("Recommended = %q, want %s", got, want.ID)
 	}
+	showsAll(t, a, want.Title)
 }
 
-func TestPlacementRunsHaveNoStarsAndTheirOwnSession(t *testing.T) {
+func TestPlacementRunsHaveNoStarsAndTheirOwnMode(t *testing.T) {
 	a, st, clk := firstRunApp(t)
 	toPlacement(t, a)
 	for range 6 {
@@ -705,25 +600,25 @@ func TestPlacementRunsHaveNoStarsAndTheirOwnSession(t *testing.T) {
 		t.Fatalf("runs = %d", len(runs))
 	}
 	for _, r := range runs {
-		if r.Stars != 0 || r.Session != "placement" {
-			t.Errorf("run %s: stars %d session %q, want 0 and placement", r.ID, r.Stars, r.Session)
+		if r.Stars != 0 || r.Mode != store.ModePlacement {
+			t.Errorf("run %s: stars %d mode %q, want 0 and placement", r.ID, r.Stars, r.Mode)
 		}
 	}
 	ui.SetScreen(a, ui.NewStatsScreen(a))
-	showsAll(t, a, "Vstupní pohovor")
-	showsNone(t, a, "Rychlovka", "★")
+	showsAll(t, a, "Vstupní test")
+	showsNone(t, a, "★")
 	a.Update(tab)
 	a.Update(tab)
 	a.Update(tab) // records
-	showsNone(t, a, "Vstupní pohovor ·")
+	showsNone(t, a, "Vstupní test")
 }
 
 func TestPlacementRunsAreNoOverallTrend(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
 	for i := range 6 {
-		addRun(t, st, store.Run{ID: fmt.Sprintf("p%d", i), At: clk.t.Add(-time.Duration(i+1) * time.Minute), Mode: "placement", Session: "placement", WPM: 60, Accuracy: 1})
+		addRun(t, st, store.Run{ID: fmt.Sprintf("p%d", i), At: clk.t.Add(-time.Duration(i+1) * time.Minute), Mode: store.ModePlacement, WPM: 60, Accuracy: 1})
 	}
-	addRun(t, st, store.Run{ID: "q", At: clk.t, Mode: "drill", WPM: 40, Accuracy: 1})
+	addRun(t, st, store.Run{ID: "q", At: clk.t, Mode: store.ModeTest, WPM: 40, Accuracy: 1})
 	openStats(t, a)
 	a.Update(tab)
 	a.Update(tab)
@@ -736,44 +631,35 @@ func TestPlacementRunsAreNoOverallTrend(t *testing.T) {
 	if len(overall) != 2 {
 		t.Fatalf("overall rows = %v in\n%s", overall, view(a))
 	}
-	// The placement runs share the day with a 40 wpm drill: the median must be the drill's.
+	// The placement runs share the day with a 40 wpm Test: the median must be the Test's.
 	if !strings.Contains(overall[0], "40") || strings.Contains(overall[0], "60") {
-		t.Errorf("overall WPM trend = %q, want only the 40 wpm drill", overall[0])
+		t.Errorf("overall WPM trend = %q, want only the 40 wpm Test", overall[0])
 	}
 }
 
-func TestRetakeWithNothingNewSaysSo(t *testing.T) {
-	a, st, clk := firstRunApp(t)
-	p := st.Profile()
-	p.FirstRunDone = true
-	for _, ch := range a.Curr.Chapters() {
-		if ch.Number <= 8 {
-			a.Curr.CompleteChapter(p, ch.ID)
-		}
-	}
-	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
-	playStage(t, a, clk) // letters: chapters 0-4, all done already
-	failStage(t, a, clk)
-	showsAll(t, a, "nic nepřidal", "Senior")
-	showsNone(t, a, "Odemčeno", "nabízíme")
-}
-
-func TestPlacementCountsOnlyNewlyUnlockedChapters(t *testing.T) {
-	a, st, clk := firstRunApp(t)
-	p := st.Profile()
-	chs := a.Curr.Chapters()
-	a.Curr.CompleteChapter(p, chs[0].ID)
-	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
-	playStage(t, a, clk) // letters: chapters 0-4, one done already
-	failStage(t, a, clk)
-	showsAll(t, a, "Odemčeny 4 kapitoly")
-}
-
-func TestJobOfferPointsToTheLessons(t *testing.T) {
+func TestPlacementResultPointsToTheLessons(t *testing.T) {
 	a, _, _ := playApp(t)
 	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
-	a.Update(esc) // give up: the offer of a beginner
+	a.Update(esc) // give up: the result of a beginner
 	showsAll(t, a, text.OfferPractice)
+	showsNone(t, a, "Kariéra", "kapitol", "nabíd", "pozici", "Hodnost", "Odemčen", "Intern")
+}
+
+// Someone with stars who gives up the retake is not starting from zero.
+func TestRetakeWithStarsSkipsTheHandPosition(t *testing.T) {
+	a, st, _ := playApp(t)
+	st.Profile().Stars[a.Course.Lessons()[0].ID] = 1
+	ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
+	a.Update(esc)
+	a.Update(enter)
+	wantScreen(t, a, "lessons")
+}
+
+func TestFirstRunTextsMakeNoOldPromises(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	passChecks(t, a)
+	showsNone(t, a, "Kariéra", "kapitol", "Přeskočí", "přeskočí", "odemkn", "Odemkn", "hodnost", "pohovor")
+	showsAll(t, a, text.ForkPlacementNote)
 }
 
 // reopenFirstRunDone restarts on the saved data with the user layout chosen.
@@ -858,4 +744,153 @@ func TestWrongSpaceIsNamed(t *testing.T) {
 	a.Update(enter)
 	a.Update(key(' '))
 	showsAll(t, a, "Napsali jste mezeru místo ě")
+}
+
+// firstOfChapter is the first lesson of the chapter with the given id.
+func firstOfChapter(t *testing.T, a *ui.App, id string) course.Lesson {
+	t.Helper()
+	for _, ch := range a.Course.Chapters() {
+		if ch.ID == id {
+			return ch.Lessons[0]
+		}
+	}
+	t.Fatalf("no chapter %s", id)
+	return course.Lesson{}
+}
+
+func TestPlacementRecommendsOnly(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	p := st.Profile()
+	toPlacement(t, a)
+	typed := map[rune]bool{}
+	for i := range 6 {
+		showsAll(t, a, text.PlacementTitle, "Esc ukončit", string(rune('1'+i))+"/6")
+		fits(t, a)
+		a.Update(enter)
+		for _, r := range ui.RoundKeys(a) {
+			typed[r] = true
+		}
+		typeKeys(a, clk, -1)
+	}
+	lessons := a.Course.Lessons()
+	last := lessons[len(lessons)-1]
+	if p.Recommended != last.ID {
+		t.Errorf("Recommended = %q, want the last lesson %s", p.Recommended, last.ID)
+	}
+	showsAll(t, a, last.Title)
+	fits(t, a)
+	if len(p.Stars) != 0 {
+		t.Errorf("placement wrote stars: %v", p.Stars)
+	}
+	if got := a.Course.Rank(p.Stars); got != course.Intern {
+		t.Errorf("rank = %s, want Intern", got)
+	}
+	if got := len(p.Taught); got != 0 {
+		t.Errorf("placement marked %d lessons as taught", got)
+	}
+	// A character the test never asked for is not granted anything.
+	s := p.Stats[a.Layout.ID]
+	for _, ls := range lessons {
+		for _, r := range ls.Focus {
+			if !typed[r] && s.MasteryOf(r) != stats.NewChar {
+				t.Errorf("%q has mastery %v without being typed", r, s.MasteryOf(r))
+			}
+		}
+	}
+	runs, _ := st.Runs()
+	if len(runs) != 6 {
+		t.Fatalf("runs = %d, want 6", len(runs))
+	}
+	for _, r := range runs {
+		if r.Mode != store.ModePlacement || r.Stars != 0 || r.LessonID != "" {
+			t.Errorf("run = %+v, want a placement run without stars or a lesson", r)
+		}
+	}
+	if p.FirstRunDone {
+		t.Error("first run done before Enter on the result")
+	}
+	a.Update(enter)
+	wantScreen(t, a, "lessons")
+	if !p.FirstRunDone {
+		t.Error("FirstRunDone not set at the end")
+	}
+}
+
+func TestFirstRunEndsOnTheListAtTheRecommendation(t *testing.T) {
+	a, st, clk := firstRunApp(t)
+	toPlacement(t, a)
+	playStage(t, a, clk) // letters
+	playStage(t, a, clk) // diacritics
+	failStage(t, a, clk) // digits
+	want := firstOfChapter(t, a, "ch06")
+	if got := st.Profile().Recommended; got != want.ID {
+		t.Errorf("Recommended = %q, want %s", got, want.ID)
+	}
+	showsAll(t, a, want.Title)
+	a.Update(enter)
+	wantScreen(t, a, "lessons")
+	if got := ui.LessonsSelected(a); got != want.ID {
+		t.Errorf("the list opens on %q, want %s", got, want.ID)
+	}
+	showsAll(t, a, text.LessonRecommended)
+}
+
+func TestStartFromZeroRecommendsTheFirstLesson(t *testing.T) {
+	a, st, _ := firstRunApp(t)
+	passChecks(t, a)
+	a.Update(enter) // Začínám od nuly is the first choice
+	showsAll(t, a, "Domovská pozice", "f", "j")
+	fits(t, a)
+	if st.Profile().FirstRunDone {
+		t.Error("first run marked done before its end")
+	}
+	a.Update(enter)
+	wantScreen(t, a, "lessons")
+	if !st.Profile().FirstRunDone {
+		t.Error("FirstRunDone not set at the end")
+	}
+	first := a.Course.Lessons()[0]
+	if got := st.Profile().Recommended; got != first.ID {
+		t.Errorf("Recommended = %q, want the first lesson %s", got, first.ID)
+	}
+	if got := ui.LessonsSelected(a); got != first.ID {
+		t.Errorf("the list opens on %q, want %s", got, first.ID)
+	}
+	if len(st.Profile().Stars) != 0 {
+		t.Errorf("starting from zero wrote stars: %v", st.Profile().Stars)
+	}
+}
+
+func TestRetakeKeepsStars(t *testing.T) {
+	a, st, clk := playApp(t)
+	p := st.Profile()
+	ls := a.Course.Lessons()
+	p.Stars[ls[0].ID], p.Stars[ls[1].ID] = 3, 2
+	p.Taught[ls[0].ID] = true
+	p.Recommended = ls[10].ID
+	rank := a.Course.Rank(p.Stars)
+	openSettings(t, a)
+	onRow(a, rowRetake)
+	a.Update(enter)
+	wantScreen(t, a, "placement")
+	playStage(t, a, clk) // letters
+	failStage(t, a, clk) // diacritics
+	want := firstOfChapter(t, a, "ch05")
+	if p.Recommended != want.ID {
+		t.Errorf("Recommended = %q, want %s", p.Recommended, want.ID)
+	}
+	if p.Stars[ls[0].ID] != 3 || p.Stars[ls[1].ID] != 2 || len(p.Stars) != 2 {
+		t.Errorf("the retake changed the stars: %v", p.Stars)
+	}
+	if !p.Taught[ls[0].ID] {
+		t.Error("the retake dropped a Výuka mark")
+	}
+	if got := a.Course.Rank(p.Stars); got != rank {
+		t.Errorf("rank = %s, want %s", got, rank)
+	}
+	a.Update(enter)
+	wantScreen(t, a, "lessons")
+	if got := ui.LessonsSelected(a); got != want.ID {
+		t.Errorf("the list opens on %q, want %s", got, want.ID)
+	}
 }

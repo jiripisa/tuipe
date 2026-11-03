@@ -20,10 +20,10 @@ import (
 
 const firstTeachLesson = "ch01-01"
 
-// openTeach puts the Výuka of a lesson on screen; leaving it opens the career list.
+// openTeach puts the Výuka of a lesson on screen; leaving it opens the lesson list.
 func openTeach(t *testing.T, a *ui.App, id string) {
 	t.Helper()
-	ui.SetScreen(a, ui.NewTeachScreen(a, id, func(a *ui.App) ui.Screen { return ui.NewCareerScreen(a) }))
+	ui.SetScreen(a, ui.NewTeachScreen(a, id, ui.NewLessonsScreen))
 	wantScreen(t, a, "teach")
 }
 
@@ -76,7 +76,7 @@ func TestTeachWalksThroughTheLines(t *testing.T) {
 		}
 		typeLine(a, clk)
 	}
-	wantScreen(t, a, "career")
+	wantScreen(t, a, "lessons")
 }
 
 func TestTeachWrongKeyDoesNotAdvance(t *testing.T) {
@@ -124,7 +124,7 @@ func TestTeachSetsTheMarkOnlyAtTheEnd(t *testing.T) {
 	if !st.Profile().Taught[firstTeachLesson] {
 		t.Fatal("not marked after the last line")
 	}
-	wantScreen(t, a, "career")
+	wantScreen(t, a, "lessons")
 }
 
 func mustTutorial(t *testing.T, a *ui.App, id string) course.Tutorial {
@@ -146,7 +146,7 @@ func TestTeachEscSetsNoMark(t *testing.T) {
 			a.Update(key('j'))
 		}
 		a.Update(esc)
-		wantScreen(t, a, "career")
+		wantScreen(t, a, "lessons")
 		if len(st.Profile().Taught) != 0 {
 			t.Errorf("mid=%v: Taught = %v after Esc", mid, st.Profile().Taught)
 		}
@@ -294,7 +294,7 @@ func TestTeachOnACodeLesson(t *testing.T) {
 	}
 	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
 	typeLine(a, clk)
-	wantScreen(t, a, "career")
+	wantScreen(t, a, "lessons")
 	if !st.Profile().Taught[l.ID] {
 		t.Error("a code lesson is not marked after its snippet")
 	}

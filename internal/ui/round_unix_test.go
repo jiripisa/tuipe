@@ -8,6 +8,6 @@ import (
 	"testing"
 )
 
-func TestSIGHUPMidRoundKeepsResumeAndKeystrokes(t *testing.T) {
+func TestSIGHUPMidRoundKeepsKeystrokes(t *testing.T) {
 	testLeave(t, "", func() { _ = syscall.Kill(os.Getpid(), syscall.SIGHUP) })
 }

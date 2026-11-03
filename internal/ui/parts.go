@@ -34,7 +34,7 @@ func (a *App) trainingSpec(lessonID string, n course.Length) (play.Spec, error) 
 	ls, _ := a.Course.Lesson(lessonID) // Training has found it
 	return play.Spec{
 		Kind: play.KindTraining, Title: text.PartTitle(text.LessonPartTraining, text.LessonLengths[n], ls.Title),
-		LessonID: ls.ID, Lang: ls.Lang, Length: n.String(), Session: sessionCareer, Text: txt,
+		LessonID: ls.ID, Lang: ls.Lang, Length: n.String(), Text: txt,
 	}, nil
 }
 
@@ -47,13 +47,9 @@ func (a *App) testSpec(lessonID string) (play.Spec, error) {
 	ls, _ := a.Course.Lesson(lessonID) // Test has found it
 	return play.Spec{
 		Kind: play.KindTest, Title: text.PartTitle(text.LessonPartTest, ls.Title),
-		LessonID: ls.ID, Lang: ls.Lang, Session: sessionCareer, Text: txt, Targets: targets, HintsOff: true,
+		LessonID: ls.ID, Lang: ls.Lang, Text: txt, Targets: targets, HintsOff: true,
 	}, nil
 }
-
-// isLessonPart reports a Trénink or a Test, the rounds of the course. They
-// leave the progress of the old curriculum alone.
-func isLessonPart(k play.Kind) bool { return k == play.KindTraining || k == play.KindTest }
 
 // lessonPart is the Trénink or the Test of a lesson, ready to be played.
 type lessonPart struct {

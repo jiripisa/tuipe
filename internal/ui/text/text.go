@@ -17,11 +17,6 @@ func Plural(n int, one, few, many string) string {
 	return many
 }
 
-// Chapters counts chapters: "1 kapitola", "3 kapitoly", "12 kapitol".
-func Chapters(n int) string {
-	return fmt.Sprintf("%d %s", n, Plural(n, "kapitola", "kapitoly", "kapitol"))
-}
-
 // Rounds counts rounds: "1 kolo", "3 kola", "12 kol".
 func Rounds(n int) string {
 	return fmt.Sprintf("%d %s", n, Plural(n, "kolo", "kola", "kol"))
@@ -97,28 +92,8 @@ const SecondInstance = "tuipe už běží v jiném okně. Zavřete ho a zkuste t
 // NewerData is the error when the data was written by a newer tuipe.
 const NewerData = "Data uložila novější verze tuipe. Spusťte „tuipe upgrade“ a zkuste to znovu."
 
-// Footer hints of the screens.
-const (
-	HintHome    = "↑↓ výběr · Enter spustit · Ctrl+T styl · Ctrl+C konec"
-	HintResults = "Enter další kolo · Esc domů · Ctrl+T styl"
-	// HintResultsRepeat is for a round that can be played again.
-	HintResultsRepeat = "Enter další kolo · R znovu · Esc domů · Ctrl+T styl"
-	HintPause         = "↑↓ · Enter · Esc pokračovat"
-)
-
-// Home screen.
-const (
-	HomeRank        = "hodnost"
-	HomeUptime      = "uptime"
-	HomeUptimeDay   = "up 1 day"
-	HomeUptimeDays  = "up %d days"
-	HomeBudgetSpent = "rozpočet chyb na tento týden je vyčerpaný"
-	HomeResume      = "pokračuj: %s"
-
-	MenuCareer   = "Kariéra"
-	MenuStats    = "Statistiky"
-	MenuSettings = "Nastavení"
-)
+// HintPause is the footer of the pause menu.
+const HintPause = "↑↓ · Enter · Esc pokračovat"
 
 // Pause menu.
 const (
@@ -128,22 +103,11 @@ const (
 	PauseLeave   = "odejít"
 )
 
-// Results screen. The diff labels are padded to one width.
+// Notes on the results of a round.
 const (
-	ResultsOld      = "HEAD~1"
-	ResultsNoBase   = "/dev/null"
-	ResultsCommit   = "commit %s  %s"
-	ResultsNew      = "ty"
-	ResultsWPM      = "wpm  "
-	ResultsAccuracy = "přes."
-	ResultsTime     = "čas  "
-	ResultsStars    = "hvězdy"
-	ResultsPaused   = "pauza: kolo se nepočítá jako rekord"
-	ResultsHintUsed = "nápověda použita: třetí hvězda není možná"
-	ResultsNoStars  = "bez hvězdy"
-
-	ResultsChapterClosed = "Kapitola „%s“ uzavřena. Nikdo nepanikaří."
-	ResultsRank          = "Nová hodnost: %s"
+	ResultsPaused  = "pauza: kolo se nepočítá jako rekord"
+	ResultsNoStars = "bez hvězdy"
+	ResultsRank    = "Nová hodnost: %s"
 )
 
 // Labels of the round screen. wpm is the app's own term.
@@ -177,28 +141,6 @@ const (
 	RoundWeakest       = "NEJSLABŠÍ"
 )
 
-// Career map and test-outs.
-const (
-	CareerTitle     = "Kariéra"
-	CareerTestOut   = "test-out: přeskočit kapitolu"
-	CareerDone      = "hotovo"
-	CareerLocked    = "zamčeno"
-	HintCareer      = "↑↓ výběr · Enter spustit · Esc zpět · Ctrl+T styl"
-	TestOutTitle    = "test-out: %s"
-	TestOutFailed   = "test-out nesplněn: nic se nezměnilo"
-	TestOutNotReady = "test-out této kapitoly nejde sestavit"
-)
-
-// CareerTestOutMany is the row of a test-out that closes n chapters, n above 1.
-func CareerTestOutMany(n int) string {
-	return fmt.Sprintf("test-out: uzavře %s naráz", Chapters(n))
-}
-
-// TestOutPassed is the verdict of a test-out that closed n chapters.
-func TestOutPassed(n int) string {
-	return fmt.Sprintf("test-out splněn: %s %s, bez hvězd", Plural(n, "uzavřena", "uzavřeny", "uzavřeno"), Chapters(n))
-}
-
 // Statistics.
 const (
 	StatsEmpty           = "Zatím žádná kola. Odehrajte první a tady se objeví historie."
@@ -211,20 +153,21 @@ const (
 	StatsGroupShift      = "Shift"
 	StatsGroupOption     = "Option"
 	StatsGroupCode       = "kód"
-	StatsModeLesson      = "Lekce"
-	StatsModeCode        = "Kód"
-	StatsModeDrill       = "Drill"
+	StatsModeTest        = "Test"
+	StatsModeTraining    = "Trénink"
+	StatsModePlacement   = "Vstupní test"
 )
 
 // More statistics strings.
 const (
-	StatsModePractice  = "Trénink"
-	StatsModeTestOut   = "Test-out"
-	StatsModePlacement = "Vstupní pohovor"
-	StatsRecordScore   = "skóre"
-	StatsWPM           = "WPM"
-	StatsAccuracy      = "Přesnost"
-	HintStats          = "←→ záložky · ↑↓ PgUp PgDn · Esc domů · Ctrl+T styl"
+	StatsTitle       = "Statistiky"
+	StatsUptime      = "uptime"
+	StatsUptimeDay   = "up 1 day"
+	StatsUptimeDays  = "up %d days"
+	StatsRecordScore = "skóre"
+	StatsWPM         = "WPM"
+	StatsAccuracy    = "Přesnost"
+	HintStats        = "←→ záložky · ↑↓ PgUp PgDn · Esc zpět · Ctrl+T styl"
 )
 
 // StatsTabs are the tabs of the statistics screen; git log is the app's own term.
@@ -234,13 +177,6 @@ var StatsTabs = [...]string{"git log", "heatmap", "trendy", "rekordy"}
 var (
 	StatsHandNames   = [...]string{"levý", "pravý"}
 	StatsFingerNames = [...]string{"malíček", "prsteník", "prostředník", "ukazovák", "palec"}
-)
-
-// Sessions: how a round was started.
-const (
-	StatsSessionQuick   = "Rychlovka"
-	StatsSessionStandup = "Standup"
-	StatsSessionSprint  = "Sprint"
 )
 
 // First run: style choice, layout check, Option check and the fork.
@@ -292,8 +228,8 @@ const (
 	FirstRunForkTitle = "Kde začínáte?"
 	ForkFromZero      = "Začínám od nuly"
 	ForkFromZeroNote  = "Začnete od domovské pozice."
-	ForkPlacement     = "Vstupní pohovor"
-	ForkPlacementNote = "Asi 4 minuty. Přeskočí, co už umíte."
+	ForkPlacement     = "Vstupní test"
+	ForkPlacementNote = "Asi 4 minuty. Doporučí, kde začít."
 	FirstRunForkHint  = "↑↓ výběr · Enter potvrdit · Ctrl+C konec"
 
 	FirstRunHandHint  = "↑↓ posun · Enter pokračovat"
@@ -304,15 +240,15 @@ const (
 // Unknown layout in the config (%q is its id).
 const UnknownLayout = "Rozložení „%s“ jsem nenašel, používám macOS Czech QWERTY."
 
-// Placement test (Vstupní pohovor).
+// Placement test (Vstupní test).
 const (
-	PlacementTitle      = "Vstupní pohovor"
-	PlacementRoundTitle = "Vstupní pohovor %d/%d: %s"
+	PlacementTitle      = "Vstupní test"
+	PlacementRoundTitle = "Vstupní test %d/%d: %s"
 	PlacementStageIntro = "Fáze %d/%d: %s"
-	PlacementRules      = "Bez nápovědy. Pište, jak umíte. Když to nepůjde, pohovor skončí a nic se neděje."
+	PlacementRules      = "Bez nápovědy. Pište, jak umíte. Když to nepůjde, test skončí a nic se neděje."
 	PlacementPrevOK     = "Předchozí fáze splněna: %.0f WPM, přesnost %.0f %%."
-	PlacementStageHint  = "Enter začít · Esc ukončit pohovor · Ctrl+C konec"
-	PlacementOptionNote = "Když Option nepíše znaky, fáze skončí po pěti pokusech. Pohovor ukončíte klávesou Esc."
+	PlacementStageHint  = "Enter začít · Esc ukončit test · Ctrl+C konec"
+	PlacementOptionNote = "Když Option nepíše znaky, fáze skončí po pěti pokusech. Test ukončíte klávesou Esc."
 
 	PlacementStageLetters    = "Písmena"
 	PlacementStageDiacritics = "Diakritika"
@@ -321,21 +257,16 @@ const (
 	PlacementStageOption     = "Symboly s %s"
 	PlacementStageCode       = "Skutečný kód"
 
-	OfferTitle    = "Pracovní nabídka"
-	OfferGreeting = "Dobrý den,"
-	OfferFromZero = "pohovor skončil u první fáze. To je v pořádku, začínáte od nuly a každý někde začíná."
-	OfferHolding  = "Hodnost: %s."
-	OfferPractice = "Symboly si můžete procvičit hned v lekcích: Kariéra."
-	OfferRank     = "na základě pohovoru Vám nabízíme pozici: %s."
-	OfferNoChange = "pohovor nic nepřidal, Vaše hodnost zůstává: %s."
-	OfferStart    = "Začínáte v kapitole %d: %s."
+	OfferTitle    = "Výsledek vstupního testu"
+	OfferFromZero = "Test skončil u první fáze. To je v pořádku, začnete od nuly a každý někde začíná."
+	OfferStart    = "Doporučená lekce: %s (%s)."
+	OfferPractice = "Všechny lekce jsou otevřené, začít můžete kteroukoli."
 	OfferHint     = "Enter pokračovat · Ctrl+C konec"
 )
 
-// OfferSkipped is the line of the job offer about the n chapters placement closed.
-func OfferSkipped(n int) string {
-	return fmt.Sprintf("%s %s před nástupem, bez hvězd. %s lekce zůstávají otevřené.",
-		Plural(n, "Odemčena", "Odemčeny", "Odemčeno"), Chapters(n), Plural(n, "Její", "Jejich", "Jejich"))
+// OfferPassed says how many of the stages were passed.
+func OfferPassed(passed, stages int) string {
+	return fmt.Sprintf("Zvládli jste %d %s z %d.", passed, Plural(passed, "fázi", "fáze", "fází"), stages)
 }
 
 // Settings (Nastavení).
@@ -344,7 +275,7 @@ const (
 	SettingsStyle       = "Vzhled"
 	SettingsLayout      = "Rozložení"
 	SettingsUpdateCheck = "Kontrola aktualizací"
-	SettingsRetake      = "Znovu vstupní pohovor"
+	SettingsRetake      = "Znovu vstupní test"
 	SettingsOn          = "zapnutá"
 	SettingsOff         = "vypnutá"
 	SettingsLayoutList  = "Dostupná rozložení:"
@@ -355,8 +286,8 @@ const (
 	// SettingsLayoutMissing is shown when the layout in use has no file in the
 	// list (%s is its name).
 	SettingsLayoutMissing = "Používané rozložení „%s“ není v seznamu."
-	SettingsRetakeNote    = "Pohovor nikdy nesníží hodnost."
-	HintSettings          = "↑↓ výběr · Enter ←→ změnit · Esc domů · Ctrl+T styl"
+	SettingsRetakeNote    = "Změní jen doporučenou lekci, hvězdy zůstanou."
+	HintSettings          = "↑↓ výběr · Enter ←→ změnit · Esc zpět · Ctrl+T styl"
 )
 
 // Messages of `tuipe upgrade`.
@@ -394,7 +325,7 @@ const (
 	UpgradeDone               = "Aktualizováno z verze %s na %s."
 )
 
-// Update notice on the home screen.
+// UpdateNotice is the quiet line of the lesson list about a newer version.
 const UpdateNotice = "Je dostupná nová verze %s. Aktualizujte příkazem tuipe upgrade."
 
 // TutorialFocus opens the explanation of a lesson: what it teaches, such as
@@ -509,6 +440,6 @@ const (
 	TeachTitleExplain = "Výuka · %s"
 	HintTeachExplain  = "Enter začít · Esc zpět · Ctrl+T styl"
 	HintTeach         = "Esc zpět · Ctrl+T styl"
-	// TeachUnavailable is shown on the home banner when a lesson cannot be taught.
+	// TeachUnavailable is shown on the banner of the list when a lesson cannot be taught.
 	TeachUnavailable = "Výuku lekce %s se nepodařilo připravit."
 )

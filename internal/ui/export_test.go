@@ -25,14 +25,8 @@ func ScreenName(a *App) string {
 	switch a.screen.(type) {
 	case *roundScreen:
 		return "round"
-	case *resultsScreen:
-		return "results"
 	case *partResults:
 		return "part-results"
-	case *homeScreen:
-		return "home"
-	case *careerScreen:
-		return "career"
 	case *statsScreen:
 		return "stats"
 	case *firstRunScreen:
@@ -141,55 +135,37 @@ func SetGOOS(s string) func() {
 // or cuts it to the window.
 func RawView(a *App) string { return a.screen.View(a, a.W, a.H) }
 
-// Label is the text of a home entry.
-func (e menuEntry) Label() string { return e.label }
-
 // Centre places a block of text in the middle of a w × h area.
 func Centre(s string, w, h int) string { return centre(s, w, h) }
 
 // StatsOf returns the character statistics of the active layout.
 func StatsOf(a *App) *stats.Stats { return a.stats() }
 
-// LessonRound builds the round of a lesson, as the lesson list starts it. A nil
-// next returns home when the results are left.
-func LessonRound(a *App, id string, next func(*App) Screen) (Screen, error) {
-	spec, err := a.lessonSpec(id)
-	if err != nil {
-		return nil, err
+// LessonTestRound builds the round of a Test on new text, as the lesson screen starts
+// it, returning to that lesson screen.
+func LessonTestRound(a *App, id string) (Screen, error) {
+	part := lessonPart{
+		spec: func(a *App) (play.Spec, error) { return a.testSpec(id) },
+		back: func(a *App) Screen { return NewLessonScreen(a, id) },
 	}
-	return newRound(a, spec, next), nil
+	return part.round(a)
 }
 
-// LessonSpec is the spec of a lesson round.
-func LessonSpec(a *App, id string) (play.Spec, error) { return a.lessonSpec(id) }
-
-// ChapterTestOutRound builds the test-out round of a chapter.
-func ChapterTestOutRound(a *App, chapterID string) (Screen, error) {
-	for _, ch := range a.Curr.Chapters() {
-		if ch.ID != chapterID {
-			continue
-		}
-		spec, err := a.testOutSpec(ch)
-		if err != nil {
-			return nil, err
-		}
-		return newRound(a, spec, nil), nil
-	}
-	return nil, fmt.Errorf("unknown chapter %q", chapterID)
-}
-
-// SnippetRound builds a round on a snippet of the library, which no lesson of
-// the course has to use.
+// SnippetRound builds a Trénink on one snippet of the library, for a text that
+// is known beforehand.
 func SnippetRound(a *App, id string) (Screen, error) {
 	i := slices.IndexFunc(a.Lib.Snippets, func(s content.Snippet) bool { return s.ID == id })
 	if i < 0 {
 		return nil, fmt.Errorf("unknown snippet %q", id)
 	}
 	sn := a.Lib.Snippets[i]
-	spec := play.Spec{
-		Kind: play.KindCode, Title: sn.ID, Lang: sn.Lang, Text: sn.Text, Targets: a.chapterTargets(),
+	part := lessonPart{
+		spec: func(*App) (play.Spec, error) {
+			return play.Spec{Kind: play.KindTraining, Title: sn.ID, Lang: sn.Lang, Text: sn.Text}, nil
+		},
+		back: NewLessonsScreen,
 	}
-	return newRound(a, spec, nil), nil
+	return part.round(a)
 }
 
 // TeachStep is the line being typed in Výuka, or -1 while the explanation shows.

@@ -36,7 +36,7 @@ type teachScreen struct {
 // goes to next.
 func NewTeachScreen(a *App, lessonID string, next func(*App) Screen) Screen {
 	if next == nil {
-		next = func(a *App) Screen { return NewHomeScreen(a) }
+		next = NewLessonsScreen
 	}
 	ls, ok := a.Course.Lesson(lessonID)
 	tut, err := course.Tutorial{}, error(nil)
@@ -55,7 +55,7 @@ func NewTeachScreen(a *App, lessonID string, next func(*App) Screen) Screen {
 // exist, so that it never pauses on idle: nothing here is timed.
 func (t *teachScreen) startLine(a *App, i int) {
 	t.step = i
-	spec := play.Spec{Kind: play.KindLesson, Title: t.lesson.Title, LessonID: t.id, Text: t.tut.Lines[i], HintsOff: true}
+	spec := play.Spec{Title: t.lesson.Title, LessonID: t.id, Text: t.tut.Lines[i], HintsOff: true}
 	t.sess = play.New(spec, a.Layout, nil, true)
 }
 

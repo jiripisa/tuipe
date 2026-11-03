@@ -119,11 +119,11 @@ func TestFirstSampleDoesNotSetTheErrorRateRaw(t *testing.T) {
 	}
 }
 
-// A character placed as solid and typed for the first time with one slip must
-// not read as new because of it.
-func TestOneSlipKeepsAPlacedCharacterSolid(t *testing.T) {
+// An entry that is solid without a sample, typed for the first time with one
+// slip, must not read as new because of it.
+func TestOneSlipKeepsASolidCharacterSolid(t *testing.T) {
 	s := stats.New()
-	s.SetMastery('a', stats.Solid)
+	s.Chars["a"] = &stats.Entry{Mastery: stats.Solid}
 	text, log := typeText("a", func(rune) time.Duration { return 100 * time.Millisecond }, func(rune) int { return 1 })
 	s.Record(text, log, now)
 	eq(t, s.MasteryOf('a'), stats.Solid)
@@ -161,12 +161,6 @@ func TestStaleCharacterDecays(t *testing.T) {
 	eq(t, s.MasteryOf('a'), stats.Automatic)
 	s.Record(text, log, now.Add(13*24*time.Hour+15*24*time.Hour))
 	eq(t, s.MasteryOf('a'), stats.Solid)
-}
-
-func TestSetMastery(t *testing.T) {
-	s := stats.New()
-	s.SetMastery('x', stats.Solid)
-	eq(t, s.MasteryOf('x'), stats.Solid)
 }
 
 func TestWeakestCharsPrefersSlowAndWrong(t *testing.T) {
@@ -259,7 +253,7 @@ func TestStalestCharsOldestFirstNeverSeenFirstOfAll(t *testing.T) {
 	s.Chars["a"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-time.Hour)}
 	s.Chars["b"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-30 * 24 * time.Hour)}
 	s.Chars["c"] = &stats.Entry{Samples: 50, LastSeen: now.Add(-48 * time.Hour)}
-	s.SetMastery('d', stats.Solid) // skipped by placement, never typed
+	s.Chars["d"] = &stats.Entry{Mastery: stats.Solid} // never typed
 	got := s.StalestChars(5, []rune("abcde"), now)
 	if string(got) != "debca" {
 		t.Errorf("order = %q, want the never typed d and e, then b, c, a", string(got))
@@ -291,16 +285,16 @@ func TestMasteryAtDecaysWhileUnseen(t *testing.T) {
 	eq(t, s.MasteryAt('z', now), stats.NewChar)
 }
 
-func TestMasteryAtKeepsASkippedCharacterThatWasNeverTyped(t *testing.T) {
+func TestMasteryAtKeepsACharacterThatWasNeverTyped(t *testing.T) {
 	s := stats.New()
-	s.SetMastery('x', stats.Solid)
+	s.Chars["x"] = &stats.Entry{Mastery: stats.Solid}
 	eq(t, s.MasteryAt('x', now.Add(365*24*time.Hour)), stats.Solid)
 }
 
 func TestTypedCountsSamplesOfCharacters(t *testing.T) {
 	s := stats.New()
 	eq(t, s.Typed(), 0)
-	s.SetMastery('x', stats.Solid) // placed, never typed
+	s.Chars["x"] = &stats.Entry{Mastery: stats.Solid} // no samples
 	eq(t, s.Typed(), 0)
 	text, log := fastClean("abab")
 	s.Record(text, log, now)

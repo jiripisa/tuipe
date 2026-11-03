@@ -41,7 +41,7 @@ func czech(t *testing.T) *layout.Layout {
 func solid(text string) *stats.Stats {
 	s := stats.New()
 	for _, r := range text {
-		s.SetMastery(r, stats.Solid)
+		s.Chars[string(r)] = &stats.Entry{Mastery: stats.Solid}
 	}
 	return s
 }
@@ -474,7 +474,7 @@ func TestHintsReadMasteryDecayedByTheClock(t *testing.T) {
 		return s
 	}
 	hintAfterHesitating := func(st *stats.Stats) *play.HintInfo {
-		s := play.New(play.Spec{Kind: play.KindDrill, Text: "aa"}, czech(t), st, true)
+		s := play.New(play.Spec{Kind: play.KindTraining, Text: "aa"}, czech(t), st, true)
 		s.Tick(at(0))
 		s.Tick(at(2100))
 		return s.Frame(at(2100)).Hint

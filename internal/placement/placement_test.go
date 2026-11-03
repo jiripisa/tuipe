@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/curriculum"
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/placement"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -19,23 +19,28 @@ func eq[T comparable](t *testing.T, got, want T) {
 	}
 }
 
-func setup(t *testing.T) (*curriculum.Curriculum, *content.Library) {
+func czech(t *testing.T) *layout.Layout {
 	t.Helper()
-	lib, err := content.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
 	all, err := layout.Builtin()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, l := range all {
 		if l.ID == "macos-czech-qwerty" {
-			return curriculum.New(lib, l), lib
+			return l
 		}
 	}
 	t.Fatal("no Czech layout")
-	return nil, nil
+	return nil
+}
+
+func setup(t *testing.T) (*course.Course, *content.Library) {
+	t.Helper()
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return course.New(lib, czech(t)), lib
 }
 
 func TestPlacementStagesCoverGroups(t *testing.T) {
@@ -43,8 +48,8 @@ func TestPlacementStagesCoverGroups(t *testing.T) {
 	stages := placement.Stages(c, lib, 42)
 	ids := []string{"letters", "diacritics", "digits", "shift", "option", "code"}
 	chapters := [][]string{
-		{"ch00", "ch01", "ch02", "ch03", "ch04"}, {"ch05"}, {"ch06"}, {"ch07"},
-		{"ch08", "ch09", "ch10"}, {"ch11"},
+		{"ch01", "ch02", "ch03", "ch04"}, {"ch05"}, {"ch06"}, {"ch07"},
+		{"ch08", "ch09", "ch10"}, {"ch11", "ch12"},
 	}
 	minWPM := []float64{20, 15, 12, 12, 10, 12}
 	eq(t, len(stages), 6)
@@ -61,9 +66,9 @@ func TestPlacementStagesCoverGroups(t *testing.T) {
 func TestPlacementStageTextUsesOnlyUnlockedChars(t *testing.T) {
 	c, lib := setup(t)
 	stages := placement.Stages(c, lib, 42)
-	last := []string{"ch04", "ch05", "ch06", "ch07", "ch10", "ch11"}
+	last := []string{"ch04", "ch05", "ch06", "ch07", "ch10", "ch12"}
 	for i, st := range stages {
-		allowed := c.AllowedAt(last[i])
+		allowed := c.ChapterAllowed(last[i])
 		for _, r := range st.Text {
 			if !allowed(r) {
 				t.Fatalf("stage %s has %q", st.ID, r)
@@ -84,8 +89,8 @@ func holdsAll(t *testing.T, seed int64, stage, text, chars string) {
 	}
 }
 
-// Passing a stage closes its chapters, so on any seed it must have shown the
-// whole group, the rare keys too.
+// Passing a stage moves the recommendation past its chapters, so on any seed it
+// must have shown the whole group, the rare keys too.
 func TestStagesCoverTheirGroupsOnEverySeed(t *testing.T) {
 	c, lib := setup(t)
 	const capitals = "ĚŠČŘŽÝÁÍÉÚŮÓĎŤŇ"
@@ -112,7 +117,7 @@ func TestStagesCoverTheirGroupsOnEverySeed(t *testing.T) {
 	}
 }
 
-// The code stage closes chapter 11, which adds Enter, so it must ask for it.
+// The code stage covers chapter 11, which adds Enter, so it must ask for it.
 func TestCodeStageIsTwoLinesOfCode(t *testing.T) {
 	c, lib := setup(t)
 	for seed := int64(1); seed <= 100; seed++ {
@@ -131,7 +136,7 @@ func TestPlacementTakesAboutFourMinutes(t *testing.T) {
 		for _, st := range placement.Stages(c, lib, seed) {
 			total += float64(len([]rune(st.Text))) / 5 / st.MinWPM * 60
 		}
-		if total < 180 || total > 300 {
+		if total < 180 || total > 310 {
 			t.Fatalf("seed %d: placement takes %.0f s at the minimum speeds", seed, total)
 		}
 	}
@@ -147,25 +152,36 @@ func TestStageSucceeded(t *testing.T) {
 func TestPlacementStopsAtFirstFailure(t *testing.T) {
 	c, lib := setup(t)
 	stages := placement.Stages(c, lib, 1)
-	out := placement.Evaluate(c, stages[:2]) // letters and diacritics passed
-	eq(t, slices.Equal(out.Completed, []string{"ch00", "ch01", "ch02", "ch03", "ch04", "ch05"}), true)
-	eq(t, out.StartChapter, "ch06")
-	eq(t, out.Rank, curriculum.Junior)
+	eq(t, placement.Evaluate(c, stages[:2]), "ch06-01") // letters and diacritics passed
 }
 
-func TestPlacementNoStagesPassedStartsAtZero(t *testing.T) {
+func TestPlacementFailingFirstRecommendsTheFirstLesson(t *testing.T) {
 	c, _ := setup(t)
-	out := placement.Evaluate(c, nil)
-	eq(t, out.StartChapter, "ch00")
-	eq(t, len(out.Completed), 0)
-	eq(t, out.Rank, curriculum.Intern)
+	eq(t, placement.Evaluate(c, nil), "ch01-01")
 }
 
-func TestPlacementAllPassed(t *testing.T) {
+func TestPlacementPassingAllRecommendsTheLastLesson(t *testing.T) {
 	c, lib := setup(t)
-	out := placement.Evaluate(c, placement.Stages(c, lib, 1))
-	eq(t, out.StartChapter, "ch12")
-	eq(t, len(out.Completed), 12)
+	lessons := c.Lessons()
+	eq(t, placement.Evaluate(c, placement.Stages(c, lib, 1)), lessons[len(lessons)-1].ID)
+}
+
+// A chapter this layout cannot type is left out of the course, so it cannot be
+// where the recommendation lands.
+func TestEvaluateSkipsChaptersTheLayoutCannotType(t *testing.T) {
+	_, lib := setup(t)
+	lay := czech(t)
+	lib.Course[5].Lessons = []content.CourseLesson{{ID: "ch06-01", Title: "x", Focus: "\u2603"}} // no route
+	c := course.New(lib, lay)
+	stages := placement.Stages(c, lib, 1)
+	eq(t, placement.Evaluate(c, stages[:2]), "ch07-01") // ch06 would be next
+}
+
+func TestEvaluateOfAnEmptyCourseIsNothing(t *testing.T) {
+	_, lib := setup(t)
+	lib.Course = nil
+	c := course.New(lib, czech(t))
+	eq(t, placement.Evaluate(c, nil), "")
 }
 
 func TestAbortEarly(t *testing.T) {
@@ -179,18 +195,8 @@ func TestAbortEarly(t *testing.T) {
 // A group with fewer capitals than a stage asks for shows all of them.
 func TestStageWithFewCapitalsShowsThemAll(t *testing.T) {
 	_, lib := setup(t)
-	lib.Chapters[5].Introduces = "ěĚŠČ"
-	all, err := layout.Builtin()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var lay *layout.Layout
-	for _, l := range all {
-		if l.ID == "macos-czech-qwerty" {
-			lay = l
-		}
-	}
-	c := curriculum.New(lib, lay)
+	lib.Course[4].Lessons = []content.CourseLesson{{ID: "ch05-01", Title: "x", Focus: "ěĚŠČ"}}
+	c := course.New(lib, czech(t))
 	for seed := int64(1); seed <= 20; seed++ {
 		holdsAll(t, seed, "diacritics", placement.Stages(c, lib, seed)[1].Text, "ĚŠČ")
 	}

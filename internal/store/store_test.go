@@ -38,9 +38,7 @@ func TestProfileRoundTrip(t *testing.T) {
 	st.Chars["a"] = &stats.Entry{LatencyMs: 210, ErrorRate: 0.05, Samples: 12, Mastery: stats.Learning, LastSeen: time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)}
 	p.Stats["mac-cs"] = st
 	p.Stars["l1"] = 3
-	p.Completed["c1"] = true
 	p.FirstRunDone = true
-	p.Resume = &Resume{Kind: "lesson", LessonID: "l1", Day: "2026-10-31"}
 	p.Recommended = "l2"
 	p.Taught["l1"] = true
 	if err := s.SaveProfile(); err != nil {
@@ -394,8 +392,8 @@ func TestGoldenV2ProfileLoads(t *testing.T) {
 	if b := p.Stats["macos-czech-qwerty"].Bigrams["st"]; b == nil || b.Samples != 12 {
 		t.Errorf("bigram entry = %+v", b)
 	}
-	if p.Stars["ch01-01"] != 2 || !p.Completed["ch01"] {
-		t.Errorf("progress = %+v %+v", p.Stars, p.Completed)
+	if p.Stars["ch01-01"] != 2 {
+		t.Errorf("stars = %+v", p.Stars)
 	}
 	if !p.FirstRunDone || !p.FocusTerminals["ghostty|tmux=false"] ||
 		p.LastUpdateCheck != "2026-10-30" || p.LatestSeen != "v1.0.0" || !p.SkipNoted["user-layout"] {
@@ -403,10 +401,6 @@ func TestGoldenV2ProfileLoads(t *testing.T) {
 	}
 	if p.Recommended != "ch02-01" || !p.Taught["ch01-01"] {
 		t.Errorf("course = %q %+v", p.Recommended, p.Taught)
-	}
-	r := p.Resume
-	if r == nil || r.Kind != "lesson" || r.LessonID != "ch01-01" || r.Day != "2026-10-30" {
-		t.Fatalf("resume = %+v", r)
 	}
 }
 
@@ -459,7 +453,7 @@ func TestSavingKeepsEveryKeyOfTheGoldenProfile(t *testing.T) {
 
 // Every field carries a JSON tag, so that a later rename in Go cannot drop data.
 func TestPersistedStructsHaveJSONTags(t *testing.T) {
-	for _, v := range []any{Profile{}, Resume{}, Run{}, stats.Stats{}, stats.Entry{}} {
+	for _, v := range []any{Profile{}, Run{}, stats.Stats{}, stats.Entry{}} {
 		ty := reflect.TypeOf(v)
 		for i := range ty.NumField() {
 			f := ty.Field(i)

@@ -16,8 +16,6 @@ import (
 	"github.com/jiripisa/tuipe/internal/ui/text"
 )
 
-const homeStats = 1 // downs from the first home entry to Statistiky
-
 var (
 	tab    = tea.KeyPressMsg{Code: tea.KeyTab}
 	right  = tea.KeyPressMsg{Code: tea.KeyRight}
@@ -36,7 +34,9 @@ func statsApp(t *testing.T, w, h int) (*ui.App, *store.Store, *clock) {
 
 func openStats(t *testing.T, a *ui.App) {
 	t.Helper()
-	openFromHome(t, a, homeStats, "stats")
+	ui.SetScreen(a, ui.NewLessonsScreen(a))
+	a.Update(key('s'))
+	wantScreen(t, a, "stats")
 }
 
 func addRun(t *testing.T, st *store.Store, r store.Run) {
@@ -52,13 +52,8 @@ func daysAgo(clk *clock, n int) time.Time { return clk.t.AddDate(0, 0, -n) }
 // lessonOf returns the first lesson of the chapter with the given number.
 func lessonOf(t *testing.T, a *ui.App, number int) (id, title string) {
 	t.Helper()
-	for _, ch := range a.Curr.Chapters() {
-		if ch.Number == number && len(ch.Lessons) > 0 {
-			return ch.Lessons[0].ID, ch.Lessons[0].Title
-		}
-	}
-	t.Fatalf("no chapter %d with lessons", number)
-	return "", ""
+	ls := firstOfChapter(t, a, fmt.Sprintf("ch%02d", number))
+	return ls.ID, ls.Title
 }
 
 // lineWith returns the n-th (0-based) line of the screen that starts with prefix after trimming.
@@ -78,19 +73,22 @@ func nthLine(s, prefix string, n int) string {
 func TestGitLogShowsHashWPMAccuracyAndStars(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
 	id, title := lessonOf(t, a, 1)
-	addRun(t, st, store.Run{ID: "a3f9c1e", At: daysAgo(clk, 0), Mode: "lesson", LessonID: id,
+	addRun(t, st, store.Run{ID: "a3f9c1e", At: daysAgo(clk, 0), Mode: store.ModeTest, LessonID: id,
 		WPM: 62, Accuracy: 0.981, Stars: 2})
-	addRun(t, st, store.Run{ID: "b7d20aa", At: daysAgo(clk, 1), Mode: "code", WPM: 40, Accuracy: 0.9, Stars: 0})
-	addRun(t, st, store.Run{ID: "c0ffee1", At: daysAgo(clk, 1).Add(-time.Hour), Mode: "drill", WPM: 30, Accuracy: 0.8})
+	addRun(t, st, store.Run{ID: "b7d20aa", At: daysAgo(clk, 1), Mode: store.ModePlacement, WPM: 40, Accuracy: 0.9, Stars: 0})
+	addRun(t, st, store.Run{ID: "c0ffee1", At: daysAgo(clk, 1).Add(-time.Hour), Mode: store.ModeTraining, LessonID: id, Length: "short", WPM: 30, Accuracy: 0.8})
 	openStats(t, a)
 	s := screen(a)
 
-	want := "a3f9c1e  62 wpm  98.1 %  ★★☆  " + title
+	want := "a3f9c1e  62 wpm  98.1 %  ★★☆  " + text.StatsModeTest + ": " + title
 	if !strings.Contains(s, want) {
 		t.Fatalf("git log lacks the line %q:\n%s", want, s)
 	}
-	if !strings.Contains(s, "b7d20aa") || !strings.Contains(s, text.StatsModeCode) {
-		t.Errorf("a non-lesson run must show its mode:\n%s", s)
+	if !strings.Contains(s, "b7d20aa") || !strings.Contains(s, text.StatsModePlacement) {
+		t.Errorf("a run of no lesson must show its mode:\n%s", s)
+	}
+	if !strings.Contains(s, text.StatsModeTraining+": "+title) {
+		t.Errorf("a Trénink must show its mode and lesson:\n%s", s)
 	}
 	if !(strings.Index(s, "a3f9c1e") < strings.Index(s, "b7d20aa") && strings.Index(s, "b7d20aa") < strings.Index(s, "c0ffee1")) {
 		t.Errorf("runs are not newest first:\n%s", s)
@@ -108,7 +106,7 @@ func TestGitLogShowsHashWPMAccuracyAndStars(t *testing.T) {
 func TestUptimeOnHeaderCountsConsecutiveDays(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
 	for i := range 3 {
-		addRun(t, st, store.Run{ID: fmt.Sprintf("r%d", i), At: daysAgo(clk, i), Mode: "drill", WPM: 30, Accuracy: 0.95})
+		addRun(t, st, store.Run{ID: fmt.Sprintf("r%d", i), At: daysAgo(clk, i), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	}
 	openStats(t, a)
 	if s := screen(a); !strings.Contains(s, "up 3 days") {
@@ -118,9 +116,9 @@ func TestUptimeOnHeaderCountsConsecutiveDays(t *testing.T) {
 
 func TestGitLogReadsRunsOnceOnEntering(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
-	addRun(t, st, store.Run{ID: "aaaaaaa", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "aaaaaaa", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	openStats(t, a)
-	addRun(t, st, store.Run{ID: "bbbbbbb", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "bbbbbbb", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	if s := screen(a); strings.Contains(s, "bbbbbbb") {
 		t.Errorf("runs were read again after entering the screen:\n%s", s)
 	}
@@ -136,7 +134,7 @@ func TestGitLogScrollsBeyondWindowHeight(t *testing.T) {
 	const n = 50
 	for i := range n { // i = 0 is the newest
 		addRun(t, st, store.Run{ID: fmt.Sprintf("run%04d", i), At: daysAgo(clk, 0).Add(-time.Duration(i) * time.Minute),
-			Mode: "drill", WPM: 30, Accuracy: 0.95})
+			Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	}
 	openStats(t, a)
 	selected := func() string { return nthLine(screen(a), ">", 0) }
@@ -204,7 +202,7 @@ func keyStyle(t *testing.T, raw, label string) string {
 
 func TestHeatmapColoursByWeakness(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 40)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	setStats(a, map[rune]stats.Entry{
 		'a': {LatencyMs: 800, Samples: 10}, // weakness 0.8: the highest
 		'd': {LatencyMs: 400, Samples: 10}, // half of it
@@ -227,7 +225,7 @@ func TestHeatmapColoursByWeakness(t *testing.T) {
 
 func TestHeatmapUsesLastChordKeyOfTheRoute(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 40)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	// "A" is typed with Shift on the key of "a": the key heats, not a Shift key.
 	setStats(a, map[rune]stats.Entry{'A': {LatencyMs: 800, Samples: 10}})
 	openHeatmap(t, a)
@@ -247,7 +245,7 @@ func TestHeatmapUsesLastChordKeyOfTheRoute(t *testing.T) {
 
 func TestFingerSummaryNamesWeakestFinger(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 40)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	// The left ring finger has the weakest single key (s), but the left pinky
 	// has the larger sum (a + q).
 	setStats(a, map[rune]stats.Entry{
@@ -274,7 +272,7 @@ func TestFingerSummaryNamesWeakestFinger(t *testing.T) {
 
 func TestHeatmapListsAtMostEightCharsAndFitsMinimumWindow(t *testing.T) {
 	a, st, clk := statsApp(t, 60, 18)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	chars := map[rune]stats.Entry{}
 	for i, r := range "asdfjklqwerty" {
 		chars[r] = stats.Entry{LatencyMs: float64(1000 - 50*i), Samples: 10}
@@ -298,7 +296,7 @@ func TestHeatmapListsAtMostEightCharsAndFitsMinimumWindow(t *testing.T) {
 
 func TestHeatmapOfEmptyStatsShowsMessage(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	openHeatmap(t, a)
 	if s := screen(a); !strings.Contains(s, text.StatsHeatEmpty) {
 		t.Errorf("empty heatmap lacks %q:\n%s", text.StatsHeatEmpty, s)
@@ -307,7 +305,7 @@ func TestHeatmapOfEmptyStatsShowsMessage(t *testing.T) {
 
 func TestShowingAHintHereIsNotHintUse(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 40)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	setStats(a, map[rune]stats.Entry{'a': {LatencyMs: 800, Samples: 10, Mastery: stats.Learning}})
 	before := *a.Store.Profile().Stats[a.Layout.ID].Chars["a"]
 	openHeatmap(t, a)
@@ -337,7 +335,7 @@ func TestTrendsOverallAndPerGroup(t *testing.T) {
 	n := 0
 	run := func(day int, lesson string, wpm, acc float64) {
 		n++
-		addRun(t, st, store.Run{ID: fmt.Sprintf("t%d", n), At: daysAgo(clk, day), Mode: "lesson", LessonID: lesson, WPM: wpm, Accuracy: acc})
+		addRun(t, st, store.Run{ID: fmt.Sprintf("t%d", n), At: daysAgo(clk, day), Mode: store.ModeTest, LessonID: lesson, WPM: wpm, Accuracy: acc})
 	}
 	// Diacritics rise 10, 20, 30; letters fall 30, 20, 10; the others have one day.
 	for i, w := range []float64{10, 20, 30} {
@@ -347,8 +345,8 @@ func TestTrendsOverallAndPerGroup(t *testing.T) {
 	run(0, digits, 25, 0.95)
 	run(0, shift, 26, 0.96)
 	run(0, option, 27, 0.97)
-	// A drill has no chapter: overall only.
-	addRun(t, st, store.Run{ID: "drill", At: daysAgo(clk, 3), Mode: "drill", WPM: 20, Accuracy: 0.9})
+	// A run of no lesson has no chapter: overall only.
+	addRun(t, st, store.Run{ID: "drill", At: daysAgo(clk, 3), Mode: store.ModeTraining, WPM: 20, Accuracy: 0.9})
 	openTrends(t, a)
 	s := screen(a)
 
@@ -375,9 +373,9 @@ func TestTrendsOverallAndPerGroup(t *testing.T) {
 			t.Errorf("accuracy trend of %s is missing:\n%s", label, s)
 		}
 	}
-	// Overall: the drill day and the three lesson days.
+	// Overall: the day without a lesson and the three lesson days.
 	if got := glyphs(nthLine(s, text.StatsGroupOverall, 0)); len([]rune(got)) != 4 {
-		t.Errorf("overall WPM trend = %q, want 4 days (drill included):\n%s", got, s)
+		t.Errorf("overall WPM trend = %q, want 4 days:\n%s", got, s)
 	}
 	if got := glyphs(nthLine(s, text.StatsGroupOverall, 1)); len([]rune(got)) != 4 {
 		t.Errorf("overall accuracy trend = %q, want 4 days:\n%s", got, s)
@@ -392,10 +390,10 @@ func TestTrendsUseDailyMediansOfTheLast30ActiveDays(t *testing.T) {
 	// 35 active days; the sparkline keeps the newest 30. A day of three runs
 	// with 10, 20 and 90 WPM has the median 20.
 	for d := range 35 {
-		addRun(t, st, store.Run{ID: fmt.Sprintf("d%02d", d), At: daysAgo(clk, d*2), Mode: "drill", WPM: 50, Accuracy: 0.95})
+		addRun(t, st, store.Run{ID: fmt.Sprintf("d%02d", d), At: daysAgo(clk, d*2), Mode: store.ModeTraining, WPM: 50, Accuracy: 0.95})
 	}
 	for i, w := range []float64{10, 90, 20} {
-		addRun(t, st, store.Run{ID: fmt.Sprintf("m%d", i), At: daysAgo(clk, 1).Add(time.Duration(i) * time.Minute), Mode: "drill", WPM: w, Accuracy: 0.95})
+		addRun(t, st, store.Run{ID: fmt.Sprintf("m%d", i), At: daysAgo(clk, 1).Add(time.Duration(i) * time.Minute), Mode: store.ModeTraining, WPM: w, Accuracy: 0.95})
 	}
 	openTrends(t, a)
 	l := nthLine(screen(a), text.StatsGroupOverall, 0)
@@ -427,41 +425,36 @@ func TestEmptyHistoryShowsFriendlyMessage(t *testing.T) {
 	}
 }
 
-func TestPersonalBestsPerMode(t *testing.T) {
+func TestPersonalBestIsOfTheTests(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
 	id, _ := lessonOf(t, a, 1)
 	add := func(r store.Run) {
 		r.At = daysAgo(clk, 0)
 		addRun(t, st, r)
 	}
-	add(store.Run{ID: "l1", Mode: "lesson", LessonID: id, WPM: 50, Accuracy: 0.97, Score: 44})
-	add(store.Run{ID: "l2", Mode: "lesson", LessonID: id, WPM: 55, Accuracy: 0.96, Score: 46.7}) // best
-	add(store.Run{ID: "l3", Mode: "lesson", LessonID: id, WPM: 90, Accuracy: 0.99, Score: 86, Paused: true})
-	add(store.Run{ID: "c1", Mode: "code", WPM: 33, Accuracy: 0.931, Score: 24.8})
+	add(store.Run{ID: "l1", Mode: store.ModeTest, LessonID: id, WPM: 50, Accuracy: 0.97, Score: 44})
+	add(store.Run{ID: "l2", Mode: store.ModeTest, LessonID: id, WPM: 55, Accuracy: 0.96, Score: 46.7}) // best
+	add(store.Run{ID: "l3", Mode: store.ModeTest, LessonID: id, WPM: 90, Accuracy: 0.99, Score: 86, Paused: true})
+	add(store.Run{ID: "t1", Mode: store.ModeTraining, LessonID: id, Length: "short", WPM: 80, Accuracy: 0.99, Score: 79})
+	add(store.Run{ID: "p1", Mode: store.ModePlacement, WPM: 70, Accuracy: 0.99, Score: 69})
 	openStats(t, a)
 	for range 3 {
 		a.Update(tab)
 	}
 	s := screen(a)
-	for mode, want := range map[string]string{
-		text.StatsModeLesson: "55 wpm  96.0 %",
-		text.StatsModeCode:   "33 wpm  93.1 %",
-	} {
-		if l := nthLine(s, mode, 0); !strings.Contains(l, want) {
-			t.Errorf("record of %s = %q, want it to contain %q:\n%s", mode, l, want, s)
+	if l := nthLine(s, text.StatsModeTest, 0); !strings.Contains(l, "55 wpm  96.0 %") {
+		t.Errorf("record of the tests = %q:\n%s", l, s)
+	}
+	for _, not := range []string{"90 wpm", "80 wpm", "70 wpm"} {
+		if strings.Contains(s, not) {
+			t.Errorf("%s is a paused run or no Test, and counted as a record:\n%s", not, s)
 		}
-	}
-	if strings.Contains(s, "90 wpm") {
-		t.Errorf("a paused run counted as a record:\n%s", s)
-	}
-	if l := nthLine(s, text.StatsSessionStandup, 0); l != "" {
-		t.Errorf("a mode without runs must not be listed: %q", l)
 	}
 }
 
-func TestTabsSwitchWithTabAndArrowsAndEscGoesHome(t *testing.T) {
+func TestTabsSwitchWithTabAndArrowsAndEscGoesToTheList(t *testing.T) {
 	a, st, clk := statsApp(t, 80, 24)
-	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: "drill", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "r", At: daysAgo(clk, 0), Mode: store.ModeTraining, WPM: 30, Accuracy: 0.95})
 	openStats(t, a)
 	bracket := regexp.MustCompile(`\[[^\]]+\]`)
 	marker := func() string { // the active tab is bracketed
@@ -493,72 +486,14 @@ func TestTabsSwitchWithTabAndArrowsAndEscGoesHome(t *testing.T) {
 		t.Errorf("Left from the first tab must wrap: %q", m)
 	}
 	a.Update(esc)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("Esc leads to %s, want home", ui.ScreenName(a))
-	}
+	wantScreen(t, a, "lessons")
 }
 
-// onlyRun returns the single run in the store.
-func onlyRun(t *testing.T, st *store.Store) store.Run {
-	t.Helper()
-	runs, _ := st.Runs()
-	if len(runs) != 1 {
-		t.Fatalf("runs = %d, want 1", len(runs))
-	}
-	return runs[0]
-}
-
-func TestFinishWritesTheSessionOfEveryWayToStartARound(t *testing.T) {
-	t.Run("career", func(t *testing.T) {
-		a, st, clk := playApp(t)
-		tall(a)
-		openFromHome(t, a, homeCareer, "career")
-		a.Update(enter)
-		typeKeys(a, clk, -1)
-		if got := onlyRun(t, st).Session; got != "career" {
-			t.Errorf("Session = %q, want career", got)
-		}
-	})
-}
-
-func TestRecordsPerSessionAndMode(t *testing.T) {
-	a, st, clk := statsApp(t, 80, 24)
-	id, _ := lessonOf(t, a, 1)
-	add := func(r store.Run) {
-		r.At = daysAgo(clk, 0)
-		addRun(t, st, r)
-	}
-	add(store.Run{ID: "q1", Session: "quick", Mode: "drill", WPM: 41, Accuracy: 0.95, Score: 33})
-	add(store.Run{ID: "q0", Mode: "drill", WPM: 44, Accuracy: 0.96, Score: 37}) // no session: quick
-	add(store.Run{ID: "s1", Session: "standup", Mode: "drill", WPM: 52, Accuracy: 0.97, Score: 46})
-	add(store.Run{ID: "p1", Session: "sprint", Mode: "lesson", LessonID: id, WPM: 58, Accuracy: 0.98, Score: 53})
-	add(store.Run{ID: "p2", Session: "sprint", Mode: "code", WPM: 60, Accuracy: 0.99, Score: 57, Paused: true})
-	add(store.Run{ID: "l1", Session: "career", Mode: "lesson", LessonID: id, WPM: 47, Accuracy: 0.94, Score: 36})
-	openStats(t, a)
-	for range 3 {
-		a.Update(tab)
-	}
-	s := screen(a)
-	for label, want := range map[string]string{
-		text.StatsSessionQuick:   "44 wpm  96.0 %",
-		text.StatsSessionStandup: "52 wpm  97.0 %",
-		text.StatsSessionSprint:  "58 wpm  98.0 %",
-		text.StatsModeLesson:     "58 wpm  98.0 %",
-	} {
-		if l := nthLine(s, label, 0); !strings.Contains(l, want) {
-			t.Errorf("record %q = %q, want it to contain %q:\n%s", label, l, want, s)
-		}
-	}
-	if l := nthLine(s, text.StatsModeCode, 0); l != "" {
-		t.Errorf("a paused run set a code record: %q", l)
-	}
-}
-
-func TestGitLogNamesTheSessionAndAlignsAccuracy(t *testing.T) {
+func TestGitLogNamesTheModeAndAlignsAccuracy(t *testing.T) {
 	a, st, clk := statsApp(t, 100, 30)
-	addRun(t, st, store.Run{ID: "aaaaaaa", At: daysAgo(clk, 0), Session: "standup", Mode: "drill", WPM: 70, Accuracy: 1, Stars: 3})
-	addRun(t, st, store.Run{ID: "bbbbbbb", At: daysAgo(clk, 0).Add(-time.Minute), Session: "sprint", Mode: "code", WPM: 5, Accuracy: 0.5})
-	addRun(t, st, store.Run{ID: "ccccccc", At: daysAgo(clk, 0).Add(-2 * time.Minute), Session: "quick", Mode: "drill", WPM: 30, Accuracy: 0.9})
+	addRun(t, st, store.Run{ID: "aaaaaaa", At: daysAgo(clk, 0), Mode: store.ModeTest, WPM: 70, Accuracy: 1, Stars: 3})
+	addRun(t, st, store.Run{ID: "bbbbbbb", At: daysAgo(clk, 0).Add(-time.Minute), Mode: store.ModeTraining, WPM: 5, Accuracy: 0.5})
+	addRun(t, st, store.Run{ID: "ccccccc", At: daysAgo(clk, 0).Add(-2 * time.Minute), Mode: store.ModePlacement, WPM: 30, Accuracy: 0.9})
 	openStats(t, a)
 	s := screen(a)
 	stars := func(id string) int { // the offset of the stars from the hash
@@ -573,49 +508,13 @@ func TestGitLogNamesTheSessionAndAlignsAccuracy(t *testing.T) {
 		t.Errorf("the stars column is not aligned (100.0 %% pushes it):\n%s", s)
 	}
 	for id, want := range map[string]string{
-		"aaaaaaa": text.StatsSessionStandup, "bbbbbbb": text.StatsSessionSprint, "ccccccc": text.StatsSessionQuick,
+		"aaaaaaa": text.StatsModeTest, "bbbbbbb": text.StatsModeTraining, "ccccccc": text.StatsModePlacement,
 	} {
 		if l := nthLine(s, id, 0); !strings.Contains(l, want) {
 			if l = nthLine(s, "> "+id, 0); !strings.Contains(l, want) {
-				t.Errorf("line of %s lacks the session %q: %q", id, want, l)
+				t.Errorf("line of %s lacks the mode %q: %q", id, want, l)
 			}
 		}
-	}
-}
-
-func TestRecordLabelsAreCapitalised(t *testing.T) {
-	a, st, clk := statsApp(t, 80, 24)
-	id, _ := lessonOf(t, a, 1)
-	for i, r := range []store.Run{
-		{Session: "quick", Mode: "drill"},
-		{Session: "career", Mode: "lesson", LessonID: id},
-		{Session: "career", Mode: "code"},
-		{Session: "standup", Mode: "drill"},
-		{Session: "sprint", Mode: "drill"},
-	} {
-		r.ID, r.At, r.WPM, r.Accuracy, r.Score = fmt.Sprintf("x%d", i), daysAgo(clk, 0), 40, 0.95, 30
-		addRun(t, st, r)
-	}
-	openStats(t, a)
-	for range 3 {
-		a.Update(tab)
-	}
-	s := screen(a)
-	for _, row := range []string{"Rychlovka", "Lekce", "Kód", "Standup", "Sprint"} {
-		if !strings.Contains(s, "│"+row+" ") && !strings.Contains(s, row+"  ") {
-			t.Errorf("no record row %q:\n%s", row, s)
-		}
-	}
-	for _, bad := range []string{"lekce", "kód", "drill"} {
-		if strings.Contains(s, bad) {
-			t.Errorf("record rows must be capitalised, found %q:\n%s", bad, s)
-		}
-	}
-	a.Update(left)
-	a.Update(left)
-	a.Update(left)
-	if !strings.Contains(screen(a), "Drill · Rychlovka") {
-		t.Errorf("git log lacks %q:\n%s", "Drill · Rychlovka", screen(a))
 	}
 }
 
@@ -624,8 +523,8 @@ func TestRecordLabelsAreCapitalised(t *testing.T) {
 func TestCodeChaptersHaveATrendOfTheirOwn(t *testing.T) {
 	a, st, clk := playApp(t)
 	a.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-	addRun(t, st, store.Run{ID: "c11", At: daysAgo(clk, 2), Mode: "lesson", LessonID: "ch11-01", WPM: 30, Accuracy: 0.95})
-	addRun(t, st, store.Run{ID: "c12", At: daysAgo(clk, 1), Mode: "lesson", LessonID: "ch12-01", WPM: 40, Accuracy: 0.96})
+	addRun(t, st, store.Run{ID: "c11", At: daysAgo(clk, 2), Mode: store.ModeTest, LessonID: "ch11-01", WPM: 30, Accuracy: 0.95})
+	addRun(t, st, store.Run{ID: "c12", At: daysAgo(clk, 1), Mode: store.ModeTest, LessonID: "ch12-01", WPM: 40, Accuracy: 0.96})
 	openTrends(t, a)
 	s := screen(a)
 	line := nthLine(s, text.StatsGroupCode, 0)

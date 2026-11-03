@@ -1,6 +1,6 @@
-// Package placement defines the placement test (Vstupní pohovor): short stages
-// of rising difficulty, one per chapter group, and what their result grants.
-// It never reads the clock or global randomness.
+// Package placement defines the placement test (Vstupní test): short stages of
+// rising difficulty, one per chapter group, and the lesson their result
+// recommends. It never reads the clock or global randomness.
 package placement
 
 import (
@@ -9,10 +9,9 @@ import (
 	"unicode"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/curriculum"
+	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/generate"
 	"github.com/jiripisa/tuipe/internal/score"
-	"github.com/jiripisa/tuipe/internal/store"
 )
 
 const (
@@ -28,57 +27,42 @@ const (
 type Stage struct {
 	ID, Title, Text     string
 	MinWPM, MinAccuracy float64
-	Chapters            []string // chapters passing the stage completes
-}
-
-// Outcome is the result of the test.
-type Outcome struct {
-	Completed    []string // chapters to complete, in order
-	StartChapter string
-	Rank         curriculum.Rank
+	Chapters            []string // chapters passing the stage covers
 }
 
 type group struct {
-	id, title   string
-	first, last int // chapter numbers
-	length      int // characters of text
-	minWPM      float64
+	id, title string
+	chapters  []string
+	length    int // characters of text
+	minWPM    float64
 }
 
 // Lengths give each stage about 30 s at its minimum speed before coverage,
 // which writes whatever the group still lacks; the code stage is whole lines of
-// a snippet.
+// a snippet. The last chapter reviews what the others teach, so the code stage,
+// the last one, covers it too.
 var groups = []group{
-	{"letters", "Letters", 0, 4, 50, 20},
-	{"diacritics", "Diacritics", 5, 5, 38, 15},
-	{"digits", "Digits", 6, 6, 20, 12},
-	{"shift", "Shift symbols", 7, 7, 20, 12},
-	{"option", "Option symbols", 8, 10, 25, 10},
-	{"code", "Real code", 11, 11, 0, 12},
+	{"letters", "Letters", []string{"ch01", "ch02", "ch03", "ch04"}, 50, 20},
+	{"diacritics", "Diacritics", []string{"ch05"}, 38, 15},
+	{"digits", "Digits", []string{"ch06"}, 20, 12},
+	{"shift", "Shift symbols", []string{"ch07"}, 20, 12},
+	{"option", "Option symbols", []string{"ch08", "ch09", "ch10"}, 25, 10},
+	{"code", "Real code", []string{"ch11", "ch12"}, 0, 12},
 }
 
 // Stages returns the six stages in order. The text of each is fixed by seed,
-// uses only characters unlocked up to the last chapter of its group and covers
+// uses only characters taught up to the last chapter of its group and covers
 // that group, see required.
 // Hints are off during the test; the UI applies that.
-func Stages(c *curriculum.Curriculum, lib *content.Library, seed int64) []Stage {
-	chapters := c.Chapters()
+func Stages(c *course.Course, lib *content.Library, seed int64) []Stage {
 	var stages []Stage
 	for i, g := range groups {
-		st := Stage{ID: g.id, Title: g.title, MinWPM: g.minWPM, MinAccuracy: minAccuracy}
-		lastID := ""
-		for _, ch := range chapters {
-			if ch.Number >= g.first && ch.Number <= g.last {
-				st.Chapters = append(st.Chapters, ch.ID)
-				lastID = ch.ID
-			}
-		}
-		unlocked := c.AllowedAt(lastID)
-		allowed := func(r rune) bool { return unlocked(r) && c.CanType(r) }
+		st := Stage{ID: g.id, Title: g.title, MinWPM: g.minWPM, MinAccuracy: minAccuracy, Chapters: g.chapters}
+		allowed := c.ChapterAllowed(g.chapters[len(g.chapters)-1])
 		if g.id == "code" {
 			st.Text = codeText(lib, allowed, seed+int64(i))
 		} else {
-			focus := introduced(chapters, g.first, g.last)
+			focus := introduced(c, g.chapters)
 			st.Text = generate.Cover(lib, generate.Input{
 				Focus:   focus,
 				Allowed: allowed,
@@ -91,12 +75,18 @@ func Stages(c *curriculum.Curriculum, lib *content.Library, seed int64) []Stage 
 	return stages
 }
 
-// introduced lists the characters chapters first..last introduce.
-func introduced(chapters []content.ChapterDef, first, last int) []rune {
+// introduced lists the characters the given chapters teach. A review lesson
+// teaches none.
+func introduced(c *course.Course, chapters []string) []rune {
 	var rs []rune
-	for _, ch := range chapters {
-		if ch.Number >= max(first, 1) && ch.Number <= last {
-			rs = append(rs, []rune(ch.Introduces)...)
+	for _, ch := range c.Chapters() {
+		if !slices.Contains(chapters, ch.ID) {
+			continue
+		}
+		for _, ls := range ch.Lessons {
+			if !ls.Review {
+				rs = append(rs, ls.Focus...)
+			}
 		}
 	}
 	return rs
@@ -166,30 +156,24 @@ func AbortEarly(chars, wrong int) bool {
 	return chars >= abortMinChar && float64(wrong)/float64(chars) > abortWrong
 }
 
-// Evaluate turns the passed stages into the chapters to complete, the chapter
-// to start at (the first one not completed, the last chapter when all are) and
-// the rank the completed chapters hold.
-func Evaluate(c *curriculum.Curriculum, passed []Stage) Outcome {
+// Evaluate turns the passed stages into the lesson to start from: the first
+// lesson of the first chapter not passed, or the last lesson when all are. It
+// is empty for a course without lessons.
+func Evaluate(c *course.Course, passed []Stage) string {
 	done := map[string]bool{}
 	for _, st := range passed {
 		for _, id := range st.Chapters {
 			done[id] = true
 		}
 	}
-	var out Outcome
-	profile := &store.Profile{}
-	chapters := c.Chapters()
-	for _, ch := range chapters {
-		if done[ch.ID] {
-			out.Completed = append(out.Completed, ch.ID)
-			c.CompleteChapter(profile, ch.ID)
-		} else if out.StartChapter == "" {
-			out.StartChapter = ch.ID
+	for _, ch := range c.Chapters() {
+		if !done[ch.ID] {
+			return ch.Lessons[0].ID
 		}
 	}
-	if out.StartChapter == "" && len(chapters) > 0 {
-		out.StartChapter = chapters[len(chapters)-1].ID
+	lessons := c.Lessons()
+	if len(lessons) == 0 {
+		return ""
 	}
-	out.Rank = c.RankOf(profile)
-	return out
+	return lessons[len(lessons)-1].ID
 }

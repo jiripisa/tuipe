@@ -12,21 +12,16 @@ func TestCzechPlurals(t *testing.T) {
 			t.Errorf("Rounds(%d) = %q, want %q", n, got, want)
 		}
 	}
-	for n, want := range map[int]string{1: "1 kapitola", 3: "3 kapitoly", 12: "12 kapitol"} {
-		if got := text.Chapters(n); got != want {
-			t.Errorf("Chapters(%d) = %q, want %q", n, got, want)
-		}
-	}
 }
 
-func TestOfferSkippedAgreesWithItsNumber(t *testing.T) {
+func TestOfferPassedAgreesWithItsNumber(t *testing.T) {
 	for n, want := range map[int]string{
-		1: "Odemčena 1 kapitola před nástupem, bez hvězd. Její lekce zůstávají otevřené.",
-		3: "Odemčeny 3 kapitoly před nástupem, bez hvězd. Jejich lekce zůstávají otevřené.",
-		6: "Odemčeno 6 kapitol před nástupem, bez hvězd. Jejich lekce zůstávají otevřené.",
+		1: "Zvládli jste 1 fázi z 6.",
+		3: "Zvládli jste 3 fáze z 6.",
+		5: "Zvládli jste 5 fází z 6.",
 	} {
-		if got := text.OfferSkipped(n); got != want {
-			t.Errorf("OfferSkipped(%d) = %q", n, got)
+		if got := text.OfferPassed(n, 6); got != want {
+			t.Errorf("OfferPassed(%d, 6) = %q", n, got)
 		}
 	}
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/content"
-	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui"
 	"github.com/jiripisa/tuipe/internal/ui/style"
@@ -41,7 +40,6 @@ func TestScreenshots(t *testing.T) {
 	defer ui.SetGOOS("darwin")()
 
 	s := newSession(t, dir)
-	s.placedThroughChapter(7)
 	s.playWeeks()
 	s.shootRound()
 	s.shootHint()
@@ -100,21 +98,7 @@ func dayAt(day int) time.Time {
 	return time.Date(2026, 10, day, 9, 0, 0, 0, time.Local)
 }
 
-// placedThroughChapter skips the chapters up to last, as a placement test does.
-func (s *session) placedThroughChapter(last int) {
-	var ids []string
-	for _, ch := range s.a.Curr.Chapters() {
-		if ch.Number <= last {
-			ids = append(ids, ch.ID)
-		}
-	}
-	p := s.st.Profile()
-	p.Stats[shotLayout] = stats.New()
-	s.a.Curr.ApplySkip(p, p.Stats[shotLayout], ids)
-	p.Stats[shotLayout].SetMastery('\n', stats.Solid)
-}
-
-// playWeeks plays every day but one: a few lessons of the career.
+// playWeeks plays every day but one: a few Tests of the course.
 func (s *session) playWeeks() {
 	for day := firstDay; day < lastDay; day++ {
 		if day == skippedDay {
@@ -123,7 +107,7 @@ func (s *session) playWeeks() {
 		s.clk.t = dayAt(day)
 		s.wpm = startWPM + wpmPerDay*float64(day-firstDay) + s.rng.Float64()*3
 		for range roundsADay {
-			s.careerRound()
+			s.testRound()
 		}
 	}
 	s.clk.advance(endingWait)
@@ -132,11 +116,13 @@ func (s *session) playWeeks() {
 	s.wpm += 2
 }
 
-// careerRound plays the lesson the career list selects, as a user does.
-func (s *session) careerRound() {
-	ui.SetScreen(s.a, ui.NewHomeScreen(s.a))
-	s.a.Update(enter) // Kariéra
-	s.a.Update(enter) // the selected row
+// testRound plays the Test of the lesson the list selects, as a user does.
+func (s *session) testRound() {
+	ui.SetScreen(s.a, ui.NewLessonsScreen(s.a))
+	s.a.Update(enter) // the selected lesson
+	s.a.Update(down)
+	s.a.Update(down)
+	s.a.Update(enter) // its Test
 	s.playRound()
 	s.clk.advance(endingWait)
 	s.a.Update(esc)
@@ -204,15 +190,6 @@ func (s *session) typeUpTo(mark string) {
 	}
 }
 
-func (s *session) startLesson(id string) {
-	round, err := ui.LessonRound(s.a, id, nil)
-	if err != nil {
-		s.t.Fatal(err)
-	}
-	ui.SetScreen(s.a, round)
-	s.a.Update(ui.TickMsg(s.a))
-}
-
 func (s *session) startSnippet(id string) {
 	round, err := ui.SnippetRound(s.a, id)
 	if err != nil {
@@ -224,7 +201,7 @@ func (s *session) startSnippet(id string) {
 
 // shootRound is a Go lesson in the middle of a round.
 func (s *session) shootRound() {
-	s.startLesson("ch11-01")
+	s.startSnippet("go-1")
 	s.typeUpTo("return 0, fmt.Errorf")
 	s.a.Update(ui.TickMsg(s.a))
 	for _, st := range []style.ID{style.Editor, style.Fosfor, style.Velin} {
@@ -273,12 +250,8 @@ func (s *session) shootHint() {
 
 // shootShared draws the screens every style shares.
 func (s *session) shootShared() {
-	ui.SetScreen(s.a, ui.NewHomeScreen(s.a))
-	s.shoot("home", style.Editor)
-
-	ui.SetScreen(s.a, ui.NewCareerScreen(s.a))
-	s.shoot("career", style.Editor)
-	s.a.Update(esc)
+	ui.SetScreen(s.a, ui.NewLessonsScreen(s.a))
+	s.shoot("lessons", style.Editor)
 
 	ui.SetScreen(s.a, ui.NewStatsScreen(s.a))
 	right := tea.KeyPressMsg{Code: tea.KeyRight}
@@ -286,10 +259,10 @@ func (s *session) shootShared() {
 		s.shoot(name, style.Editor)
 		s.a.Update(right)
 	}
-	ui.SetScreen(s.a, ui.NewHomeScreen(s.a))
+	ui.SetScreen(s.a, ui.NewLessonsScreen(s.a))
 }
 
-// newPlacementShots plays a first run in a new profile up to the job offer.
+// newPlacementShots plays a first run in a new profile up to the test's result.
 func newPlacementShots(t *testing.T, dir string) {
 	s := newSession(t, dir)
 	s.st.Profile().FirstRunDone = false

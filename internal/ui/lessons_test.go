@@ -204,3 +204,89 @@ func TestListKeepsTheSelectionVisible(t *testing.T) {
 	downTo(t, a, last.ID)
 	showsAll(t, a, "> ", last.Title)
 }
+
+func TestListOffersTheCourseOnly(t *testing.T) {
+	a, _, _ := playApp(t)
+	showsAll(t, a, "S statistiky", "N nastavení")
+	for _, gone := range []string{"Kariéra", "Sprint", "standup", "Rychlovka", "pokračuj", "test-out", "zamčeno"} {
+		showsNone(t, a, gone)
+	}
+}
+
+func TestListShowsChaptersStarsAndRank(t *testing.T) {
+	a, st, _ := playApp(t)
+	tall(a)
+	ls := a.Course.Lessons()
+	for i, l := range ls {
+		if i < len(ls)/4 {
+			st.Profile().Stars[l.ID] = 3
+		}
+	}
+	st.Profile().Stars[ls[len(ls)/4].ID] = 1
+	openLessons(a)
+	showsAll(t, a, a.Course.Rank(st.Profile().Stars).String())
+	if got := a.Course.Rank(st.Profile().Stars).String(); got != "Junior" {
+		t.Fatalf("rank = %s, want Junior for a quarter of the stars", got)
+	}
+	for _, ch := range a.Course.Chapters() {
+		showsAll(t, a, ch.Title)
+	}
+	for id, stars := range map[string]string{ls[0].ID: "★★★", ls[len(ls)/4].ID: "★☆☆", ls[len(ls)-1].ID: "☆☆☆"} {
+		l, _ := a.Course.Lesson(id)
+		if line := lineWith(t, a, l.Title); !strings.Contains(line, stars) {
+			t.Errorf("row %q lacks %q", line, stars)
+		}
+	}
+}
+
+func TestListScrollsKeepingSelectionVisible(t *testing.T) {
+	a, _, _ := playApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	openLessons(a)
+	count := func() int { return strings.Count(view(a), "> ") }
+	total := len(a.Course.Lessons())
+	for i := 1; i < total; i++ {
+		a.Update(down)
+		wantScreen(t, a, "lessons")
+		if n := len(strings.Split(screen(a), "\n")); n > 18 {
+			t.Fatalf("row %d: %d lines, want at most 18", i, n)
+		}
+		if count() != 1 {
+			t.Fatalf("row %d: the selection is not on screen exactly once:\n%s", i, view(a))
+		}
+	}
+	for i := 1; i < total; i++ {
+		a.Update(up)
+	}
+	if got, want := ui.LessonsSelected(a), a.Course.Lessons()[0].ID; got != want {
+		t.Fatalf("selected %s, want %s", got, want)
+	}
+	showsAll(t, a, "> ", a.Course.Lessons()[0].Title)
+}
+
+func TestTestStarsReachTheList(t *testing.T) {
+	a, st, clk := playApp(t)
+	tall(a)
+	id := a.Course.Lessons()[0].ID
+	a.Update(enter) // the list opens on the first lesson
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter) // its Test
+	wantScreen(t, a, "round")
+	typeKeys(a, clk, -1)
+	if st.Profile().Stars[id] == 0 {
+		t.Fatal("a Test must record its stars")
+	}
+	runs, _ := st.Runs()
+	if len(runs) != 1 || runs[0].Mode != store.ModeTest {
+		t.Fatalf("runs = %+v, want one Test", runs)
+	}
+	a.Update(enter)
+	wantScreen(t, a, "lesson")
+	a.Update(esc)
+	wantScreen(t, a, "lessons")
+	if got := ui.LessonsSelected(a); got != id {
+		t.Errorf("selected %s, want %s", got, id)
+	}
+	showsAll(t, a, "★")
+}

@@ -1,12 +1,10 @@
 package ui_test
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +14,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jiripisa/tuipe/internal/course"
-	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/stats"
 	"github.com/jiripisa/tuipe/internal/store"
@@ -26,7 +23,6 @@ import (
 )
 
 const (
-	homeSettings   = 2 // downs from the first home entry to Nastavení
 	rowStyle       = 0
 	rowLayout      = 1
 	rowUpdateCheck = 2
@@ -35,7 +31,9 @@ const (
 
 func openSettings(t *testing.T, a *ui.App) {
 	t.Helper()
-	openFromHome(t, a, homeSettings, "settings")
+	ui.SetScreen(a, ui.NewLessonsScreen(a))
+	a.Update(key('n'))
+	wantScreen(t, a, "settings")
 }
 
 // onRow moves the selection from the first row to row n.
@@ -101,7 +99,7 @@ func TestSettingsChangeStyleLayoutUpdateCheck(t *testing.T) {
 	}
 }
 
-func TestSettingsEscGoesHomeAndRowsWrap(t *testing.T) {
+func TestSettingsEscGoesToTheListAndRowsWrap(t *testing.T) {
 	a, _, _ := playApp(t)
 	openSettings(t, a)
 	a.Update(tea.KeyPressMsg{Code: tea.KeyUp}) // wraps to the last row
@@ -111,21 +109,19 @@ func TestSettingsEscGoesHomeAndRowsWrap(t *testing.T) {
 	}
 	ui.SetScreen(a, ui.NewSettingsScreen(a))
 	a.Update(esc)
-	if ui.ScreenName(a) != "home" {
-		t.Errorf("Esc: %s, want home", ui.ScreenName(a))
-	}
+	wantScreen(t, a, "lessons")
 }
 
 func TestLayoutChangeTakesEffectAtOnce(t *testing.T) {
 	a, st, clk := playApp(t)
 	writeUserLayout(t, st, czechCopy(t))
-	before := a.Curr
+	before := a.Course
 	oldID := a.Layout.ID
 	openSettings(t, a)
 	onRow(a, rowLayout)
 	a.Update(enter)
-	if a.Layout.ID != "user-test" || a.Curr == before {
-		t.Fatalf("layout %s, curriculum rebuilt %v: the change must reach the session", a.Layout.ID, a.Curr != before)
+	if a.Layout.ID != "user-test" || a.Course == before {
+		t.Fatalf("layout %s, course rebuilt %v: the change must reach the session", a.Layout.ID, a.Course != before)
 	}
 	showsAll(t, a, text.SettingsLayoutWarn)
 
@@ -143,6 +139,35 @@ func TestLayoutChangeTakesEffectAtOnce(t *testing.T) {
 	if old := st.Profile().Stats[oldID]; old != nil && len(old.Chars) != 0 {
 		t.Errorf("the old layout's stats changed: %v", old.Chars)
 	}
+}
+
+func TestLayoutChangeKeepsTheListValid(t *testing.T) {
+	a, st, _ := playApp(t)
+	writeUserLayout(t, st, withoutBraces(t))
+	const gone = "ch08-03" // the lesson of { and }
+	st.Profile().Recommended = gone
+	before := a.Course
+	openSettings(t, a)
+	onRow(a, rowLayout)
+	a.Update(enter)
+	if a.Layout.ID != "user-test" {
+		t.Fatalf("layout = %s, want the user's", a.Layout.ID)
+	}
+	if a.Course == before {
+		t.Fatal("a layout change must rebuild the course")
+	}
+	if _, ok := a.Course.Lesson(gone); ok {
+		t.Fatalf("the new layout still has %s", gone)
+	}
+	a.Update(esc)
+	wantScreen(t, a, "lessons")
+	if got, want := ui.LessonsSelected(a), a.Course.Lessons()[0].ID; got != want {
+		t.Errorf("selected %q, want the first lesson %s", got, want)
+	}
+	showsNone(t, a, text.LessonRecommended)
+	wantText(t, a, "neumí některé znaky")
+	a.Update(enter)
+	wantScreen(t, a, "lesson")
 }
 
 func TestUserLayoutFromConfigDirIsListed(t *testing.T) {
@@ -185,19 +210,21 @@ func TestBrokenUserLayoutIsReportedNotFatal(t *testing.T) {
 
 func TestRetakePlacementFromSettings(t *testing.T) {
 	a, st, _ := playApp(t)
-	done := a.Curr.Chapters()[0].ID
-	st.Profile().Completed[done] = true
+	lessons := a.Course.Lessons()
+	st.Profile().Stars[lessons[0].ID] = 2
+	st.Profile().Recommended = lessons[4].ID
 	openSettings(t, a)
 	onRow(a, rowRetake)
+	wantText(t, a, text.SettingsRetakeNote)
 	a.Update(enter)
 	wantScreen(t, a, "placement")
 	showsAll(t, a, text.PlacementTitle)
-	a.Update(esc) // give up the test: the job offer follows
+	a.Update(esc) // give up the test: its result follows
 	showsAll(t, a, text.OfferTitle)
 	a.Update(enter)
-	wantScreen(t, a, "home")
-	if !st.Profile().Completed[done] {
-		t.Error("retaking the placement lowered the rank")
+	wantScreen(t, a, "lessons")
+	if st.Profile().Stars[lessons[0].ID] != 2 {
+		t.Error("retaking the placement changed the stars")
 	}
 }
 
@@ -261,7 +288,7 @@ func statsTab(n int) func(t *testing.T) *ui.App {
 	return playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id, _ := lessonOf(t, a, 1)
 		for i := range 40 {
-			addRun(t, st, store.Run{ID: fmt.Sprintf("r%05d", i), At: daysAgo(clk, i/3), Mode: "lesson", LessonID: id,
+			addRun(t, st, store.Run{ID: fmt.Sprintf("r%05d", i), At: daysAgo(clk, i/3), Mode: store.ModeTest, LessonID: id,
 				WPM: float64(30 + i), Accuracy: 0.95, Stars: i % 4})
 		}
 		chars := map[rune]stats.Entry{}
@@ -277,32 +304,6 @@ func statsTab(n int) func(t *testing.T) *ui.App {
 }
 
 var fitCases = []fitCase{
-	{"home-dense", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		denseHome(t, a, st, clk)
-		_, title := longestLesson(a)
-		wantText(t, a, title[:20])
-		wantText(t, a, "Je tu novější verze")
-		wantText(t, a, text.HomeBudgetSpent)
-	})},
-	{"results-baseline-paused", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		id, _ := longestLesson(a)
-		for _, pause := range []bool{false, true} {
-			ui.SetScreen(a, lessonRound(t, a, id, nil))
-			a.Update(ui.TickMsg(a))
-			for i, r := range ui.RoundKeys(a) {
-				clk.advance(200 * time.Millisecond)
-				if pause && i == 5 {
-					a.Update(esc)
-					clk.advance(time.Minute)
-					a.Update(esc)
-				}
-				a.Update(key(r))
-			}
-			wantScreen(t, a, "results")
-		}
-		wantText(t, a, text.ResultsOld)
-		wantText(t, a, text.ResultsPaused)
-	})},
 	{"results-test", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id := longestCourseLesson(a)
 		starsBelow(t, a, st, id, course.Principal)
@@ -325,15 +326,15 @@ var fitCases = []fitCase{
 		wantText(t, a, text.PartVsBest)
 		wantText(t, a, text.PartMissed)
 	})},
-	{"career", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) { openFromHome(t, a, homeCareer, "career") })},
 	{"lessons", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		first := a.Course.Lessons()[0]
 		st.Profile().Stars[first.ID] = 2
 		st.Profile().Taught[a.Course.Lessons()[1].ID] = true
 		st.Profile().Recommended = a.Course.Lessons()[3].ID
 		a.Banner = append(a.Banner, "Soubor byl odložen stranou.")
-		a.UpdateNotice = "Je tu novější verze"
+		a.UpdateNotice = "Je tu novější verze 1.2.3. Nainstalujete ji příkazem tuipe upgrade."
 		ui.SetScreen(a, ui.NewLessonsScreen(a))
+		a.SaveErr(errors.New("open /Users/někdo/.local/share/tuipe/profile.json: permission denied"))
 	})},
 	{"lesson", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		id := a.Course.Lessons()[0].ID
@@ -354,24 +355,22 @@ var fitCases = []fitCase{
 	{"stats-trends", statsTab(2)},
 	{"stats-records", statsTab(3)},
 	{"pause", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		id, _ := longestLesson(a)
-		ui.SetScreen(a, lessonRound(t, a, id, nil))
+		ui.SetScreen(a, testRound(t, a, longestCourseLesson(a)))
 		a.Update(ui.TickMsg(a))
 		typeKeys(a, clk, 3)
 		a.Update(esc)
 		wantText(t, a, text.PauseTitle)
 	})},
-	{"job-offer-no-change", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-		longestRankAndChapter(a)
+	{"placement-result-from-zero", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 		a.Update(esc)
 		wantText(t, a, text.OfferTitle)
 	})},
-	{"job-offer-placed", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
+	{"placement-result-passed", playReach(func(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
 		ui.SetScreen(a, ui.NewPlacementScreen(a, nil))
 		for range 40 {
 			if ui.ScreenName(a) == "placement" && strings.Contains(screen(a), text.OfferTitle) {
-				wantText(t, a, "před nástupem")
+				wantText(t, a, text.OfferPassed(6, 6))
 				return
 			}
 			switch ui.ScreenName(a) {
@@ -382,7 +381,7 @@ var fitCases = []fitCase{
 				typeKeys(a, clk, -1)
 			}
 		}
-		t.Fatalf("the placement test did not reach its offer:\n%s", screen(a))
+		t.Fatalf("the placement test did not reach its result:\n%s", screen(a))
 	})},
 	{"settings", func(t *testing.T) *ui.App {
 		a, st, _ := playApp(t)
@@ -459,39 +458,6 @@ var fitCases = []fitCase{
 	})},
 }
 
-// denseHome fills the home screen: the top rank, a long uptime with the
-// forgiven day spent, the longest lesson to continue, a
-// stand-in update notice and a save warning.
-func denseHome(t *testing.T, a *ui.App, st *store.Store, clk *clock) {
-	t.Helper()
-	p := st.Profile()
-	for _, ch := range a.Curr.Chapters() {
-		p.Completed[ch.ID] = true
-	}
-	for i := range 12 {
-		if i == 3 { // one missed day, forgiven
-			continue
-		}
-		addRun(t, st, store.Run{ID: fmt.Sprintf("u%05d", i), At: daysAgo(clk, i), Mode: "drill", WPM: 40, Accuracy: 0.95})
-	}
-	id, _ := longestLesson(a)
-	p.Resume = &store.Resume{Kind: "lesson", LessonID: id}
-	a.UpdateNotice = "Je tu novější verze 1.2.3. Nainstalujete ji příkazem tuipe upgrade."
-	ui.SetScreen(a, ui.NewHomeScreen(a))
-	a.SaveErr(errors.New("open /Users/někdo/.local/share/tuipe/profile.json: permission denied"))
-}
-
-func longestLesson(a *ui.App) (id, title string) {
-	for _, ch := range a.Curr.Chapters() {
-		for _, l := range ch.Lessons {
-			if utf8.RuneCountInString(l.Title) > utf8.RuneCountInString(title) {
-				id, title = l.ID, l.Title
-			}
-		}
-	}
-	return id, title
-}
-
 // longestCourseLesson is the drill with the longest title among those whose
 // Test is long enough to earn three stars with three misses.
 func longestCourseLesson(a *ui.App) (id string) {
@@ -523,34 +489,6 @@ func worstRound(t *testing.T, a *ui.App, clk *clock) {
 		a.Update(key(r))
 	}
 	wantScreen(t, a, "part-results")
-}
-
-// longestHints are the n characters of cand whose typing hints read longest.
-func longestHints(a *ui.App, cand string, n int) []rune {
-	rs := []rune(cand)
-	slices.SortStableFunc(rs, func(x, y rune) int {
-		return cmp.Compare(utf8.RuneCountInString(hint.Text(a.Layout, y)), utf8.RuneCountInString(hint.Text(a.Layout, x)))
-	})
-	return rs[:n]
-}
-
-// longestRankAndChapter completes chapters up to where the rank and the next
-// chapter title read longest together.
-func longestRankAndChapter(a *ui.App) {
-	p := a.Store.Profile()
-	best, bestAt := 0, 0
-	for k := 0; k <= len(a.Curr.Chapters()); k++ {
-		for i, ch := range a.Curr.Chapters() {
-			p.Completed[ch.ID] = i < k
-		}
-		n := utf8.RuneCountInString(a.Curr.RankOf(p).String() + a.Curr.CurrentChapter(p).Title)
-		if n > best {
-			best, bestAt = n, k
-		}
-	}
-	for i, ch := range a.Curr.Chapters() {
-		p.Completed[ch.ID] = i < bestAt
-	}
 }
 
 func TestAllSharedScreensFitInAllStyles(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"github.com/jiripisa/tuipe/internal/engine"
 	"github.com/jiripisa/tuipe/internal/hint"
 	"github.com/jiripisa/tuipe/internal/layout"
+	"github.com/jiripisa/tuipe/internal/placement"
 	"github.com/jiripisa/tuipe/internal/play"
 	"github.com/jiripisa/tuipe/internal/store"
 	"github.com/jiripisa/tuipe/internal/ui/roundview"
@@ -47,7 +48,7 @@ const (
 	stepPicker                   // the typed character did not match: pick a layout
 	stepOptionHelp               // Option arrives as Alt: explain the terminal setting
 	stepFork                     // from zero, or the placement test
-	stepZero                     // the hand position, then home
+	stepZero                     // the hand position, then the lesson list
 )
 
 // firstRunScreen is the whole first run: style, checks and the fork.
@@ -142,11 +143,18 @@ func hasLayoutFor(ls []*layout.Layout, system string) bool {
 	return false
 }
 
-// finishFirstRun saves that the first run is over and opens the home screen.
+// finishFirstRun saves that the first run is over and opens the lesson list.
 func finishFirstRun(a *App) Screen {
 	a.Store.Profile().FirstRunDone = true
 	a.SaveErr(a.Store.SaveProfile())
-	return NewHomeScreen(a)
+	return NewLessonsScreen(a)
+}
+
+// startFromZero is the end of a first run without the placement test: the first
+// lesson is the recommendation, as when no stage is passed.
+func startFromZero(a *App) Screen {
+	a.Store.Profile().Recommended = placement.Evaluate(a.Course, nil)
+	return finishFirstRun(a)
 }
 
 func (f *firstRunScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
@@ -176,7 +184,7 @@ func (f *firstRunScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return f.updateFork(k, a)
 	case stepZero:
 		if k.String() == "enter" {
-			return finishFirstRun(a), nil
+			return startFromZero(a), nil
 		}
 		f.hands.key(k)
 	}
@@ -402,8 +410,8 @@ func (f *firstRunScreen) View(a *App, w, h int) string {
 	return f.hands.view(a, w, h)
 }
 
-// handText is the hand-position text of chapter 0. It scrolls when the window
-// is too small to show all of it.
+// handText is the hand-position text for someone starting from zero. It scrolls
+// when the window is too small to show all of it.
 type handText struct{ off, max int }
 
 func (t *handText) key(k tea.KeyPressMsg) {

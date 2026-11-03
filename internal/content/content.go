@@ -1,5 +1,5 @@
 // Package content holds the text embedded in the binary: word lists, Czech
-// commit messages, code snippets and the curriculum.
+// commit messages, code snippets and the course.
 package content
 
 import (
@@ -16,33 +16,6 @@ var dataFS embed.FS
 
 // Snippet is a piece of code to type.
 type Snippet struct{ ID, Lang, Text string }
-
-// LessonDef describes one lesson of a chapter. A lesson either drills Focus
-// with generated text of at least Length characters, or types the Snippets.
-type LessonDef struct {
-	ID       string     `toml:"id"`
-	Title    string     `toml:"title"`
-	Focus    string     `toml:"focus"`
-	Seed     int64      `toml:"seed"`
-	Length   int        `toml:"length"`
-	Speed    [3]float64 `toml:"speed"` // WPM for one, two and three stars
-	Snippets []string   `toml:"snippets"`
-}
-
-// ChapterDef describes one chapter of the curriculum. A test-out is generated
-// text like a lesson, so it is identified by its seed. Allowed lists characters
-// the chapter may use without introducing them (only the onboarding chapter
-// needs it).
-type ChapterDef struct {
-	ID          string      `toml:"id"`
-	Number      int         `toml:"number"`
-	Title       string      `toml:"title"`
-	Rank        string      `toml:"rank"`
-	Introduces  string      `toml:"introduces"`
-	Allowed     string      `toml:"allowed"`
-	TestOutSeed int64       `toml:"test_out_seed"`
-	Lessons     []LessonDef `toml:"lesson"`
-}
 
 // CourseLesson is one lesson of the course. A lesson with Focus drills those
 // characters, a Review one practises earlier characters only, and one with
@@ -68,7 +41,6 @@ type CourseChapter struct {
 type Library struct {
 	WordsCS, WordsEN, CommitsCS []string
 	Snippets                    []Snippet
-	Chapters                    []ChapterDef
 	Course                      []CourseChapter
 }
 
@@ -89,11 +61,7 @@ func Load() (*Library, error) {
 		}
 		*f.dst = lines(string(data))
 	}
-	chapters, err := loadChapters()
-	if err != nil {
-		return nil, err
-	}
-	lib.Chapters = chapters
+	var err error
 	if lib.Course, err = loadCourse(); err != nil {
 		return nil, err
 	}
@@ -130,24 +98,6 @@ func loadSnippets() ([]Snippet, error) {
 		}
 	}
 	return out, nil
-}
-
-func loadChapters() ([]ChapterDef, error) {
-	data, err := dataFS.ReadFile("data/curriculum.toml")
-	if err != nil {
-		return nil, fmt.Errorf("content: %w", err)
-	}
-	var f struct {
-		Chapter []ChapterDef `toml:"chapter"`
-	}
-	md, err := toml.Decode(string(data), &f)
-	if err != nil {
-		return nil, fmt.Errorf("content: curriculum.toml: %w", err)
-	}
-	if u := md.Undecoded(); len(u) > 0 {
-		return nil, fmt.Errorf("content: curriculum.toml: unknown keys %v", u)
-	}
-	return f.Chapter, nil
 }
 
 func loadCourse() ([]CourseChapter, error) {

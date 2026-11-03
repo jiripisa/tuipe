@@ -70,10 +70,8 @@ func NewStatsScreen(a *App) Screen {
 	up := a.uptime()
 	s := &statsScreen{runs: runs, up: uptimeText(up.Days), groupOf: a.lessonGroups(),
 		titles: map[string]string{}, logLine: map[int]int{}}
-	for _, ch := range a.Curr.Chapters() {
-		for _, l := range ch.Lessons {
-			s.titles[l.ID] = l.Title
-		}
+	for _, l := range a.Course.Lessons() {
+		s.titles[l.ID] = l.Title
 	}
 	day := ""
 	for i, r := range runs {
@@ -85,6 +83,14 @@ func NewStatsScreen(a *App) Screen {
 		s.log = append(s.log, logRow{run: i})
 	}
 	return s
+}
+
+// uptimeText reads like a server uptime: "up 1 day", "up 23 days".
+func uptimeText(days int) string {
+	if days == 1 {
+		return text.StatsUptimeDay
+	}
+	return fmt.Sprintf(text.StatsUptimeDays, days)
 }
 
 // bodyRows is the number of lines the screen leaves to its content in a window h high.
@@ -99,7 +105,7 @@ func (s *statsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	page := max(1, bodyRows(a.H))
 	switch k.String() {
 	case "esc":
-		return NewHomeScreen(a), nil
+		return NewLessonsScreen(a), nil
 	case "tab", "right", "l":
 		s.tab = (s.tab + 1) % n
 	case "shift+tab", "left", "h":
@@ -135,7 +141,7 @@ func (s *statsScreen) View(a *App, w, h int) string {
 			bar = append(bar, dim(" "+name+" "))
 		}
 	}
-	head := strings.Join(bar, " ") + "   " + dim(text.HomeUptime+" "+s.up)
+	head := strings.Join(bar, " ") + "   " + dim(text.StatsUptime+" "+s.up)
 
 	rows := bodyRows(h)
 	var body []string
@@ -158,24 +164,18 @@ func (s *statsScreen) View(a *App, w, h int) string {
 		}
 		wrapped = append(wrapped, l)
 	}
-	return style.Frame(st, w, h, text.AppName+" · "+text.MenuStats,
+	return style.Frame(st, w, h, text.AppName+" · "+text.StatsTitle,
 		strings.Join(append([]string{head}, wrapped...), "\n"), text.HintStats)
 }
 
-// modeLabel names a non-lesson mode.
+// modeLabel names a mode of a run.
 func modeLabel(mode string) string {
 	switch mode {
-	case "lesson":
-		return text.StatsModeLesson
-	case "code":
-		return text.StatsModeCode
-	case "drill":
-		return text.StatsModeDrill
-	case "practice":
-		return text.StatsModePractice
-	case "testout":
-		return text.StatsModeTestOut
-	case "placement":
+	case store.ModeTest:
+		return text.StatsModeTest
+	case store.ModeTraining:
+		return text.StatsModeTraining
+	case store.ModePlacement:
 		return text.StatsModePlacement
 	}
 	return mode
@@ -215,18 +215,10 @@ func (s *statsScreen) gitLog(a *App, rows int) []string {
 // was typed.
 func (s *statsScreen) runLine(r store.Run) string {
 	line := fmt.Sprintf("%s  %2.0f wpm  %-7s %s", r.ID, r.WPM, fmt.Sprintf("%.1f %%", r.Accuracy*100), starBar(r.Stars))
-	title := s.titles[r.LessonID]
-	name := modeLabel(r.Mode)
-	if l := sessionLabel(sessionOfRun(r)); l != "" {
-		name += " · " + l
+	if title := s.titles[r.LessonID]; title != "" {
+		return line + "  " + modeLabel(r.Mode) + ": " + title
 	}
-	switch {
-	case r.Mode == "lesson" && title != "":
-		return line + "  " + title
-	case title != "":
-		return line + "  " + name + ": " + title
-	}
-	return line + "  " + name
+	return line + "  " + modeLabel(r.Mode)
 }
 
 // keyOf is the key a character ends on: the last chord of its route.
@@ -297,13 +289,21 @@ func weakestFinger(sums map[[2]int]float64) string {
 	return text.StatsHandNames[best[0]] + " " + name
 }
 
-// lessonGroups maps every lesson to the trend group of its chapter. The code
-// chapters have a group of their own: they use the whole keyboard.
+// lessonGroups maps every lesson to the trend group of its chapter. Code has a
+// group of its own, and so has all that follows it: it uses the whole keyboard.
 func (a *App) lessonGroups() map[string]string {
 	groups := map[string]string{}
-	for _, ch := range a.Curr.Chapters() {
-		g := a.chapterGroup(ch.Introduces)
-		if ch.Number >= codeTrendChapter {
+	code := false
+	for _, ch := range a.Course.Chapters() {
+		var taught []rune
+		for _, l := range ch.Lessons {
+			code = code || l.Lang != ""
+			if !l.Review {
+				taught = append(taught, l.Focus...)
+			}
+		}
+		g := a.chapterGroup(taught)
+		if code {
 			g = text.StatsGroupCode
 		}
 		if g == "" {
@@ -316,12 +316,12 @@ func (a *App) lessonGroups() map[string]string {
 	return groups
 }
 
-// chapterGroup is the trend group that most of the characters a chapter
-// introduces belong to; a chapter that introduces none belongs to no group.
-// A tie goes to the group listed first below.
-func (a *App) chapterGroup(introduces string) string {
+// chapterGroup is the trend group that most of the characters a chapter teaches
+// belong to; a chapter that teaches none belongs to no group. A tie goes to the
+// group listed first below.
+func (a *App) chapterGroup(taught []rune) string {
 	count := map[string]int{}
-	for _, r := range introduces {
+	for _, r := range taught {
 		route, ok := a.Layout.Route(r)
 		if !ok {
 			continue
@@ -383,7 +383,7 @@ func (s *statsScreen) trendSeries() map[string]series {
 	}
 	for _, r := range s.runs {
 		date := r.At.Local().Format(dateLayout)
-		if r.Mode != "placement" { // a test is no everyday typing
+		if r.Mode != store.ModePlacement { // a placement test is no everyday typing
 			add(text.StatsGroupOverall, date, r)
 		}
 		if g := s.groupOf[r.LessonID]; g != "" {
@@ -485,43 +485,14 @@ func (s *statsScreen) trends(a *App, rows int) []string {
 	return out
 }
 
-// sessionOfRun is how a run was started; runs from before sessions were
-// recorded count as quick runs.
-func sessionOfRun(r store.Run) string {
-	if r.Session == "" {
-		return sessionQuick
-	}
-	return r.Session
-}
-
-// sessionLabel names a quick run, Standup or Sprint; other sessions have no
-// label of their own, since the mode says what was typed.
-func sessionLabel(session string) string {
-	switch session {
-	case sessionQuick:
-		return text.StatsSessionQuick
-	case sessionStandup:
-		return text.StatsSessionStandup
-	case sessionSprint:
-		return text.StatsSessionSprint
-	}
-	return ""
-}
-
-// recordRow is a personal best category: a run belongs to the one of its
-// session (quick run, Standup, Sprint) and to the one of its mode (lesson,
-// code).
+// recordRow is a personal best category.
 type recordRow struct {
 	label string
 	has   func(store.Run) bool
 }
 
 var recordRows = []recordRow{
-	{text.StatsSessionQuick, func(r store.Run) bool { return sessionOfRun(r) == sessionQuick }},
-	{text.StatsModeLesson, func(r store.Run) bool { return r.Mode == "lesson" }},
-	{text.StatsModeCode, func(r store.Run) bool { return r.Mode == "code" }},
-	{text.StatsSessionStandup, func(r store.Run) bool { return sessionOfRun(r) == sessionStandup }},
-	{text.StatsSessionSprint, func(r store.Run) bool { return sessionOfRun(r) == sessionSprint }},
+	{text.StatsModeTest, func(r store.Run) bool { return r.Mode == store.ModeTest }},
 }
 
 // records lists the best run of each category by Score. Paused runs do not count.

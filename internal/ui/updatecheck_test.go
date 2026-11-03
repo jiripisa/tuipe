@@ -32,7 +32,7 @@ func releaseServer(t *testing.T, status int, tag string) (*upgrade.Client, *atom
 	return &upgrade.Client{APIBase: srv.URL, HTTP: srv.Client(), Repo: "x/y"}, &hits
 }
 
-// updateApp is a home-screen app with the check wired to client, running as
+// updateApp is an app on the lesson list with the check wired to client, running as
 // release current.
 func updateApp(t *testing.T, client *upgrade.Client, release bool, current string) (*ui.App, *store.Store) {
 	t.Helper()
@@ -62,13 +62,13 @@ func drive(a *ui.App, cmd tea.Cmd) {
 	}
 }
 
-func TestNoticeShownOnHomeWhenNewer(t *testing.T) {
+func TestNoticeShownOnTheListWhenNewer(t *testing.T) {
 	client, _ := releaseServer(t, http.StatusOK, "v1.2.0")
 	a, st := updateApp(t, client, true, "v1.0.0")
 	drive(a, a.Init())
 	v := screen(a)
 	if !strings.Contains(v, "v1.2.0") || !strings.Contains(v, "tuipe upgrade") {
-		t.Errorf("home lacks the notice:\n%s", v)
+		t.Errorf("the list lacks the notice:\n%s", v)
 	}
 	if got := st.Profile().LatestSeen; got != "v1.2.0" {
 		t.Errorf("LatestSeen = %q", got)
@@ -165,7 +165,7 @@ func TestOfflineOr403StaysSilent(t *testing.T) {
 			before := screen(a)
 			drive(a, a.Init())
 			if a.UpdateNotice != "" || screen(a) != before {
-				t.Errorf("home changed:\n%s", screen(a))
+				t.Errorf("the list changed:\n%s", screen(a))
 			}
 			if st.Profile().LastUpdateCheck != today {
 				t.Errorf("a failed check must still count as today's: %q", st.Profile().LastUpdateCheck)
@@ -197,8 +197,8 @@ func TestDoesNotDelayStartup(t *testing.T) {
 	if d := time.Since(start); d > 200*time.Millisecond {
 		t.Errorf("Init blocked for %v", d)
 	}
-	if !strings.Contains(screen(a), text.HomeRank) {
-		t.Error("home is not ready")
+	if !strings.Contains(screen(a), text.HintLessons) {
+		t.Error("the list is not ready")
 	}
 	start = time.Now()
 	drive(a, cmd)
@@ -213,8 +213,10 @@ func TestDoesNotDelayStartup(t *testing.T) {
 func TestNoticeArrivesDuringARoundWithoutDisturbingIt(t *testing.T) {
 	client, _ := releaseServer(t, http.StatusOK, "v1.2.0")
 	a, _ := updateApp(t, client, true, "v1.0.0")
-	a.Update(enter) // Kariéra
 	a.Update(enter) // the selected lesson
+	a.Update(down)
+	a.Update(down)
+	a.Update(enter) // its Test
 	if ui.ScreenName(a) != "round" {
 		t.Fatalf("screen = %s", ui.ScreenName(a))
 	}

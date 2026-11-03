@@ -138,21 +138,6 @@ func TestTestStoresStars(t *testing.T) {
 	}
 }
 
-func TestPartsLeaveTheOldProgressAlone(t *testing.T) {
-	a, st, clk := playApp(t)
-	st.Profile().Resume = &store.Resume{Kind: "lesson", LessonID: "ch01-02"}
-	for _, row := range []int{partTraining, partTest} {
-		playPart(t, a, clk, firstTeachLesson, row)
-	}
-	p := st.Profile()
-	if p.Resume == nil || p.Resume.LessonID != "ch01-02" {
-		t.Errorf("Resume = %+v", p.Resume)
-	}
-	if len(p.Completed) != 0 {
-		t.Errorf("a part completed chapters: %v", p.Completed)
-	}
-}
-
 func TestBestStarsNeverDrop(t *testing.T) {
 	a, st, clk := playApp(t)
 	id := firstTeachLesson
@@ -220,9 +205,6 @@ func TestAbandonedRoundStoresNoRun(t *testing.T) {
 				if p.Stars[firstTeachLesson] != 0 {
 					t.Error("an abandoned round gave stars")
 				}
-				if p.Resume != nil {
-					t.Errorf("a part set Resume: %+v", p.Resume)
-				}
 				if len(ui.StatsOf(a).Chars) == 0 {
 					t.Error("the keys so far did not reach the statistics")
 				}
@@ -285,7 +267,7 @@ func TestResultsCompareWithLastAndBest(t *testing.T) {
 		fmt.Sprintf("%+.0f zn/min oproti minule", cpm-200),
 		fmt.Sprintf("%.0f zn/min oproti nejlepšímu", cpm-400),
 	)
-	for _, old := range []string{"+++", "---", text.ResultsOld, text.ResultsNoBase, runs[len(runs)-1].ID} {
+	for _, old := range []string{"+++", "---", "HEAD~1", "/dev/null", runs[len(runs)-1].ID} {
 		showsNone(t, a, old)
 	}
 }

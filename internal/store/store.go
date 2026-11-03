@@ -48,11 +48,10 @@ type Run struct {
 	Schema     int       `json:"Schema"`
 	ID         string    `json:"ID"`
 	At         time.Time `json:"At"`
-	Mode       string    `json:"Mode"` // ModeTest, ModeTraining or ModePlacement; runs of the old round code still write other values
+	Mode       string    `json:"Mode"` // ModeTest, ModeTraining or ModePlacement
 	LessonID   string    `json:"LessonID"`
 	TextHash   string    `json:"TextHash"`
 	LayoutID   string    `json:"LayoutID"`
-	Session    string    `json:"Session"` // how the round was started: quick, standup, sprint, career or practice; empty in old runs
 	WPM        float64   `json:"WPM"`
 	Accuracy   float64   `json:"Accuracy"`
 	Score      float64   `json:"Score"`
@@ -63,24 +62,15 @@ type Run struct {
 	HintUsed   bool      `json:"HintUsed"`
 }
 
-// Resume is what to offer the user when they come back.
-type Resume struct {
-	Kind     string `json:"Kind"`
-	LessonID string `json:"LessonID"`
-	Day      string `json:"Day"`
-}
-
 // Profile is the mastery and progress of the user.
 type Profile struct {
 	Schema          int                     `json:"Schema"`
-	Stats           map[string]*stats.Stats `json:"Stats"`     // by layout id
-	Stars           map[string]int          `json:"Stars"`     // by lesson id
-	Completed       map[string]bool         `json:"Completed"` // by chapter id
+	Stats           map[string]*stats.Stats `json:"Stats"` // by layout id
+	Stars           map[string]int          `json:"Stars"` // by lesson id
 	FirstRunDone    bool                    `json:"FirstRunDone"`
 	FocusTerminals  map[string]bool         `json:"FocusTerminals"` // by terminal key: reports focus changes
 	LastUpdateCheck string                  `json:"LastUpdateCheck"`
 	LatestSeen      string                  `json:"LatestSeen"`
-	Resume          *Resume                 `json:"Resume"`
 	SkipNoted       map[string]bool         `json:"SkipNoted"`   // by layout id: told about the content it cannot type
 	Recommended     string                  `json:"Recommended"` // lesson id the placement test recommends
 	Taught          map[string]bool         `json:"Taught"`      // by lesson id: Výuka finished
@@ -104,9 +94,6 @@ func (p *Profile) fillMaps() {
 	}
 	if p.Stars == nil {
 		p.Stars = map[string]int{}
-	}
-	if p.Completed == nil {
-		p.Completed = map[string]bool{}
 	}
 	if p.FocusTerminals == nil {
 		p.FocusTerminals = map[string]bool{}

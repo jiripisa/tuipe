@@ -25,20 +25,12 @@
   "Stars": {
     "ch01-01": 2
   },
-  "Completed": {
-    "ch01": true
-  },
   "FirstRunDone": true,
   "FocusTerminals": {
     "ghostty|tmux=false": true
   },
   "LastUpdateCheck": "2026-10-30",
   "LatestSeen": "v1.0.0",
-  "Resume": {
-    "Kind": "lesson",
-    "LessonID": "ch01-01",
-    "Day": "2026-10-30"
-  },
   "Recommended": "ch02-01",
   "Taught": {
     "ch01-01": true

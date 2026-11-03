@@ -185,8 +185,8 @@ func (s *Stats) MasteryOf(r rune) Mastery {
 
 // MasteryAt is the mastery of r as it reads at now: one level lower for every
 // 14 days the character has not been typed, so hints come back while it fades.
-// It only reads. A character that was never typed, such as one skipped by the
-// placement test, has nothing to fade from and keeps its level.
+// It only reads. A character with no date of its last press has nothing to
+// fade from and keeps its level.
 func (s *Stats) MasteryAt(r rune, now time.Time) Mastery {
 	e := s.Chars[string(r)]
 	if e == nil {
@@ -201,11 +201,6 @@ func (s *Stats) MasteryAt(r rune, now time.Time) Mastery {
 	}
 	levels := int((age - 1) / staleAfter)
 	return max(e.Mastery-Mastery(levels), NewChar)
-}
-
-// SetMastery overrides the mastery of r.
-func (s *Stats) SetMastery(r rune, m Mastery) {
-	entry(&s.Chars, string(r)).Mastery = m
 }
 
 func weakness(e *Entry) float64 {

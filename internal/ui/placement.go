@@ -16,16 +16,15 @@ import (
 )
 
 // placementScreen runs the placement test: an intro for each stage, the stage
-// as a round, and at the end the job offer. The rounds are ordinary round
-// screens whose end this screen controls.
+// as a round, and at the end the lesson it recommends. The rounds are ordinary
+// round screens whose end this screen controls.
 type placementScreen struct {
 	next   func(*App) Screen
 	stages []placement.Stage
 	at     int               // the stage that is next or running
 	passed []placement.Stage // stages passed so far
 	last   *score.Metrics    // result of the stage before, for the intro
-	offer  bool              // the test is over and the job offer is shown
-	placed int               // chapters the test newly completed
+	offer  bool              // the test is over and its result is shown
 	hands  bool              // the hand-position text follows a result that starts from zero
 	text   handText
 }
@@ -36,9 +35,9 @@ type placementScreen struct {
 const maxIgnoredAlt = 5
 
 // NewPlacementScreen builds the placement test. next opens the screen that
-// follows the job offer; the home screen when it is nil.
+// follows the result; the lesson list when it is nil.
 func NewPlacementScreen(a *App, next func(*App) Screen) Screen {
-	p := &placementScreen{next: next, stages: placement.Stages(a.Curr, a.Lib, a.Now().UnixNano())}
+	p := &placementScreen{next: next, stages: placement.Stages(a.Course, a.Lib, a.Now().UnixNano())}
 	if len(p.stages) == 0 || p.stages[0].Text == "" {
 		return p.finish(a)
 	}
@@ -73,8 +72,8 @@ func (p *placementScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 		return p.leave(a), nil
 	case p.hands:
 		p.text.key(k)
-	case p.offer && k.String() == "enter" && len(a.Store.Profile().Completed) == 0:
-		p.hands = true // starting from zero, as after the fork
+	case p.offer && k.String() == "enter" && p.fromZero(a):
+		p.hands = true // as after the fork
 	case p.offer && k.String() == "enter":
 		return p.leave(a), nil
 	case !p.offer && k.String() == "enter":
@@ -85,9 +84,14 @@ func (p *placementScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	return p, nil
 }
 
+// fromZero reports someone who passed no stage and has no star from earlier.
+func (p *placementScreen) fromZero(a *App) bool {
+	return len(p.passed) == 0 && len(a.Store.Profile().Stars) == 0
+}
+
 func (p *placementScreen) leave(a *App) Screen {
 	if p.next == nil {
-		return NewHomeScreen(a)
+		return NewLessonsScreen(a)
 	}
 	return p.next(a)
 }
@@ -100,7 +104,6 @@ func (p *placementScreen) round(a *App) Screen {
 		Title:    fmt.Sprintf(text.PlacementRoundTitle, p.at+1, len(p.stages), p.stageTitle(a, st)),
 		Text:     st.Text,
 		HintsOff: true,
-		Session:  sessionPlacement,
 	}
 	if st.ID == "code" {
 		spec.Lang = "go"
@@ -146,18 +149,10 @@ func (p *placementScreen) stageEnded(a *App, st placement.Stage, spec play.Spec,
 	return p.finish(a)
 }
 
-// finish completes the chapters the passed stages cover and shows the offer.
-// It runs on top of what is completed, so the rank cannot fall.
+// finish stores the recommendation, which is all the test leaves behind, and
+// shows it.
 func (p *placementScreen) finish(a *App) Screen {
-	out := placement.Evaluate(a.Curr, p.passed)
-	profile := a.Store.Profile()
-	p.placed = 0
-	for _, id := range out.Completed {
-		if !a.Curr.IsDone(profile, id) {
-			p.placed++
-		}
-	}
-	a.Curr.ApplySkip(profile, a.stats(), out.Completed)
+	a.Store.Profile().Recommended = placement.Evaluate(a.Course, p.passed)
 	a.SaveErr(a.Store.SaveProfile())
 	p.offer = true
 	return p
@@ -197,24 +192,15 @@ func (p *placementScreen) View(a *App, w, h int) string {
 		return frame(text.PlacementTitle, body, text.PlacementStageHint)
 	}
 
-	profile := a.Store.Profile()
-	rank := a.Curr.RankOf(profile).String()
-	start := a.Curr.CurrentChapter(profile)
-	body := []string{"", fg(text.OfferGreeting)}
-	switch {
-	case len(profile.Completed) == 0:
+	body := []string{""}
+	if len(p.passed) == 0 {
 		body = append(body, prose(text.OfferFromZero, fg)...)
-		body = append(body, "", fg(fmt.Sprintf(text.OfferHolding, rank)))
-	case p.placed > 0:
-		body = append(body, prose(fmt.Sprintf(text.OfferRank, rank), acc)...)
-	default:
-		body = append(body, prose(fmt.Sprintf(text.OfferNoChange, rank), fg)...)
+	} else {
+		body = append(body, prose(text.OfferPassed(len(p.passed), len(p.stages)), fg)...)
 	}
-	body = append(body, "")
-	body = append(body, prose(fmt.Sprintf(text.OfferStart, start.Number, start.Title), fg)...)
-	if p.placed > 0 {
+	if ls, ok := a.Course.Lesson(a.Store.Profile().Recommended); ok {
 		body = append(body, "")
-		body = append(body, prose(text.OfferSkipped(p.placed), dim)...)
+		body = append(body, prose(fmt.Sprintf(text.OfferStart, ls.Title, a.chapterTitle(ls.ChapterID)), acc)...)
 	}
 	body = append(body, "")
 	body = append(body, prose(text.OfferPractice, dim)...)

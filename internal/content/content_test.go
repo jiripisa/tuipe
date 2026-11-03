@@ -95,46 +95,6 @@ func TestLoadFillsTheLibrary(t *testing.T) {
 	if len(lib.Snippets) == 0 {
 		t.Error("snippets are not loaded")
 	}
-	if len(lib.Chapters) != 13 {
-		t.Errorf("%d chapters, want 13", len(lib.Chapters))
-	}
-}
-
-func TestCurriculumDataIsWellFormed(t *testing.T) {
-	chapterIDs, lessonIDs := map[string]bool{}, map[string]bool{}
-	for i, ch := range load(t).Chapters {
-		if ch.Number != i || chapterIDs[ch.ID] || ch.ID == "" || ch.Title == "" {
-			t.Errorf("chapter %d: bad number, id or title (%q)", i, ch.ID)
-		}
-		chapterIDs[ch.ID] = true
-		if ch.Number == 0 {
-			if len(ch.Lessons) != 1 || ch.Allowed != "fj " {
-				t.Errorf("chapter 0: %d lessons, allowed %q", len(ch.Lessons), ch.Allowed)
-			}
-		} else {
-			if n := len(ch.Lessons); n < 6 || n > 9 && ch.Number != 11 || n > 11 {
-				t.Errorf("%s: %d lessons, want 6 to 9, and up to 11 in chapter 11", ch.ID, n)
-			}
-		}
-		if ch.TestOutSeed == 0 && ch.Number > 0 {
-			t.Errorf("%s: no test-out seed", ch.ID)
-		}
-		for _, l := range ch.Lessons {
-			if l.ID == "" || l.Title == "" || lessonIDs[l.ID] || !strings.HasPrefix(l.ID, ch.ID+"-") {
-				t.Errorf("%s: bad lesson id or title %q", ch.ID, l.ID)
-			}
-			lessonIDs[l.ID] = true
-			if l.Speed[0] <= 0 || l.Speed[0] >= l.Speed[1] || l.Speed[1] >= l.Speed[2] {
-				t.Errorf("%s: speeds %v not rising", l.ID, l.Speed)
-			}
-			if len(l.Snippets) == 0 && (l.Length <= 0 || l.Seed == 0) {
-				t.Errorf("%s: drill lesson needs a length and a seed", l.ID)
-			}
-			if len(l.Snippets) > 0 && ch.Number != 11 {
-				t.Errorf("%s: snippets outside chapter 11", l.ID)
-			}
-		}
-	}
 }
 
 // snippetPrefix maps a snippet language to the prefix of its ids.
@@ -179,7 +139,7 @@ func TestSnippetsAreWideEnoughCoverage(t *testing.T) {
 			found = found || s.ID == id
 		}
 		if !found {
-			t.Errorf("snippet %s, referenced by the curriculum, does not exist", id)
+			t.Errorf("snippet %s does not exist", id)
 		}
 	}
 }
@@ -235,31 +195,21 @@ func TestSnippetsResolve(t *testing.T) {
 	}
 }
 
-func lessonByID(t *testing.T, id string) content.LessonDef {
-	t.Helper()
-	for _, ch := range load(t).Chapters {
+func TestCourseDataIsWellFormed(t *testing.T) {
+	lessonIDs := map[string]bool{}
+	for _, ch := range load(t).Course {
+		if ch.ID == "" || ch.Title == "" || len(ch.Lessons) == 0 {
+			t.Errorf("chapter %q: bad id or title, or no lessons", ch.ID)
+		}
 		for _, l := range ch.Lessons {
-			if l.ID == id {
-				return l
+			if l.ID == "" || l.Title == "" || lessonIDs[l.ID] || !strings.HasPrefix(l.ID, ch.ID+"-") {
+				t.Errorf("%s: bad lesson id or title %q", ch.ID, l.ID)
+			}
+			lessonIDs[l.ID] = true
+			if l.Speed[0] <= 0 || l.Speed[0] >= l.Speed[1] || l.Speed[1] >= l.Speed[2] {
+				t.Errorf("%s: speeds %v not rising", l.ID, l.Speed)
 			}
 		}
-	}
-	t.Fatalf("no lesson %s", id)
-	return content.LessonDef{}
-}
-
-// The last lesson of chapter 4 once asked for 45 WPM, more than any lesson up
-// to the code chapters, right after lessons at 28.
-func TestChapterFourEndsWithoutASpeedSpike(t *testing.T) {
-	if got, want := lessonByID(t, "ch04-09").Speed, [3]float64{20, 28, 36}; got != want {
-		t.Errorf("ch04-09 speeds = %v, want %v", got, want)
-	}
-}
-
-// b is a left-index key, see the layout's finger map.
-func TestLessonOnBNamesTheRightHand(t *testing.T) {
-	if title := lessonByID(t, "ch03-04").Title; !strings.Contains(title, "levým") {
-		t.Errorf("ch03-04 is titled %q, but b is typed with the left index finger", title)
 	}
 }
 

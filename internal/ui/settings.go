@@ -65,7 +65,7 @@ func (s *settingsScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 	}
 	switch k.String() {
 	case "esc":
-		return NewHomeScreen(a), nil
+		return NewLessonsScreen(a), nil
 	case "up", "k":
 		s.sel = (s.sel + settingRows - 1) % settingRows
 	case "down", "j":
