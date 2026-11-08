@@ -4,6 +4,9 @@
 package course
 
 import (
+	"strings"
+	"unicode/utf8"
+
 	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -78,6 +81,7 @@ func New(lib *content.Library, l *layout.Layout) *Course {
 		lib: lib, lay: l, snippets: map[string][]content.Snippet{},
 		chapterPos: map[string]int{}, byID: map[string]int{},
 	}
+	swap := l != nil && l.QWERTZ()
 	for _, s := range lib.Snippets {
 		if c.typable(s.Text) {
 			c.snippets[s.Lang] = append(c.snippets[s.Lang], s)
@@ -88,6 +92,9 @@ func New(lib *content.Library, l *layout.Layout) *Course {
 		c.chapterPos[ch.ID] = pos
 		out := Chapter{ID: ch.ID, Title: ch.Title}
 		for _, def := range ch.Lessons {
+			if swap { // def is a copy, so the library keeps the QWERTY text
+				def.Title, def.Focus = swapYZTitle(def.Title), swapYZ(def.Focus)
+			}
 			if !c.typable(def.Focus) || (def.Lang != "" && len(c.snippets[def.Lang]) == 0) {
 				c.skipped++
 				continue
@@ -105,6 +112,35 @@ func New(lib *content.Library, l *layout.Layout) *Course {
 		}
 	}
 	return c
+}
+
+// swapYZ exchanges y with z and Y with Z, where QWERTZ puts them the other
+// way round than the course is written.
+func swapYZ(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case 'y':
+			return 'z'
+		case 'z':
+			return 'y'
+		case 'Y':
+			return 'Z'
+		case 'Z':
+			return 'Y'
+		}
+		return r
+	}, s)
+}
+
+// swapYZTitle swaps a title that only names keys, such as "t y" or "Q P A Z".
+// A title with a word in it keeps its letters.
+func swapYZTitle(title string) string {
+	for _, tok := range strings.Fields(title) {
+		if utf8.RuneCountInString(tok) != 1 {
+			return title
+		}
+	}
+	return swapYZ(title)
 }
 
 func (c *Course) typable(text string) bool {

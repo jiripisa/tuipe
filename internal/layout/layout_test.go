@@ -328,3 +328,10 @@ func TestANSIAppliedTwiceIsTheSameAsOnce(t *testing.T) {
 		t.Error("k50 must be gone")
 	}
 }
+
+func TestQWERTZIsFalseForQWERTYAndItsShapedCopy(t *testing.T) {
+	l := mustBuiltin(t, "macos-czech-qwerty")
+	if l.QWERTZ() || l.WithShape(layout.ANSI).QWERTZ() {
+		t.Error("macos-czech-qwerty is not QWERTZ")
+	}
+}

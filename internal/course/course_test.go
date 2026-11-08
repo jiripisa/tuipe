@@ -812,3 +812,102 @@ func TestTextsAreTypable(t *testing.T) {
 		}
 	}
 }
+
+// qwertzLayout is the shipped QWERTY layout with y and z exchanged, as a QWERTZ
+// keyboard has them.
+func qwertzLayout(t *testing.T) *layout.Layout {
+	t.Helper()
+	b, err := os.ReadFile("../layout/data/macos-czech-qwerty.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, p := range [][2]string{
+		{`{ id = "k16", label = "y"`, `{ id = "k16", label = "z"`},
+		{`{ id = "k6", label = "z"`, `{ id = "k6", label = "y"`},
+		{"c = \"y\"\nroute = [\"k16\"]", "c = \"y\"\nroute = [\"k6\"]"},
+		{"route = [\"shift+k16\"]", "route = [\"shift+k6\"]"},
+		{"c = \"z\"\nroute = [\"k6\"]", "c = \"z\"\nroute = [\"k16\"]"},
+	} {
+		if !strings.Contains(s, p[0]) {
+			t.Fatalf("fixture no longer applies: %q", p[0])
+		}
+	}
+	// Exchange the routes through a placeholder so the two swaps do not meet.
+	s = strings.ReplaceAll(s, `route = ["k16"]`, `route = ["@@"]`)
+	s = strings.ReplaceAll(s, `route = ["k6"]`, `route = ["k16"]`)
+	s = strings.ReplaceAll(s, `route = ["@@"]`, `route = ["k6"]`)
+	s = strings.ReplaceAll(s, `route = ["shift+k16"]`, `route = ["@@"]`)
+	s = strings.ReplaceAll(s, `route = ["shift+k6"]`, `route = ["shift+k16"]`)
+	s = strings.ReplaceAll(s, `route = ["@@"]`, `route = ["shift+k6"]`)
+	s = strings.Replace(s, `id = "macos-czech-qwerty"`, `id = "test-qwertz"`, 1)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "qwertz.toml"), []byte(s), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ls, errs := layout.LoadDir(dir)
+	if len(errs) != 0 || len(ls) != 1 {
+		t.Fatalf("load: %v %v", ls, errs)
+	}
+	return ls[0]
+}
+
+func TestQWERTZSwapsYAndZInLessons(t *testing.T) {
+	lib := loadLib(t)
+	lay := qwertzLayout(t)
+	if !lay.QWERTZ() {
+		t.Fatal("fixture is not QWERTZ")
+	}
+	c := course.New(lib, lay)
+	for id, title := range map[string]string{"ch02-03": "t z", "ch03-05": "y", "ch04-05": "Q P A Y"} {
+		ls, ok := c.Lesson(id)
+		if !ok || ls.Title != title {
+			t.Errorf("%s: title %q, want %q", id, ls.Title, title)
+		}
+	}
+	ls, _ := c.Lesson("ch02-03")
+	if string(ls.Focus) != "tz" {
+		t.Errorf("ch02-03 focus %q", string(ls.Focus))
+	}
+	ls, _ = c.Lesson("ch02-06")
+	if string(ls.Focus) != "qwertzuiop" {
+		t.Errorf("ch02-06 focus %q", string(ls.Focus))
+	}
+	ls, _ = c.Lesson("ch03-06")
+	if ls.Title != "celá dolní řada" || string(ls.Focus) != "yxcvbnm,." {
+		t.Errorf("ch03-06 %q %q", ls.Title, string(ls.Focus))
+	}
+	if !c.AllowedUpTo("ch03-05")('y') || !c.AllowedUpTo("ch02-03")('z') {
+		t.Error("allowed sets do not follow the swapped focus")
+	}
+	if c.AllowedUpTo("ch02-03")('y') {
+		t.Error("y is allowed before it is taught")
+	}
+}
+
+func TestQWERTZKeepsWordsInTitles(t *testing.T) {
+	c := course.New(loadLib(t), qwertzLayout(t))
+	found := false
+	for _, ls := range c.Lessons() {
+		if ls.Title == "řada bez g a h" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error(`title "řada bez g a h" was changed`)
+	}
+}
+
+func TestQWERTYKeepsLessonsAsWritten(t *testing.T) {
+	lib := loadLib(t)
+	_ = course.New(lib, qwertzLayout(t)) // must not change what the library holds
+	c := course.New(lib, czech(t))
+	for id, title := range map[string]string{"ch02-03": "t y", "ch03-05": "z", "ch04-05": "Q P A Z"} {
+		if ls, ok := c.Lesson(id); !ok || ls.Title != title {
+			t.Errorf("%s: title %q, want %q", id, ls.Title, title)
+		}
+	}
+	if ls, _ := c.Lesson("ch02-06"); string(ls.Focus) != "qwertyuiop" {
+		t.Errorf("ch02-06 focus %q", string(ls.Focus))
+	}
+}

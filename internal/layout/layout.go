@@ -223,6 +223,12 @@ func (l *Layout) Output(keyID string) (rune, bool) {
 	return best, found
 }
 
+// QWERTZ reports whether the key where QWERTY has y types z.
+func (l *Layout) QWERTZ() bool {
+	r, ok := l.Output("k16")
+	return ok && r == 'z'
+}
+
 // Route returns the preferred route for r.
 func (l *Layout) Route(r rune) (Route, bool) {
 	route, ok := l.chars[r]
