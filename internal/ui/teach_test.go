@@ -380,3 +380,14 @@ func TestTeachMarksTheNextCharacter(t *testing.T) {
 		}
 	}
 }
+
+func TestAltGrSymbolAdvancesTeaching(t *testing.T) {
+	a, _, _ := playApp(t)
+	openTeach(t, a, firstTeachLesson)
+	a.Update(enter)
+	ui.SetTeachLine(a, "@a")
+	a.Update(tea.KeyPressMsg{Code: '@', Text: "@", Mod: tea.ModCtrl | tea.ModAlt})
+	if ui.TeachPos(a) != 1 {
+		t.Errorf("AltGr @ did not advance: pos %d", ui.TeachPos(a))
+	}
+}

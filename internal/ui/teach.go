@@ -83,12 +83,12 @@ func (t *teachScreen) Update(msg tea.Msg, a *App) (Screen, tea.Cmd) {
 			return t.advance(a), nil
 		}
 		return t, nil
-	case m.Mod.Contains(tea.ModCtrl) || m.Mod.Contains(tea.ModMeta):
+	case !altGr(m) && (m.Mod.Contains(tea.ModCtrl) || m.Mod.Contains(tea.ModMeta)):
 		return t, nil // a shortcut, never typed input
 	}
 	// Input is read as in a round: Alt on the wrong character is dropped by the
 	// session, with a warning, instead of counting as a mistake for ever.
-	alt := m.Mod.Contains(tea.ModAlt)
+	alt := m.Mod.Contains(tea.ModAlt) && !altGr(m) // AltGr on Windows arrives as Ctrl+Alt
 	switch {
 	case m.Code == tea.KeyEnter:
 		t.sess.Key(play.Input{Rune: '\n', Alt: alt}, t.now)

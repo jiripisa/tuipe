@@ -697,3 +697,18 @@ func TestRoundShowsNoSecondCursor(t *testing.T) {
 		a.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
 	}
 }
+
+func TestAltGrSymbolAdvancesTheRound(t *testing.T) {
+	a, _, clk := playApp(t)
+	s, err := ui.TextRound(a, "@a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui.SetScreen(a, s)
+	a.Update(ui.TickMsg(a))
+	clk.advance(time.Second)
+	a.Update(tea.KeyPressMsg{Code: '@', Text: "@", Mod: tea.ModCtrl | tea.ModAlt})
+	if ui.RoundPos(a) != 1 {
+		t.Errorf("AltGr @ did not advance: pos %d", ui.RoundPos(a))
+	}
+}

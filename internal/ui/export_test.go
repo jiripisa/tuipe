@@ -238,3 +238,22 @@ func LessonScreenRow(a *App) int {
 
 // Grades is the grade of each lesson's best Test, read from the run history.
 func Grades(a *App) map[string]score.Grade { return a.grades() }
+
+// TextRound builds a Trénink on the given text, for a text that is known
+// beforehand.
+func TextRound(a *App, text string) (Screen, error) {
+	part := lessonPart{
+		spec: func(*App) (play.Spec, error) {
+			return play.Spec{Kind: play.KindTraining, Title: "text", Text: text}, nil
+		},
+		back: NewLessonsScreen,
+	}
+	return part.round(a)
+}
+
+// SetTeachLine replaces the lines of the open Výuka with one line and starts it.
+func SetTeachLine(a *App, line string) {
+	t := a.screen.(*teachScreen)
+	t.tut.Lines = []string{line}
+	t.startLine(a, 0)
+}

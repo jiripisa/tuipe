@@ -214,8 +214,11 @@ func (f *firstRunScreen) updateStyle(k tea.KeyPressMsg, a *App) (Screen, tea.Cmd
 
 // typedRune is the character a key press delivers, and whether Alt was held.
 // The terminal decoder drops the text of an Alt chord, so its code stands in
-// (as in a round).
+// (as in a round). An AltGr character counts as typed, without Alt.
 func typedRune(k tea.KeyPressMsg) (r rune, alt, ok bool) {
+	if altGr(k) {
+		return []rune(k.Text)[0], false, true
+	}
 	if k.Mod.Contains(tea.ModCtrl) || k.Mod.Contains(tea.ModMeta) {
 		return 0, false, false
 	}

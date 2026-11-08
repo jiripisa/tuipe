@@ -139,12 +139,12 @@ func (r *roundScreen) key(m tea.KeyPressMsg, a *App, now time.Time) (Screen, tea
 	case m.Code == tea.KeyEscape:
 		r.sess.Pause(now)
 		return r, nil
-	case m.Mod.Contains(tea.ModCtrl) && m.Code == 'r':
+	case m.Mod.Contains(tea.ModCtrl) && m.Code == 'r' && !altGr(m):
 		return r, r.restart(a, now)
-	case m.Mod.Contains(tea.ModCtrl) || m.Mod.Contains(tea.ModMeta):
+	case !altGr(m) && (m.Mod.Contains(tea.ModCtrl) || m.Mod.Contains(tea.ModMeta)):
 		return r, nil // a shortcut, never typed input
 	}
-	alt := m.Mod.Contains(tea.ModAlt)
+	alt := m.Mod.Contains(tea.ModAlt) && !altGr(m)
 	switch {
 	case m.Code == tea.KeyEnter:
 		r.sess.Key(play.Input{Rune: '\n', Alt: alt}, now)
