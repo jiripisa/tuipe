@@ -67,6 +67,14 @@ route = ["k49"]
 [[char]]
 c = "\n"
 route = ["k36"]
+
+[ansi]
+missing = ["k24"]
+moved = { k19 = "k3" }
+
+[[ansi.char]]
+c = "@"
+route = ["shift+k2"]
 ```
 
 `internal/layout/docs_test.go` reads the block above from this file and loads it,
@@ -119,6 +127,32 @@ A character can often be typed in several ways. Pick one for `route`, the one yo
 want taught. Since the terminal only shows the result, the other ways still work
 while typing.
 
+### The US-shaped keyboard
+
+The file describes the ISO keyboard, the one with the extra key left of `Z` and
+the tall Enter. A US-shaped (ANSI) keyboard lacks or moves some of those keys.
+An optional `[ansi]` section says how, and tuipe applies it when the setting
+`keyboard_shape` in `config.toml` is `"ansi"` (`"iso"` or nothing means the file
+as written). In the example above, `k24` is not on the US-shaped keyboard and the
+key at `k3` types what `k19` typed.
+
+| Field | Meaning |
+|---|---|
+| `missing` | Key ids the US-shaped keyboard lacks. |
+| `moved` | A table `from = "to"`: the key at the place of `to` types what `from` typed on ISO. |
+| `[[ansi.char]]` | A `c` and a `route` that replace the ISO route of that character on this shape. |
+
+The rules apply in this order:
+
+1. For each `moved` pair: every route that uses `to` is dropped, every route that
+   uses `from` is rewritten to use `to`, the key `to` takes the label of `from`,
+   and `from` leaves its row.
+2. Each `missing` key leaves its row, and every route that uses it is dropped.
+3. Each `[[ansi.char]]` sets its character's route.
+
+A character whose route was dropped cannot be typed on that shape, and the course
+leaves it out like any other character without a route.
+
 ### What the loader rejects
 
 A file is skipped, and named in settings, when:
@@ -126,7 +160,9 @@ A file is skipped, and named in settings, when:
 - it is not valid TOML, or `id` or `name` is missing;
 - a key has an unknown `hand` or `finger`, or an id that is empty or repeated;
 - a `c` is not exactly one character, or a character is defined twice;
-- a `route` is empty, names a key that is not in a row, or has an unknown modifier.
+- a `route` is empty, names a key that is not in a row, or has an unknown modifier;
+- `missing`, `moved` or an `[[ansi.char]]` route names a key that is not in a row, or
+  an `[[ansi.char]]` is not one character or is defined twice.
 
 The loader does not check that a layout is complete. A lesson that teaches a
 character the layout has no route for is left out of the lesson list, and the

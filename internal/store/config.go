@@ -12,9 +12,11 @@ import (
 
 // Config is the user's settings, kept in config.toml.
 type Config struct {
-	Style       string `toml:"style"`
-	Layout      string `toml:"layout"`
-	UpdateCheck bool   `toml:"update_check"`
+	Style  string `toml:"style"`
+	Layout string `toml:"layout"`
+	// KeyboardShape is "iso" or "ansi"; empty means iso.
+	KeyboardShape string `toml:"keyboard_shape,omitempty"`
+	UpdateCheck   bool   `toml:"update_check"`
 }
 
 func defaultConfig() Config { return Config{UpdateCheck: true} }

@@ -33,6 +33,14 @@ type fileLayout struct {
 		Route      []string `toml:"route"`
 		Alternates []string `toml:"alternates"`
 	} `toml:"char"`
+	ANSI *struct {
+		Missing []string          `toml:"missing"`
+		Moved   map[string]string `toml:"moved"`
+		Chars   []struct {
+			C     string   `toml:"c"`
+			Route []string `toml:"route"`
+		} `toml:"char"`
+	} `toml:"ansi"`
 }
 
 var (
@@ -142,6 +150,36 @@ func parse(data []byte) (*Layout, error) {
 			return nil, fmt.Errorf("char %q: %w", c.C, err)
 		}
 		l.chars[r] = route
+	}
+	if f.ANSI != nil {
+		o := &overlay{missing: f.ANSI.Missing, moved: f.ANSI.Moved, chars: map[rune]Route{}}
+		for _, id := range o.missing {
+			if _, ok := l.keys[id]; !ok {
+				return nil, fmt.Errorf("ansi: missing names unknown key %q", id)
+			}
+		}
+		for from, to := range o.moved {
+			for _, id := range []string{from, to} {
+				if _, ok := l.keys[id]; !ok {
+					return nil, fmt.Errorf("ansi: moved names unknown key %q", id)
+				}
+			}
+		}
+		for _, c := range f.ANSI.Chars {
+			if utf8.RuneCountInString(c.C) != 1 {
+				return nil, fmt.Errorf("ansi char %q: must be exactly one character", c.C)
+			}
+			r, _ := utf8.DecodeRuneInString(c.C)
+			if _, dup := o.chars[r]; dup {
+				return nil, fmt.Errorf("ansi char %q is defined twice", c.C)
+			}
+			route, err := l.parseRoute(c.Route)
+			if err != nil {
+				return nil, fmt.Errorf("ansi char %q: %w", c.C, err)
+			}
+			o.chars[r] = route
+		}
+		l.ansi = o
 	}
 	return l, nil
 }

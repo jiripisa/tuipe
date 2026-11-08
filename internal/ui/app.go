@@ -104,6 +104,7 @@ func New(st *store.Store, lib *content.Library, opts ...Option) (*App, error) {
 		}
 		lay, notice = def, fmt.Sprintf(text.UnknownLayout, layoutID)
 	}
+	lay = lay.WithShape(layout.ParseShape(cfg.KeyboardShape))
 	styleID := style.ID(cfg.Style)
 	if styleID == "" {
 		styleID = defaultStyle
@@ -240,14 +241,19 @@ func (a *App) setStyle(id style.ID) {
 	a.SaveErr(a.Store.SaveConfig(cfg))
 }
 
-// setLayout switches the keyboard layout for the rest of the session and saves
-// the choice. The course is resolved against the layout, so it is rebuilt.
-// Statistics are kept per layout id and need no change.
-func (a *App) setLayout(l *layout.Layout) {
+// setLayout switches the keyboard layout and keeps the keyboard shape.
+func (a *App) setLayout(l *layout.Layout) { a.setKeyboard(l, a.Layout.Shape()) }
+
+// setKeyboard switches the keyboard layout and shape for the rest of the
+// session and saves the choice. The course is resolved against the layout, so it
+// is rebuilt. Statistics are kept per layout id and need no change.
+func (a *App) setKeyboard(l *layout.Layout, s layout.Shape) {
+	l = l.WithShape(s)
 	a.Layout = l
 	a.Course = course.New(a.Lib, l)
 	cfg := a.Store.Config()
 	cfg.Layout = l.ID
+	cfg.KeyboardShape = string(s)
 	a.SaveErr(a.Store.SaveConfig(cfg))
 }
 

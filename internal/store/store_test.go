@@ -694,3 +694,21 @@ func TestOldStarsKeysAreIgnoredOnLoad(t *testing.T) {
 		t.Errorf("saving kept the old stars: %s", got)
 	}
 }
+
+func TestKeyboardShapeRoundTrips(t *testing.T) {
+	cfg, data := dirs(t)
+	s := open(t, cfg, data)
+	if got := s.Config().KeyboardShape; got != "" {
+		t.Fatalf("default shape %q, want empty", got)
+	}
+	want := Config{Layout: "x", KeyboardShape: "ansi", UpdateCheck: true}
+	if err := s.SaveConfig(want); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got := open(t, cfg, data).Config(); got != want {
+		t.Fatalf("reloaded config = %+v", got)
+	}
+}

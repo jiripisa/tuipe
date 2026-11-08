@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jiripisa/tuipe/internal/content"
 	"github.com/jiripisa/tuipe/internal/course"
 	"github.com/jiripisa/tuipe/internal/layout"
 	"github.com/jiripisa/tuipe/internal/score"
@@ -626,5 +627,44 @@ func TestAllSharedScreensFitInAllStyles(t *testing.T) {
 				t.Errorf("content was clipped, %s", c)
 			}
 		})
+	}
+}
+
+func TestLayoutChangeInSettingsKeepsTheShape(t *testing.T) {
+	a, st, _, _ := playAppAt(t)
+	ansi := "\n[ansi]\nmoved = { k50 = \"k10\" }\n"
+	for _, id := range []string{"user-a", "user-b"} {
+		b := strings.Replace(czechCopy(t), `id = "user-test"`, `id = "`+id+`"`, 1)
+		dir := filepath.Join(st.ConfigDir(), "layouts")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, id+".toml"), []byte(b+ansi), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SaveConfig(store.Config{Layout: "user-a", KeyboardShape: "ansi", UpdateCheck: true}); err != nil {
+		t.Fatal(err)
+	}
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err = ui.New(st, lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if a.Layout.Shape() != layout.ANSI {
+		t.Fatalf("the saved shape was not applied: %q", a.Layout.Shape())
+	}
+	openSettings(t, a)
+	onRow(a, rowLayout)
+	a.Update(enter)
+	if a.Layout.ID != "user-b" || a.Layout.Shape() != layout.ANSI {
+		t.Fatalf("layout %s in shape %q", a.Layout.ID, a.Layout.Shape())
+	}
+	if cfg := st.Config(); cfg.Layout != "user-b" || cfg.KeyboardShape != "ansi" {
+		t.Errorf("saved config %+v", cfg)
 	}
 }
