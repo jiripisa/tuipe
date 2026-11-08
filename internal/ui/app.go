@@ -241,8 +241,12 @@ func (a *App) setStyle(id style.ID) {
 	a.SaveErr(a.Store.SaveConfig(cfg))
 }
 
-// setLayout switches the keyboard layout and keeps the keyboard shape.
-func (a *App) setLayout(l *layout.Layout) { a.setKeyboard(l, a.Layout.Shape()) }
+// setLayout switches the keyboard layout and keeps the saved keyboard shape. The
+// shape belongs to the keyboard, so a layout without an ANSI overlay in between
+// does not change it.
+func (a *App) setLayout(l *layout.Layout) {
+	a.setKeyboard(l, layout.ParseShape(a.Store.Config().KeyboardShape))
+}
 
 // setKeyboard switches the keyboard layout and shape for the rest of the
 // session and saves the choice. The course is resolved against the layout, so it

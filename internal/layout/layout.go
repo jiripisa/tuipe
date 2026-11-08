@@ -117,6 +117,9 @@ func (l *Layout) WithShape(s Shape) *Layout {
 		}
 		return l
 	}
+	if l.base != nil { // already shaped: apply the overlay to the ISO original, once
+		l = l.base
+	}
 	if l.ansi == nil {
 		return l
 	}

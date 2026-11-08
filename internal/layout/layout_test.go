@@ -311,3 +311,20 @@ func TestOutputIsTheUnmodifiedKey(t *testing.T) {
 		t.Errorf("k24 is a dead key, got %q", r)
 	}
 }
+
+func TestANSIAppliedTwiceIsTheSameAsOnce(t *testing.T) {
+	l := mustShapeLayout(t, `moved = { k50 = "k10" }`)
+	once := l.WithShape(layout.ANSI)
+	twice := once.WithShape(layout.ANSI)
+	if k, _ := twice.Key("k10"); k.Label != "\\" {
+		t.Errorf("k10 label %q", k.Label)
+	}
+	assertRoute(t, twice, '\\', "k10")
+	assertRoute(t, twice, '|', "shift+k10")
+	if _, ok := twice.Route('<'); ok {
+		t.Error("< must have no route")
+	}
+	if _, ok := twice.Key("k50"); ok {
+		t.Error("k50 must be gone")
+	}
+}

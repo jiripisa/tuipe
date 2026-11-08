@@ -668,3 +668,43 @@ func TestLayoutChangeInSettingsKeepsTheShape(t *testing.T) {
 		t.Errorf("saved config %+v", cfg)
 	}
 }
+
+func TestShapeSurvivesALayoutWithoutOverlay(t *testing.T) {
+	a, st, _, _ := playAppAt(t)
+	dir := filepath.Join(st.ConfigDir(), "layouts")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for id, ansi := range map[string]string{
+		"user-a": "\n[ansi]\nmoved = { k50 = \"k10\" }\n", "user-b": "",
+	} {
+		b := strings.Replace(czechCopy(t), `id = "user-test"`, `id = "`+id+`"`, 1)
+		if err := os.WriteFile(filepath.Join(dir, id+".toml"), []byte(b+ansi), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SaveConfig(store.Config{Layout: "user-a", KeyboardShape: "ansi", UpdateCheck: true}); err != nil {
+		t.Fatal(err)
+	}
+	lib, err := content.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, err = ui.New(st, lib); err != nil {
+		t.Fatal(err)
+	}
+	a.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	openSettings(t, a)
+	onRow(a, rowLayout)
+	a.Update(enter)
+	if a.Layout.ID != "user-b" || a.Layout.Shape() != layout.ISO {
+		t.Fatalf("layout %s in shape %q", a.Layout.ID, a.Layout.Shape())
+	}
+	if st.Config().KeyboardShape != "ansi" {
+		t.Fatalf("the saved shape became %q", st.Config().KeyboardShape)
+	}
+	a.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	if a.Layout.ID != "user-a" || a.Layout.Shape() != layout.ANSI || st.Config().KeyboardShape != "ansi" {
+		t.Fatalf("back on %s in %q, config %q", a.Layout.ID, a.Layout.Shape(), st.Config().KeyboardShape)
+	}
+}
