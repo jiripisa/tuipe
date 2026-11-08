@@ -1,0 +1,75 @@
+# The physical keys of the ISO keyboard, top row first, and the hand and finger
+# that press each one. Ids are Macintosh keycodes (k<code>) and are shared by
+# every layout: k10 is left of 1, k50 right of the left Shift, k42 left of Enter
+# on the home row, k36 is Enter and k49 the space bar. layoutgen takes the rows
+# of every generated layout from here.
+
+[[row]]
+keys = [
+  { id = "k10", hand = "left", finger = "pinky" },
+  { id = "k18", hand = "left", finger = "pinky" },
+  { id = "k19", hand = "left", finger = "ring" },
+  { id = "k20", hand = "left", finger = "middle" },
+  { id = "k21", hand = "left", finger = "index" },
+  { id = "k23", hand = "left", finger = "index" },
+  { id = "k22", hand = "left", finger = "index" },
+  { id = "k26", hand = "right", finger = "index" },
+  { id = "k28", hand = "right", finger = "middle" },
+  { id = "k25", hand = "right", finger = "ring" },
+  { id = "k29", hand = "right", finger = "pinky" },
+  { id = "k27", hand = "right", finger = "pinky" },
+  { id = "k24", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k12", hand = "left", finger = "pinky" },
+  { id = "k13", hand = "left", finger = "ring" },
+  { id = "k14", hand = "left", finger = "middle" },
+  { id = "k15", hand = "left", finger = "index" },
+  { id = "k17", hand = "left", finger = "index" },
+  { id = "k16", hand = "right", finger = "index" },
+  { id = "k32", hand = "right", finger = "index" },
+  { id = "k34", hand = "right", finger = "middle" },
+  { id = "k31", hand = "right", finger = "ring" },
+  { id = "k35", hand = "right", finger = "pinky" },
+  { id = "k33", hand = "right", finger = "pinky" },
+  { id = "k30", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k0", hand = "left", finger = "pinky" },
+  { id = "k1", hand = "left", finger = "ring" },
+  { id = "k2", hand = "left", finger = "middle" },
+  { id = "k3", hand = "left", finger = "index" },
+  { id = "k5", hand = "left", finger = "index" },
+  { id = "k4", hand = "right", finger = "index" },
+  { id = "k38", hand = "right", finger = "index" },
+  { id = "k40", hand = "right", finger = "middle" },
+  { id = "k37", hand = "right", finger = "ring" },
+  { id = "k41", hand = "right", finger = "pinky" },
+  { id = "k39", hand = "right", finger = "pinky" },
+  { id = "k42", hand = "right", finger = "pinky" },
+  { id = "k36", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k50", hand = "left", finger = "pinky" },
+  { id = "k6", hand = "left", finger = "pinky" },
+  { id = "k7", hand = "left", finger = "ring" },
+  { id = "k8", hand = "left", finger = "middle" },
+  { id = "k9", hand = "left", finger = "index" },
+  { id = "k11", hand = "left", finger = "index" },
+  { id = "k45", hand = "right", finger = "index" },
+  { id = "k46", hand = "right", finger = "index" },
+  { id = "k43", hand = "right", finger = "middle" },
+  { id = "k47", hand = "right", finger = "ring" },
+  { id = "k44", hand = "right", finger = "pinky" },
+]
+
+[[row]]
+keys = [
+  { id = "k49", hand = "right", finger = "thumb" },
+]

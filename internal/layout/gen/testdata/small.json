@@ -1,0 +1,14 @@
+{
+  "source": "test: four keys, one of them dead",
+  "system": "linux",
+  "keys": {
+    "k2": { "": "d", "shift": "D" },
+    "k19": { "": "ě", "shift": "2", "alt": "@" },
+    "k24": { "": "", "shift": "" },
+    "k49": { "": " ", "shift": " " }
+  },
+  "dead": {
+    "k24": { "k49": "´", "k2": "´d" },
+    "shift+k24": { "k49": "ˇ", "k2": "ď", "shift+k2": "Ď" }
+  }
+}

@@ -61,7 +61,7 @@ func Builtin() ([]*Layout, error) {
 		if err != nil {
 			return nil, err
 		}
-		l, err := parse(data)
+		l, err := Parse(data)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", e.Name(), err)
 		}
@@ -95,7 +95,7 @@ func LoadDir(dir string) ([]*Layout, []error) {
 		data, err := os.ReadFile(p)
 		if err == nil {
 			var l *Layout
-			if l, err = parse(data); err == nil {
+			if l, err = Parse(data); err == nil {
 				layouts = append(layouts, l)
 				continue
 			}
@@ -105,7 +105,9 @@ func LoadDir(dir string) ([]*Layout, []error) {
 	return layouts, errs
 }
 
-func parse(data []byte) (*Layout, error) {
+// Parse reads one layout file. Builtin and LoadDir use it, and the layout
+// generator uses it to read the routes of the file it replaces.
+func Parse(data []byte) (*Layout, error) {
 	var f fileLayout
 	if _, err := toml.Decode(string(data), &f); err != nil {
 		return nil, err

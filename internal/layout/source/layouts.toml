@@ -1,0 +1,14 @@
+# The built-in layouts and the system dumps they are generated from. Each
+# [[layout]] becomes internal/layout/data/<id>.toml. After changing a dump or
+# this file, run from the root of the repository:
+#
+#   go run ./internal/layout/cmd/layoutgen
+#
+# An entry looks like this; source is a dump in this folder:
+#
+#   [[layout]]
+#   id = "macos-czech-qwerty"
+#   name = "macOS Czech QWERTY"
+#   os = "darwin"
+#   modifier_name = "Option"
+#   source = "macos-czech-qwerty.json"
