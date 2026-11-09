@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
 
@@ -559,4 +560,70 @@ func TestRegeneratedQWERTYKeepsEveryRoute(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestWindowsRoutesTypeExactlyTheirCharacter generates the Windows layouts
+// from their real dumps. Windows types a dead key before a follower it does
+// not combine with as two characters, as "°d" or "ˇa"; such a result must not
+// become a route, or a lesson would teach ° on the d key. So every character
+// is one rune, and every route, the ANSI ones too, types exactly it in the dump.
+func TestWindowsRoutesTypeExactlyTheirCharacter(t *testing.T) {
+	type char struct {
+		C     string   `toml:"c"`
+		Route []string `toml:"route"`
+	}
+	for _, id := range []string{"windows-czech-qwertz", "windows-czech-qwerty"} {
+		t.Run(id, func(t *testing.T) {
+			d := readDump(t, filepath.Join("..", "source", id+".json"))
+			data, err := gen.Generate(d, meta("windows"), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var f struct {
+				Chars []char `toml:"char"`
+				ANSI  struct {
+					Chars []char `toml:"char"`
+				} `toml:"ansi"`
+			}
+			if _, err := toml.Decode(string(data), &f); err != nil {
+				t.Fatal(err)
+			}
+			if len(f.Chars) == 0 || len(f.ANSI.Chars) == 0 {
+				t.Fatalf("%d chars, %d ANSI chars", len(f.Chars), len(f.ANSI.Chars))
+			}
+			for _, c := range append(f.Chars, f.ANSI.Chars...) {
+				switch {
+				case utf8.RuneCountInString(c.C) != 1:
+					t.Errorf("char %q is not one character", c.C)
+				case c.C == "\n":
+					// Enter types a newline, whatever the dump says.
+				case dumped(d, c.Route) != c.C:
+					t.Errorf("%q: route %q types %q in the dump", c.C, c.Route, dumped(d, c.Route))
+				}
+			}
+		})
+	}
+}
+
+// dumped is what a route of a layout file types according to the dump, whose
+// third level is "alt" where the file writes "altgr".
+func dumped(d gen.Dump, route []string) string {
+	chords := make([]string, len(route))
+	for i, c := range route {
+		chords[i] = strings.Replace(c, "altgr", "alt", 1)
+	}
+	switch len(chords) {
+	case 1:
+		level, id := "", chords[0]
+		if i := strings.LastIndex(id, "+"); i >= 0 {
+			level, id = id[:i], id[i+1:]
+		}
+		if _, dead := d.Dead[chords[0]]; dead {
+			return ""
+		}
+		return d.Keys[id][level]
+	case 2:
+		return d.Dead[chords[0]][chords[1]]
+	}
+	return ""
 }

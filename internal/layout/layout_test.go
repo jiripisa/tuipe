@@ -392,3 +392,47 @@ func TestLinuxCzechRoutes(t *testing.T) {
 		})
 	}
 }
+
+// TestWindowsCzechRoutes checks the two Windows Czech layouts against their
+// dumps, made on a Windows runner: internal/layout/source/windows-czech-qwertz.json
+// (KLID 00000405) and windows-czech-qwerty.json (00010405). Each value comes
+// from one entry there: z from keys.k16 "" on QWERTZ and keys.k6 "" on QWERTY;
+// @ from keys.k9 "alt" on QWERTZ and keys.k19 "alt" on QWERTY, its only @;
+// { from keys.k11 "alt" on QWERTZ; ď from dead "shift+k24" follower "k2". On
+// the US-shaped keyboard, without k50, \ and | come from keys.k12 and k13
+// "alt" on QWERTZ, and from keys.k42 "alt" and "shift+alt" on QWERTY.
+func TestWindowsCzechRoutes(t *testing.T) {
+	for _, tc := range []struct {
+		id, name string
+		routes   map[rune]string
+		ansi     map[rune]string
+	}{
+		{"windows-czech-qwertz", "Windows Czech QWERTZ",
+			map[rune]string{'z': "k16", '@': "altgr+k9", '{': "altgr+k11", 'ď': "shift+k24 k2"},
+			map[rune]string{'\\': "altgr+k12", '|': "altgr+k13"}},
+		{"windows-czech-qwerty", "Windows Czech QWERTY",
+			map[rune]string{'z': "k6", '@': "altgr+k19", 'ď': "shift+k24 k2"},
+			map[rune]string{'\\': "altgr+k42", '|': "shift+altgr+k42"}},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			l := mustBuiltin(t, tc.id)
+			if l.Name != tc.name || l.OS != "windows" || l.ModifierName != "AltGr" {
+				t.Errorf("identity: %q %q %q", l.Name, l.OS, l.ModifierName)
+			}
+			for r, want := range tc.routes {
+				assertRoute(t, l, r, want)
+			}
+			ansi := l.WithShape(layout.ANSI)
+			for r, want := range tc.ansi {
+				assertRoute(t, ansi, r, want)
+			}
+			// The two dead keys without a modifier show the accent they add
+			// to a (Ruling R6): dead "k24" before "k0" is á, "k42" is ä.
+			for id, want := range map[string]string{"k24": "´", "k42": "¨"} {
+				if k, _ := l.Key(id); k.Label != want {
+					t.Errorf("%s label %q, want %q", id, k.Label, want)
+				}
+			}
+		})
+	}
+}

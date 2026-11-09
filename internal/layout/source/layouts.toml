@@ -40,3 +40,17 @@ name = "Linux Czech QWERTY"
 os = "linux"
 modifier_name = "AltGr"
 source = "linux-czech-qwerty.json"
+
+[[layout]]
+id = "windows-czech-qwertz"
+name = "Windows Czech QWERTZ"
+os = "windows"
+modifier_name = "AltGr"
+source = "windows-czech-qwertz.json"
+
+[[layout]]
+id = "windows-czech-qwerty"
+name = "Windows Czech QWERTY"
+os = "windows"
+modifier_name = "AltGr"
+source = "windows-czech-qwerty.json"
