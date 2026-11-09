@@ -20,3 +20,64 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       - run: go test ./...
+
+  # Dumps every system's keyboard layouts again and fails when a dump differs
+  # from the one committed in internal/layout/source, or when a layout file no
+  # longer matches its dump. The dumps are uploaded either way, so a changed
+  # one can be read and committed. Linux runs in the Debian image the
+  # committed Linux dumps came from, because another release of
+  # xkeyboard-config may type differently.
+  layouts:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: golang:1.26
+          - os: macos-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    defaults:
+      run:
+        # Bash on every runner: PowerShell's > would write the Windows dumps
+        # as UTF-16 with a byte order mark.
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        if: ${{ !matrix.container }}
+        with:
+          go-version-file: go.mod
+      - name: Let git read the checkout, which the container's root does not own
+        if: ${{ matrix.container }}
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Install libxkbcommon, xkeyboard-config and the Compose tables
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y libxkbcommon-dev xkb-data libx11-data
+      - name: Dump the Linux layouts
+        if: runner.os == 'Linux'
+        run: |
+          go run -tags xkb ./internal/layout/cmd/layoutdump linux cz > internal/layout/source/linux-czech-qwertz.json
+          go run -tags xkb ./internal/layout/cmd/layoutdump linux cz qwerty > internal/layout/source/linux-czech-qwerty.json
+      - name: Dump the macOS layouts
+        if: runner.os == 'macOS'
+        run: |
+          swift scripts/dump-macos-layout.swift com.apple.keylayout.Czech --json > internal/layout/source/macos-czech-qwertz.json
+          swift scripts/dump-macos-layout.swift com.apple.keylayout.Czech-QWERTY --json > internal/layout/source/macos-czech-qwerty.json
+      - name: Dump the Windows layouts
+        if: runner.os == 'Windows'
+        run: |
+          go run ./internal/layout/cmd/layoutdump windows 00000405 > internal/layout/source/windows-czech-qwertz.json
+          go run ./internal/layout/cmd/layoutdump windows 00010405 > internal/layout/source/windows-czech-qwerty.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: dumps-${{ matrix.os }}
+          path: internal/layout/source/
+      - name: The dumps are the committed ones
+        run: git diff --exit-code internal/layout/source
+      - name: The layout files match the dumps
+        run: go run ./internal/layout/cmd/layoutgen -check

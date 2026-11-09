@@ -4,9 +4,12 @@
 //
 //	go run -tags xkb ./internal/layout/cmd/layoutdump linux cz         # on Linux, with libxkbcommon
 //	go run -tags xkb ./internal/layout/cmd/layoutdump linux cz qwerty
+//	go run ./internal/layout/cmd/layoutdump windows 00000405           # on Windows
+//	go run ./internal/layout/cmd/layoutdump windows 00010405
 //
 // Each system's dumper lives in its own file, built only where that system's
-// libraries are, so the default build of this command has none and uses no cgo.
+// libraries are. The Windows one calls user32.dll without cgo; the Linux one
+// needs cgo and the xkb tag, so the default build uses no cgo anywhere.
 package main
 
 import (
