@@ -68,10 +68,12 @@ func dumpWindows(args []string) (d gen.Dump, err error) {
 			}
 		}()
 	}
-	// Windows hands back another layout, often US English, when it has none
-	// by that KLID. The low word of both is the language.
-	if uint16(hkl) != uint16(lang) {
-		return gen.Dump{}, fmt.Errorf("no Windows keyboard layout %s: Windows gave the layout of language %04X", klid, uint16(hkl))
+	after, err := loadedLayouts()
+	if err != nil {
+		return gen.Dump{}, err
+	}
+	if err := checkLoaded(klid, uint16(lang), hkl, after); err != nil {
+		return gen.Dump{}, err
 	}
 
 	l := winLayout{hkl: hkl, vk: map[string]uint32{}, scan: map[string]uint16{}}
@@ -117,10 +119,38 @@ func dumpWindows(args []string) (d gen.Dump, err error) {
 					}
 				}
 			}
+			if err := checkDeadBeforeSpace(chordName(level, p.ID), followers); err != nil {
+				return gen.Dump{}, err
+			}
 			d.Dead[chordName(level, p.ID)] = followers
 		}
 	}
 	return d, nil
+}
+
+// checkLoaded checks that hkl, which LoadKeyboardLayout gave for klid, is
+// that layout and is in the list of loaded layouts. Windows hands back another
+// layout, often US English, when it has none by that KLID; the low word of both
+// is the language. And ToUnicodeEx given a layout that is not loaded may use
+// the thread's own layout without saying so.
+func checkLoaded(klid string, lang uint16, hkl windows.Handle, loaded []windows.Handle) error {
+	if uint16(hkl) != lang {
+		return fmt.Errorf("no Windows keyboard layout %s: Windows gave the layout of language %04X", klid, uint16(hkl))
+	}
+	if !slices.Contains(loaded, hkl) {
+		return fmt.Errorf("the layout %s (%#x) is not among the loaded layouts %#x", klid, hkl, loaded)
+	}
+	return nil
+}
+
+// checkDeadBeforeSpace checks what the dead key typed before space (k49): its
+// own accent. A space, or nothing, means the pending dead key did not carry
+// from one ToUnicodeEx call to the next, and every follower is then wrong.
+func checkDeadBeforeSpace(chord string, followers map[string]string) error {
+	if out := followers["k49"]; out == " " || out == "" {
+		return fmt.Errorf("the dead key %s typed %q before space, not its accent: it did not wait for the next key", chord, out)
+	}
+	return nil
 }
 
 // winLayout is a loaded Windows layout with the virtual key and the scan code
@@ -192,11 +222,13 @@ func (l winLayout) clear() error {
 	return fmt.Errorf("a dead key stays pending after space")
 }
 
-// loadedLayouts are the layouts in the user's list.
+// loadedLayouts are the layouts in the user's list. A session always has at
+// least one, so none is an error: an empty list would let the dump unload a
+// layout the user had.
 func loadedLayouts() ([]windows.Handle, error) {
-	n, _, _ := procGetKeyboardLayoutList.Call(0, 0)
+	n, _, err := procGetKeyboardLayoutList.Call(0, 0)
 	if n == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("GetKeyboardLayoutList gave no layout: %w", err)
 	}
 	list := make([]windows.Handle, n)
 	m, _, err := procGetKeyboardLayoutList.Call(n, uintptr(unsafe.Pointer(&list[0])))

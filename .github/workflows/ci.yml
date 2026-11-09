@@ -57,21 +57,26 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y libxkbcommon-dev xkb-data libx11-data
-      - name: Dump the Linux layouts
+      # Each layout is dumped in its own step, and the second runs even when
+      # the first failed, so that one failing dump does not hide the other.
+      - name: Dump Linux Czech QWERTZ
         if: runner.os == 'Linux'
-        run: |
-          go run -tags xkb ./internal/layout/cmd/layoutdump linux cz > internal/layout/source/linux-czech-qwertz.json
-          go run -tags xkb ./internal/layout/cmd/layoutdump linux cz qwerty > internal/layout/source/linux-czech-qwerty.json
-      - name: Dump the macOS layouts
+        run: go run -tags xkb ./internal/layout/cmd/layoutdump linux cz > internal/layout/source/linux-czech-qwertz.json
+      - name: Dump Linux Czech QWERTY
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: go run -tags xkb ./internal/layout/cmd/layoutdump linux cz qwerty > internal/layout/source/linux-czech-qwerty.json
+      - name: Dump macOS Czech QWERTZ
         if: runner.os == 'macOS'
-        run: |
-          swift scripts/dump-macos-layout.swift com.apple.keylayout.Czech --json > internal/layout/source/macos-czech-qwertz.json
-          swift scripts/dump-macos-layout.swift com.apple.keylayout.Czech-QWERTY --json > internal/layout/source/macos-czech-qwerty.json
-      - name: Dump the Windows layouts
+        run: swift scripts/dump-macos-layout.swift com.apple.keylayout.Czech --json > internal/layout/source/macos-czech-qwertz.json
+      - name: Dump macOS Czech QWERTY
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        run: swift scripts/dump-macos-layout.swift com.apple.keylayout.Czech-QWERTY --json > internal/layout/source/macos-czech-qwerty.json
+      - name: Dump Windows Czech QWERTZ
         if: runner.os == 'Windows'
-        run: |
-          go run ./internal/layout/cmd/layoutdump windows 00000405 > internal/layout/source/windows-czech-qwertz.json
-          go run ./internal/layout/cmd/layoutdump windows 00010405 > internal/layout/source/windows-czech-qwerty.json
+        run: go run ./internal/layout/cmd/layoutdump windows 00000405 > internal/layout/source/windows-czech-qwertz.json
+      - name: Dump Windows Czech QWERTY
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        run: go run ./internal/layout/cmd/layoutdump windows 00010405 > internal/layout/source/windows-czech-qwerty.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

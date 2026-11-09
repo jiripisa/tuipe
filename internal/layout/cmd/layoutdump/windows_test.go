@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/windows"
 )
 
 func TestAKLIDIsEightHexDigits(t *testing.T) {
@@ -53,5 +55,29 @@ func TestDumpingTwiceGivesTheSameAndKeepsTheLayoutList(t *testing.T) {
 	}
 	if !slices.Equal(before, after) {
 		t.Errorf("layouts %#x before the dumps, %#x after", before, after)
+	}
+}
+
+func TestTheLoadedLayoutMustBeTheOneAskedForAndInTheList(t *testing.T) {
+	const czech, us = windows.Handle(0x04050405), windows.Handle(0x04090409)
+	if err := checkLoaded("00000405", 0x0405, czech, []windows.Handle{us, czech}); err != nil {
+		t.Errorf("the Czech layout in the list: %v", err)
+	}
+	if err := checkLoaded("00000405", 0x0405, us, []windows.Handle{us}); err == nil {
+		t.Error("US English was taken for 00000405")
+	}
+	if err := checkLoaded("00000405", 0x0405, czech, []windows.Handle{us}); err == nil {
+		t.Error("a layout missing from the list was taken")
+	}
+}
+
+func TestADeadKeyMustTypeItsAccentBeforeSpace(t *testing.T) {
+	if err := checkDeadBeforeSpace("shift+k24", map[string]string{"k49": "ˇ", "k2": "ď"}); err != nil {
+		t.Errorf("ˇ before space: %v", err)
+	}
+	for _, out := range []string{" ", ""} {
+		if err := checkDeadBeforeSpace("shift+k24", map[string]string{"k49": out, "k2": "d"}); err == nil {
+			t.Errorf("%q before space was taken", out)
+		}
 	}
 }
