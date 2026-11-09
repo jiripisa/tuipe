@@ -708,7 +708,9 @@ func TestKeyboardShapeRoundTrips(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if got := open(t, cfg, data).Config(); got != want {
+	s2 := open(t, cfg, data)
+	defer s2.Close() // Windows cannot remove the temp folder while the lock is held
+	if got := s2.Config(); got != want {
 		t.Fatalf("reloaded config = %+v", got)
 	}
 }
