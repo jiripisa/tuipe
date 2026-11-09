@@ -294,7 +294,7 @@ func TestComposedCharWithAltFlagStillPasses(t *testing.T) {
 
 func TestNonDarwinWithoutLayoutExplainsAndCanContinue(t *testing.T) {
 	a, _, _ := firstRunApp(t)
-	restore := ui.SetGOOS("linux")
+	restore := ui.SetGOOS("freebsd") // a system without a built-in layout
 	defer restore()
 	a.Update(enter)
 	showsAll(t, a, "docs/layouts.md", filepath.Join("cfg", "layouts"))
@@ -309,11 +309,21 @@ func TestNonDarwinWithoutLayoutExplainsAndCanContinue(t *testing.T) {
 
 func TestNonDarwinWithUserLayoutRunsTheCheck(t *testing.T) {
 	a, st, _ := firstRunApp(t)
-	restore := ui.SetGOOS("linux")
+	restore := ui.SetGOOS("freebsd") // a system without a built-in layout
 	defer restore()
 	dir := filepath.Join(st.ConfigDir(), "layouts")
 	_ = os.MkdirAll(dir, 0o755)
-	_ = os.WriteFile(filepath.Join(dir, "user.toml"), []byte(userLayout), 0o644)
+	own := strings.Replace(userLayout, `os = "linux"`, `os = "freebsd"`, 1)
+	_ = os.WriteFile(filepath.Join(dir, "user.toml"), []byte(own), 0o644)
+	a.Update(enter)
+	showsNone(t, a, "docs/layouts.md")
+	showsAll(t, a, "ě")
+}
+
+func TestLinuxRunsTheCheckWithItsBuiltinLayouts(t *testing.T) {
+	a, _, _ := firstRunApp(t)
+	restore := ui.SetGOOS("linux")
+	defer restore()
 	a.Update(enter)
 	showsNone(t, a, "docs/layouts.md")
 	showsAll(t, a, "ě")
@@ -811,7 +821,7 @@ var firstRunStops = []struct {
 		a.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModAlt})
 	}},
 	{"no layout", func(t *testing.T, a *ui.App, _ *clock) {
-		t.Cleanup(ui.SetGOOS("linux"))
+		t.Cleanup(ui.SetGOOS("freebsd")) // a system without a built-in layout
 		a.Update(enter)
 	}},
 	{"fork", func(t *testing.T, a *ui.App, _ *clock) { passChecks(t, a) }},

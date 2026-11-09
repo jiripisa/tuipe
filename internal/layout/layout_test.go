@@ -367,3 +367,28 @@ func TestQWERTZIsTrueForQWERTZAndItsShapedCopy(t *testing.T) {
 		t.Error("macos-czech-qwertz is QWERTZ")
 	}
 }
+
+// TestLinuxCzechRoutes checks the two Linux Czech layouts against their dumps,
+// internal/layout/source/linux-czech-qwertz.json (xkeyboard-config cz) and
+// linux-czech-qwerty.json (cz qwerty). Each value comes from one entry there:
+// z from keys.k16 "" on QWERTZ and keys.k6 "" on QWERTY, @ from keys.k19
+// "alt" (keys.k9 "alt" types it too, further down the keyboard), and ď from
+// dead "shift+k24" follower "k2".
+func TestLinuxCzechRoutes(t *testing.T) {
+	for _, tc := range []struct{ id, name, z string }{
+		{"linux-czech-qwertz", "Linux Czech QWERTZ", "k16"},
+		{"linux-czech-qwerty", "Linux Czech QWERTY", "k6"},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			l := mustBuiltin(t, tc.id)
+			if l.Name != tc.name || l.OS != "linux" || l.ModifierName != "AltGr" {
+				t.Errorf("identity: %q %q %q", l.Name, l.OS, l.ModifierName)
+			}
+			for r, want := range map[rune]string{
+				'z': tc.z, '@': "altgr+k19", 'ď': "shift+k24 k2",
+			} {
+				assertRoute(t, l, r, want)
+			}
+		})
+	}
+}

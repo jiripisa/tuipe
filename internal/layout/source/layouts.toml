@@ -26,3 +26,17 @@ name = "macOS Czech QWERTY"
 os = "darwin"
 modifier_name = "Option"
 source = "macos-czech-qwerty.json"
+
+[[layout]]
+id = "linux-czech-qwertz"
+name = "Linux Czech QWERTZ"
+os = "linux"
+modifier_name = "AltGr"
+source = "linux-czech-qwertz.json"
+
+[[layout]]
+id = "linux-czech-qwerty"
+name = "Linux Czech QWERTY"
+os = "linux"
+modifier_name = "AltGr"
+source = "linux-czech-qwerty.json"

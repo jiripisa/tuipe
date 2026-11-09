@@ -45,6 +45,16 @@ func onRow(a *ui.App, n int) {
 	}
 }
 
+// firstBuiltin is the id of the layout at the top of the list.
+func firstBuiltin(t *testing.T) string {
+	t.Helper()
+	all, err := layout.Builtin()
+	if err != nil || len(all) == 0 {
+		t.Fatalf("no built-in layouts: %v", err)
+	}
+	return all[0].ID
+}
+
 // layoutTo presses Enter on the layout row until the layout is id. The built-in
 // layouts come first, so the user's own is a few presses away.
 func layoutTo(t *testing.T, a *ui.App, id string) {
@@ -194,8 +204,8 @@ func TestUserLayoutFromConfigDirIsListed(t *testing.T) {
 	if a.Layout.ID != "user-test" {
 		t.Fatalf("layout = %s, want the user's", a.Layout.ID)
 	}
-	a.Update(enter) // wraps back to the built-in one
-	if a.Layout.ID != "macos-czech-qwerty" {
+	a.Update(enter) // wraps back to the first built-in one
+	if a.Layout.ID != firstBuiltin(t) {
 		t.Fatalf("layout after the second Enter = %s, want it to wrap", a.Layout.ID)
 	}
 	a.Update(left) // and Left goes back to the user's
@@ -338,7 +348,7 @@ func TestActiveLayoutMissingFromTheListIsSaid(t *testing.T) {
 	showsAll(t, a, fmt.Sprintf(text.SettingsLayoutMissing, "Zmizelé"))
 	onRow(a, rowLayout)
 	a.Update(enter)
-	if a.Layout.ID != "macos-czech-qwerty" {
+	if a.Layout.ID != firstBuiltin(t) {
 		t.Errorf("Enter from an unlisted layout gave %s, want the first one", a.Layout.ID)
 	}
 }
@@ -546,7 +556,7 @@ var fitCases = []fitCase{
 		showsAll(t, a, text.FirstRunOptionTitle)
 	})},
 	{"first-run-no-layout", firstRunReach(func(t *testing.T, a *ui.App) {
-		t.Cleanup(ui.SetGOOS("linux"))
+		t.Cleanup(ui.SetGOOS("freebsd")) // a system without a built-in layout
 		a.Update(enter)
 		showsAll(t, a, "docs/layouts.md")
 	})},
