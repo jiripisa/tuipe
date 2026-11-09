@@ -343,7 +343,7 @@ func TestCourseIsRebuiltWhenTheLayoutChanges(t *testing.T) {
 	before := a.Course
 	openSettings(t, a)
 	onRow(a, rowLayout)
-	a.Update(enter)
+	layoutTo(t, a, "user-test")
 	if a.Layout.ID != "user-test" {
 		t.Fatalf("layout = %s", a.Layout.ID)
 	}

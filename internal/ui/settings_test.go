@@ -45,6 +45,18 @@ func onRow(a *ui.App, n int) {
 	}
 }
 
+// layoutTo presses Enter on the layout row until the layout is id. The built-in
+// layouts come first, so the user's own is a few presses away.
+func layoutTo(t *testing.T, a *ui.App, id string) {
+	t.Helper()
+	for i := 0; i < 20 && a.Layout.ID != id; i++ {
+		a.Update(enter)
+	}
+	if a.Layout.ID != id {
+		t.Fatalf("Enter on the layout row does not reach %s", id)
+	}
+}
+
 func TestSettingsChangeStyleLayoutUpdateCheck(t *testing.T) {
 	a, st, _ := playApp(t)
 	writeUserLayout(t, st, czechCopy(t))
@@ -67,7 +79,7 @@ func TestSettingsChangeStyleLayoutUpdateCheck(t *testing.T) {
 
 	// Rozložení.
 	onRow(a, rowLayout)
-	a.Update(enter)
+	layoutTo(t, a, "user-test")
 	if a.Layout.ID != "user-test" {
 		t.Fatalf("layout after Enter = %s, want user-test", a.Layout.ID)
 	}
@@ -121,7 +133,7 @@ func TestLayoutChangeTakesEffectAtOnce(t *testing.T) {
 	oldID := a.Layout.ID
 	openSettings(t, a)
 	onRow(a, rowLayout)
-	a.Update(enter)
+	layoutTo(t, a, "user-test")
 	if a.Layout.ID != "user-test" || a.Course == before {
 		t.Fatalf("layout %s, course rebuilt %v: the change must reach the session", a.Layout.ID, a.Course != before)
 	}
@@ -151,7 +163,7 @@ func TestLayoutChangeKeepsTheListValid(t *testing.T) {
 	before := a.Course
 	openSettings(t, a)
 	onRow(a, rowLayout)
-	a.Update(enter)
+	layoutTo(t, a, "user-test")
 	if a.Layout.ID != "user-test" {
 		t.Fatalf("layout = %s, want the user's", a.Layout.ID)
 	}
@@ -178,7 +190,7 @@ func TestUserLayoutFromConfigDirIsListed(t *testing.T) {
 	openSettings(t, a)
 	showsAll(t, a, "macOS Czech QWERTY", "Testovací rozložení")
 	onRow(a, rowLayout)
-	a.Update(enter)
+	layoutTo(t, a, "user-test")
 	if a.Layout.ID != "user-test" {
 		t.Fatalf("layout = %s, want the user's", a.Layout.ID)
 	}
@@ -204,7 +216,7 @@ func TestBrokenUserLayoutIsReportedNotFatal(t *testing.T) {
 	openSettings(t, a)
 	showsAll(t, a, fmt.Sprintf(text.SettingsBrokenLayout, "user.toml"), "Testovací rozložení")
 	onRow(a, rowLayout)
-	a.Update(enter)
+	layoutTo(t, a, "user-test")
 	if a.Layout.ID != "user-test" {
 		t.Errorf("the good layout is not usable beside the broken one: %s", a.Layout.ID)
 	}
@@ -634,7 +646,7 @@ func TestLayoutChangeInSettingsKeepsTheShape(t *testing.T) {
 	a, st, _, _ := playAppAt(t)
 	ansi := "\n[ansi]\nmoved = { k50 = \"k10\" }\n"
 	for _, id := range []string{"user-a", "user-b"} {
-		b := strings.Replace(czechCopy(t), `id = "user-test"`, `id = "`+id+`"`, 1)
+		b := strings.Replace(czechWithoutANSI(t), `id = "user-test"`, `id = "`+id+`"`, 1)
 		dir := filepath.Join(st.ConfigDir(), "layouts")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
@@ -678,7 +690,7 @@ func TestShapeSurvivesALayoutWithoutOverlay(t *testing.T) {
 	for id, ansi := range map[string]string{
 		"user-a": "\n[ansi]\nmoved = { k50 = \"k10\" }\n", "user-b": "",
 	} {
-		b := strings.Replace(czechCopy(t), `id = "user-test"`, `id = "`+id+`"`, 1)
+		b := strings.Replace(czechWithoutANSI(t), `id = "user-test"`, `id = "`+id+`"`, 1)
 		if err := os.WriteFile(filepath.Join(dir, id+".toml"), []byte(b+ansi), 0o644); err != nil {
 			t.Fatal(err)
 		}

@@ -28,16 +28,21 @@ func loadLib(t *testing.T) *content.Library {
 
 func czech(t *testing.T) *layout.Layout {
 	t.Helper()
+	return builtin(t, "macos-czech-qwerty")
+}
+
+func builtin(t *testing.T, id string) *layout.Layout {
+	t.Helper()
 	all, err := layout.Builtin()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, l := range all {
-		if l.ID == "macos-czech-qwerty" {
+		if l.ID == id {
 			return l
 		}
 	}
-	t.Fatal("no Czech layout")
+	t.Fatalf("no built-in layout %q", id)
 	return nil
 }
 
@@ -882,6 +887,23 @@ func TestQWERTZSwapsYAndZInLessons(t *testing.T) {
 	}
 	if c.AllowedUpTo("ch02-03")('y') {
 		t.Error("y is allowed before it is taught")
+	}
+}
+
+// TestBuiltinQWERTZSwapsYAndZ runs the course on the shipped QWERTZ layout, on
+// both keyboard shapes.
+func TestBuiltinQWERTZSwapsYAndZ(t *testing.T) {
+	lib := loadLib(t)
+	qwertz := builtin(t, "macos-czech-qwertz")
+	for _, lay := range []*layout.Layout{qwertz, qwertz.WithShape(layout.ANSI)} {
+		c := course.New(lib, lay)
+		ls, ok := c.Lesson("ch02-03")
+		if !ok || ls.Title != "t z" || string(ls.Focus) != "tz" {
+			t.Errorf("%s: ch02-03 %q %q, want \"t z\" \"tz\"", lay.Shape(), ls.Title, string(ls.Focus))
+		}
+		if ls, _ := c.Lesson("ch03-05"); ls.Title != "y" {
+			t.Errorf("%s: ch03-05 title %q, want \"y\"", lay.Shape(), ls.Title)
+		}
 	}
 }
 

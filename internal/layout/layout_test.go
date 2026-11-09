@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jiripisa/tuipe/internal/layout"
@@ -288,13 +289,19 @@ func TestANSIRejectsUnknownKeys(t *testing.T) {
 }
 
 func TestShapeWithoutOverlayStaysISO(t *testing.T) {
-	l := mustBuiltin(t, "macos-czech-qwerty")
+	l, err := layout.Parse([]byte(strings.SplitN(shapeFile, "[ansi]", 2)[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if l.HasANSI() {
-		t.Skip("the built-in layout has an overlay")
+		t.Fatal("a layout without [ansi] has an overlay")
 	}
 	if l.WithShape(layout.ANSI) != l {
 		t.Error("a layout without [ansi] must come back unchanged")
 	}
+}
+
+func TestParseShape(t *testing.T) {
 	for in, want := range map[string]layout.Shape{"": layout.ISO, "iso": layout.ISO, "ansi": layout.ANSI, "x": layout.ISO} {
 		if got := layout.ParseShape(in); got != want {
 			t.Errorf("ParseShape(%q) = %q", in, got)
@@ -333,5 +340,30 @@ func TestQWERTZIsFalseForQWERTYAndItsShapedCopy(t *testing.T) {
 	l := mustBuiltin(t, "macos-czech-qwerty")
 	if l.QWERTZ() || l.WithShape(layout.ANSI).QWERTZ() {
 		t.Error("macos-czech-qwerty is not QWERTZ")
+	}
+}
+
+// TestCzechQWERTZRoutes checks the macOS Czech QWERTZ layout against its dump,
+// internal/layout/source/macos-czech-qwertz.json (com.apple.keylayout.Czech).
+// Each value comes from one entry there: z and Z from keys.k16 "" and "shift",
+// y and Y from keys.k6 "" and "shift", ě from keys.k19 "", @ from keys.k19
+// "alt", { from keys.k25 "alt", and ď from dead "shift+k24" follower "k2".
+func TestCzechQWERTZRoutes(t *testing.T) {
+	l := mustBuiltin(t, "macos-czech-qwertz")
+	if l.Name != "macOS Czech QWERTZ" || l.OS != "darwin" || l.ModifierName != "Option" {
+		t.Errorf("identity: %q %q %q", l.Name, l.OS, l.ModifierName)
+	}
+	for r, want := range map[rune]string{
+		'z': "k16", 'Z': "shift+k16", 'y': "k6", 'Y': "shift+k6", 'ě': "k19",
+		'@': "option+k19", '{': "option+k25", 'ď': "shift+k24 k2",
+	} {
+		assertRoute(t, l, r, want)
+	}
+}
+
+func TestQWERTZIsTrueForQWERTZAndItsShapedCopy(t *testing.T) {
+	l := mustBuiltin(t, "macos-czech-qwertz")
+	if !l.QWERTZ() || !l.WithShape(layout.ANSI).QWERTZ() {
+		t.Error("macos-czech-qwertz is QWERTZ")
 	}
 }

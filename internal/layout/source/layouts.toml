@@ -12,3 +12,17 @@
 #   os = "darwin"
 #   modifier_name = "Option"
 #   source = "macos-czech-qwerty.json"
+
+[[layout]]
+id = "macos-czech-qwertz"
+name = "macOS Czech QWERTZ"
+os = "darwin"
+modifier_name = "Option"
+source = "macos-czech-qwertz.json"
+
+[[layout]]
+id = "macos-czech-qwerty"
+name = "macOS Czech QWERTY"
+os = "darwin"
+modifier_name = "Option"
+source = "macos-czech-qwerty.json"

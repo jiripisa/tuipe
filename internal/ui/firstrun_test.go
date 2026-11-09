@@ -42,6 +42,31 @@ func czechCopy(t *testing.T) string {
 	return strings.Replace(out, `name = "macOS Czech QWERTY"`, `name = "Testovací rozložení"`, 1)
 }
 
+// pickLayout moves the picker down to the layout called name and takes it. The
+// built-in layouts come first, so the user's own is a few rows down.
+func pickLayout(t *testing.T, a *ui.App, name string) {
+	t.Helper()
+	for range 20 {
+		if strings.Contains(view(a), "> "+name) {
+			a.Update(enter)
+			return
+		}
+		a.Update(down)
+	}
+	t.Fatalf("the picker does not reach %q:\n%s", name, view(a))
+}
+
+// czechWithoutANSI is czechCopy without its [ansi] section, which ends the file,
+// for tests that write their own.
+func czechWithoutANSI(t *testing.T) string {
+	t.Helper()
+	before, _, found := strings.Cut(czechCopy(t), "\n[ansi]\n")
+	if !found {
+		t.Fatal("the shipped layout has no [ansi] section")
+	}
+	return before + "\n"
+}
+
 func writeUserLayout(t *testing.T, st *store.Store, content string) {
 	t.Helper()
 	dir := filepath.Join(st.ConfigDir(), "layouts")
@@ -185,8 +210,7 @@ func TestLayoutMismatchOpensPicker(t *testing.T) {
 	showsNone(t, a, "(darwin)", "(linux)")
 	showsNone(t, a, "Vítejte")
 	fits(t, a)
-	a.Update(down)
-	a.Update(enter)
+	pickLayout(t, a, "Testovací rozložení")
 	if st.Config().Layout != "user-test" || a.Layout.ID != "user-test" {
 		t.Errorf("layout = %q / config %q, want user-test", a.Layout.ID, st.Config().Layout)
 	}
@@ -526,8 +550,7 @@ func TestPickedUserLayoutSurvivesARestart(t *testing.T) {
 	a.Update(enter)
 	a.Update(key('2'))
 	a.Update(enter) // it really is the key's own character
-	a.Update(down)
-	a.Update(enter)
+	pickLayout(t, a, "Testovací rozložení")
 	if a.Layout.ID != "user-test" {
 		t.Fatalf("layout = %s", a.Layout.ID)
 	}
@@ -588,8 +611,7 @@ func TestPickedLayoutWithoutTelltaleCharsSkipsTheCheck(t *testing.T) {
 	a.Update(enter)
 	a.Update(key('2'))
 	a.Update(enter) // it really is the key's own character
-	a.Update(down)
-	a.Update(enter)
+	pickLayout(t, a, "Testovací rozložení")
 	showsAll(t, a, "Začínám od nuly")
 }
 
@@ -599,8 +621,7 @@ func TestPickedLayoutChecksOnlyWhatItCanType(t *testing.T) {
 	a.Update(enter)
 	a.Update(key('2'))
 	a.Update(enter) // it really is the key's own character
-	a.Update(down)
-	a.Update(enter)
+	pickLayout(t, a, "Testovací rozložení")
 	showsAll(t, a, "{", "1/1")
 	a.Update(tea.KeyPressMsg{Code: 'q', Mod: tea.ModAlt})
 	showsAll(t, a, "Option se chová jako Alt")
