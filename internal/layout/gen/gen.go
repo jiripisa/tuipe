@@ -348,9 +348,22 @@ func label(d Dump, id string) string {
 		return "↵"
 	}
 	if results, dead := d.Dead[id]; dead {
+		for _, f := range []string{"k0", "shift+k0"} {
+			if accent, ok := accents[results[f]]; ok {
+				return accent
+			}
+		}
 		return results["k49"]
 	}
 	return d.Keys[id][""]
+}
+
+// accents maps an a with an accent to the accent on its own. A dead key is
+// labelled with the accent it adds to a, as the key cap shows it, because what
+// it types before space can be another character: macOS types ' for the acute.
+var accents = map[string]string{
+	"á": "´", "ǎ": "ˇ", "ä": "¨", "å": "°", "à": "`", "â": "^", "ã": "~",
+	"Á": "´", "Ǎ": "ˇ", "Ä": "¨", "Å": "°", "À": "`", "Â": "^", "Ã": "~",
 }
 
 func writeChar(b *bytes.Buffer, table string, r rune, chords []string) {

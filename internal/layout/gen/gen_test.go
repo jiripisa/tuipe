@@ -206,6 +206,26 @@ func TestDeadLevelTypesNothingOnItsOwn(t *testing.T) {
 	assertLabel(t, l, "k42", "¨")
 }
 
+// TestDeadKeyLabelIsTheAccentItAdds: macOS types an apostrophe for acute and
+// space, so the label comes from what the dead key does to a, and from space
+// only when that says nothing.
+func TestDeadKeyLabelIsTheAccentItAdds(t *testing.T) {
+	d := gen.Dump{
+		Keys: map[string]gen.Levels{"k24": {"": ""}, "k42": {"": ""}, "k27": {"": ""}, "k39": {"": ""}},
+		Dead: map[string]map[string]string{
+			"k24": {"k49": "'", "k0": "á"},
+			"k42": {"k49": "\"", "k0": "¨a", "shift+k0": "Ä"},
+			"k27": {"k49": "°"},
+			"k39": {"k49": "x", "k0": "x"},
+		},
+	}
+	l, _ := generate(t, d, meta("darwin"), nil)
+	assertLabel(t, l, "k24", "´")
+	assertLabel(t, l, "k42", "¨")
+	assertLabel(t, l, "k27", "°")
+	assertLabel(t, l, "k39", "x")
+}
+
 func TestModifierBeatsAvoidingK10(t *testing.T) {
 	d := gen.Dump{Keys: map[string]gen.Levels{"k10": {"": "<"}, "k43": {"alt": "<"}}}
 	l, _ := generate(t, d, meta("darwin"), nil)
