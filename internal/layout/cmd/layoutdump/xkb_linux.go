@@ -109,7 +109,10 @@ func dumpLinux(args []string) (gen.Dump, error) {
 		syms[level], texts[level] = map[string]C.xkb_keysym_t{}, map[string]string{}
 		for _, p := range positions {
 			syms[level][p.ID] = C.xkb_state_key_get_one_sym(state, codes[p.ID])
-			texts[level][p.ID] = keyText(state, codes[p.ID])
+			if texts[level][p.ID], err = keyText(state, codes[p.ID]); err != nil {
+				C.xkb_state_unref(state)
+				return gen.Dump{}, fmt.Errorf("key %s: %w", p.ID, err)
+			}
 		}
 		C.xkb_state_unref(state)
 	}
@@ -138,7 +141,11 @@ func dumpLinux(args []string) (gen.Dump, error) {
 			followers := map[string]string{}
 			for _, f := range positions {
 				for _, flevel := range levels[:2] {
-					followers[chordName(flevel, f.ID)] = compose(table, sym, syms[flevel][f.ID])
+					out, err := compose(table, sym, syms[flevel][f.ID])
+					if err != nil {
+						return gen.Dump{}, fmt.Errorf("dead key %s before %s: %w", chordName(level, p.ID), chordName(flevel, f.ID), err)
+					}
+					followers[chordName(flevel, f.ID)] = out
 				}
 			}
 			d.Dead[chordName(level, p.ID)] = followers
@@ -193,13 +200,23 @@ func composeTable(ctx *C.struct_xkb_context) (*C.struct_xkb_compose_table, strin
 }
 
 // keyText is what a key types in a state.
-func keyText(state *C.struct_xkb_state, kc C.xkb_keycode_t) string {
+func keyText(state *C.struct_xkb_state, kc C.xkb_keycode_t) (string, error) {
 	var buf [64]C.char
 	n := C.xkb_state_key_get_utf8(state, kc, &buf[0], C.size_t(len(buf)))
 	if n <= 0 {
-		return ""
+		return "", nil
 	}
-	return C.GoStringN(&buf[0], n)
+	return bufText(buf[:], n)
+}
+
+// bufText is the text of n bytes that a libxkbcommon call wrote into buf. As
+// snprintf does, the call returns the length of the whole text, which is more
+// than buf holds when the text was cut; that is an error, not a shorter text.
+func bufText(buf []C.char, n C.int) (string, error) {
+	if int(n) >= len(buf) {
+		return "", fmt.Errorf("a text of %d bytes does not fit in %d", n, len(buf))
+	}
+	return C.GoStringN(&buf[0], n), nil
 }
 
 func symName(sym C.xkb_keysym_t) string {
@@ -235,20 +252,20 @@ func startsSequence(table *C.struct_xkb_compose_table, sym C.xkb_keysym_t) bool 
 // compose is what the dead keysym followed by another keysym types: "" when
 // the Compose table has no such sequence, or when it still waits, as after a
 // second dead key.
-func compose(table *C.struct_xkb_compose_table, dead, follower C.xkb_keysym_t) string {
+func compose(table *C.struct_xkb_compose_table, dead, follower C.xkb_keysym_t) (string, error) {
 	if follower == C.XKB_KEY_NoSymbol {
-		return ""
+		return "", nil
 	}
 	st := C.xkb_compose_state_new(table, C.XKB_COMPOSE_STATE_NO_FLAGS)
 	defer C.xkb_compose_state_unref(st)
 	C.xkb_compose_state_feed(st, dead)
 	C.xkb_compose_state_feed(st, follower)
 	if C.xkb_compose_state_get_status(st) != C.XKB_COMPOSE_COMPOSED {
-		return ""
+		return "", nil
 	}
 	var buf [64]C.char
 	if n := C.xkb_compose_state_get_utf8(st, &buf[0], C.size_t(len(buf))); n > 0 {
-		return C.GoStringN(&buf[0], n)
+		return bufText(buf[:], n)
 	}
-	return symText(C.xkb_compose_state_get_one_sym(st))
+	return symText(C.xkb_compose_state_get_one_sym(st)), nil
 }

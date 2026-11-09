@@ -78,3 +78,14 @@ func TestWritingADeadKeyOfNoKeyFails(t *testing.T) {
 		t.Error("a dead key k99 was written")
 	}
 }
+
+// TestWritingAFollowerOfNoKeyFails checks that a follower the writer cannot
+// place fails as a dead key does, instead of dropping out of the dump.
+func TestWritingAFollowerOfNoKeyFails(t *testing.T) {
+	for _, follower := range []string{"k99", "alt+k0"} {
+		d := gen.Dump{Dead: map[string]map[string]string{"k24": {"k0": "á", follower: "x"}}}
+		if err := writeDump(&bytes.Buffer{}, d); err == nil {
+			t.Errorf("a follower %s was dropped", follower)
+		}
+	}
+}

@@ -131,6 +131,9 @@ func writeDump(w io.Writer, d gen.Dump) error {
 					}
 				}
 			}
+			if len(fl) != len(followers) {
+				return fmt.Errorf("a follower of the dead key %s is not a key, or a key with Shift", name)
+			}
 			blocks = append(blocks, fmt.Sprintf("    %s: {\n%s\n    }", quote(name), strings.Join(fl, ",\n")))
 		}
 	}
